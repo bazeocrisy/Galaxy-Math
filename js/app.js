@@ -119,7 +119,7 @@
       const parts = s.split(' + ');
       return parts.map((p, i) => `<span class="t">${esc(p.replace(/ ([=×]) /g, '\u00A0$1\u00A0'))}${i < parts.length - 1 ? '\u00A0+' : ''}</span>`).join(' ');
     }
-    return rich(s.replace(/ ([+=×]) /g, '\u00A0$1 '));
+    return rich(s.replace(/(\d) ([+=×÷−]) (?=\d|\?)/g, '$1\u00A0$2\u00A0'));   // keep "7 × 6 = 35" on one line
   };
   /** The problem as plain text for reports (prompt plus its expression line, if any). */
   const promptText = (q) => (q.expr ? `${q.prompt} ${q.expr}` : q.prompt);

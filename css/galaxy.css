@@ -624,8 +624,7 @@ table.data th { font-size: .88rem; color: var(--navy-2); }
 @media (max-width: 360px) { .act-title h2 { font-size: .98rem; } .btn-ghost-light, .act-head .btn-sm { padding: 6px 10px; } }
 /* V-11: number lines in feedback keep a readable size (scroll sideways inside the box if needed) */
 @media (max-width: 699px) {
-  .qa-feedback .viz-wrap { overflow-x: auto; justify-content: flex-start; }
-  .qa-feedback .viz-jumps { min-width: 420px; width: 420px; max-height: none; }
+  .qa-feedback .viz-jumps { width: 100%; max-height: none; }   /* the whole line, start to answer, is always visible */
 }
 /* V-12: arrays on short phones get a little more room */
 @media (max-width: 859px) and (max-height: 700px) { .qa-visual .viz-array { max-height: 19vh; } .qa .answer { min-height: 42px; } }
@@ -656,3 +655,9 @@ table.data th { font-size: .88rem; color: var(--navy-2); }
 /* worst case (10 x 10 array) must keep Submit on screen at 375 x 812: big pictures are capped on phones */
 @media (max-width: 699px) { .qa-visual .viz-array, .qa-visual .viz-groups { max-height: 20vh; } .qa .numpad button { min-height: 48px; } }
 @media (max-width: 699px) and (max-height: 700px) { .qa-visual .viz-array, .qa-visual .viz-groups { max-height: 19vh; } .qa .numpad button { min-height: 44px; } }
+
+/* V-23: on small phones the badge / score drops to its own line instead of overlapping the title */
+/* (the kind-of-problem badge is hidden there: an extra header row would push Submit off screen for big pictures) */
+@media (max-width: 420px) { .act-head { grid-template-columns: auto minmax(0, 1fr); } .act-right .badge.type { display: none; } .act-right { grid-column: 1 / -1; justify-content: flex-start; } .act-right:not(:has(:not(.badge.type):not(.muted))) { display: none; } }
+/* V-26: Mixed is one tile like the others */
+.fc-setup .table-pick button.mixed { grid-column: auto; }
