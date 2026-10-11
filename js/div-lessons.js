@@ -55,7 +55,7 @@
       check: [
         { type: 'number', prompt: '14 apples are shared equally into 2 baskets. How many apples go in each basket?', visual: share(14, 2), answer: 7,
           explain: '14 ÷ 2 = 7. Check: 2 × 7 = 14.', explainVisual: share(14, 2, 7) },
-        { type: 'number', prompt: '30 pencils are shared equally by 5 tables. How many pencils does each table get?', visual: share(30, 5), answer: 6,
+        { type: 'number', prompt: '30 pencils are shared equally among 5 tables. How many pencils does each table get?', visual: share(30, 5), answer: 6,
           explain: '30 ÷ 5 = 6. Check: 5 × 6 = 30.', explainVisual: share(30, 5, 6) },
         { type: 'number', prompt: '16 marbles are shared equally into 4 jars. How many marbles go in each jar?', visual: share(16, 4), answer: 4,
           explain: '16 ÷ 4 = 4. Check: 4 × 4 = 16.', explainVisual: share(16, 4, 4) }
@@ -315,7 +315,7 @@
       objective: 'I can find a mistake in a division and explain how to fix it.',
       words: [{ term: 'mistake', meaning: 'an answer that is not right yet' }],
       explain: {
-        text: ['Two common mistakes: **subtracting** instead of dividing (24 ÷ 6 = 18), or being **one group off** (24 ÷ 6 = 5).', 'Check with multiplication: 5 × 6 = 30, not 24.',
+        text: ['Two common mistakes: **subtracting** instead of dividing (24 ÷ 6 = 18), or being **one too many in each group** (24 ÷ 6 = 5).', 'Check with multiplication: 5 × 6 = 30, not 24.',
           '4 × 6 = 24, so 24 ÷ 6 = 4.'],
         visual: groups(6, 4),
         caption: '24 in 6 groups: 4 in each'

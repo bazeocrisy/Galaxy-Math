@@ -4,7 +4,7 @@ A space-themed, third-grade math learning application. This repository starts fr
 
 ## Current status
 
-**Multiplication 2.0.** Five activities, a shared question bank of 12 kinds of problems, Parent Settings and a Progress page. Division opens to a menu where every activity is locked. Addition and Subtraction are Coming Soon. See `STATUS.md` for what was tested and `AUDIT-REPORT.md` for the independent audit.
+**Multiplication 2.0 and Division 1.0.** Each subject has the same five activities, its own question bank of 12 kinds of problems, its own Parent Settings and its own Progress page. Addition and Subtraction are Coming Soon. See `STATUS.md` for what was tested and `AUDIT-REPORT.md` for the independent audit.
 
 | Activity | Purpose | What the child does |
 |---|---|---|
@@ -50,9 +50,47 @@ Rules that keep the choices fair:
 - Fact-family distractors are true facts from other families, so a child never sees a false fact shown as an option.
 - Unit tests check every type against every fact from 1 × 1 to 12 × 12.
 
+## Division 1.0
+
+Division uses the same screens as Multiplication. A subject profile (`PROFILES` in `js/app.js`) swaps the fact engine, question bank, lessons and wording.
+- **Teach:** 15 lessons in three units: What division means · Division and multiplication · Use it and check it.
+  - The lessons in order: What division means, Equal sharing, Equal grouping, Sharing or grouping?, Division equations (dividend, divisor, quotient and the division bracket), Arrays and division, Repeated subtraction, Divide using multiplication, Fact families, Missing divisors, Missing dividends, Division word problems, Check with multiplication, and Find and fix mistakes.
+  - Leftovers (remainders) comes last and is labelled as an extension. Every other problem in the app divides exactly.
+- **Practice, Lab, Flashcards and Test** work as they do in Multiplication.
+  - Flashcards and Test use divisor families (÷1–÷10 core, ÷11–÷12 extension). A card shows *42 ÷ 7* and then *42 ÷ 7 = 6*.
+  - A family is mastered at 90%+ in two separate tests.
+- **Progress and settings:** kept separately from Multiplication.
+  - Progress is v3: `{ v: 3, mult, div }`. Older data is upgraded into `mult`, and resetting one subject never touches the other.
+  - Settings are stored per subject.
+
+### The division question bank (`js/div-bank.js`)
+
+| | Kind | Skill | Lesson |
+|---|---|---|---|
+| A | Division facts | Find a quotient using a multiplication fact | Divide using multiplication |
+| B | Missing divisor | 24 ÷ ? = 6 | Missing divisors |
+| C | Missing dividend | ? ÷ 4 = 6 | Missing dividends |
+| D | Equal sharing | Number of groups known; find how many in each (plates picture) | Equal sharing |
+| E | Equal grouping | Group size known; find how many groups (circled groups) | Equal grouping |
+| F | Arrays | Use rows and columns to divide | Arrays and division |
+| G | Repeated subtraction | Take away equal groups on a number line | Repeated subtraction |
+| H | Fact families | Connect × and ÷ facts with the same three numbers | Fact families |
+| I | Related multiplication | Use or check with a multiplication fact | Check with multiplication |
+| J | Match the equation | Connect a picture to a division equation | Division equations |
+| K | Word problems | Sharing or grouping stories (short and long) | Division word problems |
+| L | Who is right? | Find and explain a division mistake (challenge) | Find and fix mistakes |
+
+The bank follows these rules:
+- No question divides by zero.
+- Every picture holds exactly the numbers in the question.
+- Sharing and grouping are never mixed up.
+- No multiple-choice question has two correct options. For example, *Match* never offers *p ÷ q* beside *p ÷ d*, and *Related* never offers *q × d*.
+- Fact-family distractors are true facts from other families.
+- `js/bank-kit.js` holds the session, unlock and scoring logic that both banks share.
+
 ## Tests
 
-`npm test` (unit, Node 22+) and `npm run test:browser` (headless Chrome or Edge; set `CHROME_PATH` if needed). No dependencies to install.
+`npm test` (unit, Node 22+) and `npm run test:browser` (headless Chrome or Edge; set `CHROME_PATH` if needed). The browser command runs the Multiplication suite (`tests/browser.test.mjs`) and then the Division suite (`tests/browser-division.test.mjs`). No dependencies to install.
 
 Run the browser suite in Edge: `CHROME_PATH="C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe" npm run test:browser`.
 
@@ -102,7 +140,7 @@ The script authenticates with the same GitHub login `git push` uses (`git creden
 | Addition (+) | Coming Soon placeholder |
 | Subtraction (−) | Coming Soon placeholder |
 | Multiplication (×) | **2.0:** Teach, Practice, Math Thinking Lab, Flashcards, Test, Parent Settings, Progress |
-| Division (÷) | Next. The menu exists, but every activity is locked. |
+| Division (÷) | **1.0:** Teach (15 lessons), Practice, Math Thinking Lab, Flashcards, Test, Parent Settings, Progress |
 
 ## Project layout
 
@@ -112,10 +150,14 @@ The script authenticates with the same GitHub login `git push` uses (`git creden
 | `css/galaxy.css` | Design system: tokens, light panels, buttons, controls, flashcard and test styles |
 | `js/registry.js` | Subjects and which activities are ready; hash routes |
 | `js/mult-math.js` | Multiplication engine: facts, original question generators, test decks, scoring, mastery |
-| `js/mult-bank.js` | Shared question bank (12 kinds A–L), mixed sessions, Lab unlock rules, skill statuses |
-| `js/visuals.js` | Equal groups, arrays, number-line jumps and labelled equations as inline SVG |
+| `js/bank-kit.js` | Logic shared by both banks: mixed sessions, Lab unlock rules, skill statuses, scoring |
+| `js/mult-bank.js` | Multiplication question bank (12 kinds A–L) |
+| `js/div-math.js` | Division facts and test decks (built on the multiplication engine; never ÷0) |
+| `js/div-bank.js` | Division question bank (12 kinds A–L) |
+| `js/div-lessons.js` | The 15 division Teach lessons |
+| `js/visuals.js` | Equal groups, arrays, number-line jumps, sharing plates, circled groups, the division bracket and labelled equations as inline SVG |
 | `js/mult-lessons.js` | The 13 Teach lessons |
-| `js/progress.js` | Local progress (versioned `localStorage` key `galaxy-math.progress`, v1 data migrated, in-memory fallback) |
+| `js/progress.js` | Local progress (versioned `localStorage` key `galaxy-math.progress`, v3 per subject, v1/v2 data migrated, in-memory fallback) |
 | `js/app.js` | Router, shared components and the activity screens |
 | `tests/` | Unit tests (`node --test`) and the headless-Chrome browser suite |
 

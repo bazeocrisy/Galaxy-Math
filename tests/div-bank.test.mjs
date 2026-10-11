@@ -56,6 +56,16 @@ test('every generated division problem is mathematically correct (all kinds × f
     assert.ok(q.explain.text.includes(String(q0)), `${where} explanation states the quotient`);
     for (const v of [q.visual, q.explain.visual, ...q.hints.map((h) => h.visual)]) if (v) V.render(v);
     assert.doesNotMatch(q.prompt + (q.options || []).join(' '), /÷ 0\b|remainder|R\d/, `${where}: no ÷0, no remainders`);
+    // hint pictures never show the finished answer, and a hint that says "Here is/are" always has a picture
+    for (const h of q.hints) {
+      if (/\bHere (is|are)\b/.test(h.text)) assert.ok(h.visual, `${where}: "${h.text}" promises a picture`);
+      if (h.visual && h.visual.kind === 'share') assert.ok(h.visual.dealt < q0, `${where}: sharing hint gives the answer away`);
+      if (h.visual && h.visual.kind === 'grouping') assert.ok(h.visual.circled < q0, `${where}: grouping hint gives the answer away`);
+      if (h.visual && h.visual.kind === 'jumpsBack') assert.ok(h.visual.shown >= 1 && h.visual.shown < q0, `${where}: jumps hint`);
+      const m = /every group has (\d+)/.exec(h.text); if (m) assert.equal(+m[1], h.visual.dealt, `${where}: hint text matches the picture`);
+    }
+    // no singular/plural slips such as "1 groups" or "after 1 subtractions"
+    for (const s of [q.prompt, q.explain.text, ...q.hints.map((h) => h.text)]) assert.doesNotMatch(s, /\b1 (equal )?(groups|rows|subtractions|rounds|dots)\b|These 1 /, `${where}: ${s}`);
     if (q.format === 'choice') {
       assert.equal(new Set(q.options).size, q.options.length, `${where} unique options`);
       assert.equal(q.options.filter((o) => o === q.answer).length, 1);
@@ -69,10 +79,10 @@ test('every generated division problem is mathematically correct (all kinds × f
       case 'missdividend': assert.equal(q.answer, p); assert.equal(q.answer / d, q0); break;
       case 'share': assert.equal(q.answer, q0); assert.match(q.prompt, new RegExp(`${p} .*${d}`)); assert.deepEqual([q.visual.total, q.visual.groups], [p, d], 'sharing picture: total and number of groups'); break;
       case 'group': assert.equal(q.answer, q0); assert.deepEqual([q.visual.total, q.visual.size], [p, d], 'grouping picture: total and group size'); break;
-      case 'darray': assert.equal(q.visual.rows * q.visual.cols, p); assert.ok(q.answer === q.visual.rows || q.answer === q.visual.cols); break;
+      case 'darray': assert.equal(q.visual.rows * q.visual.cols, p); assert.equal(q.answer, q0, 'the answer is the quotient (stays in the divisor family)'); assert.ok(q.prompt.includes(String(d))); break;
       case 'subtract': assert.equal(q.answer, q0); assert.equal(p - q.answer * d, 0); break;
       case 'dfamily':
-        if (q.format === 'number') assert.equal(q.answer * q0, p);
+        if (q.format === 'number') { assert.equal(q.answer, q0); assert.match(q.prompt, new RegExp(`So ${p} ÷ ${d} = \\?$`), 'stays in the divisor family'); }
         else {
           assert.equal(trueEq(q.answer), true); assert.equal(nums(q.answer), nums(`${p} ${d} ${q0}`));
           for (const o of q.options.filter((o) => o !== q.answer)) { assert.equal(trueEq(o), true, `${where}: ${o} is a true fact`); assert.notEqual(nums(o), nums(`${p} ${d} ${q0}`), `${where}: ${o} not in the family`); }
@@ -90,12 +100,24 @@ test('every generated division problem is mathematically correct (all kinds × f
       case 'dword': assert.equal(q.answer, q0); break;
       case 'derror': {
         const right = q.options.filter((o) => +o.split('= ')[1] === q0);
-        assert.equal(right.length, 1, `${where}: exactly one correct student`); assert.equal(right[0], q.answer); break;
+        assert.equal(right.length, 1, `${where}: exactly one correct student`); assert.equal(right[0], q.answer);
+        assert.match(q.explain.text, / (said \d+, but|subtracted instead)/, `${where}: explanation names each mistake`); break;
       }
       default: assert.fail(t.id);
     }
   }
   assert.ok(made > 4000, `generated ${made}`);
+});
+
+test('the right choice is not always the middle value (fact families and Who is right?)', () => {
+  let middle = 0, total = 0;
+  for (const id of ['dfamily', 'derror']) for (let d = 2; d <= 10; d++) for (let q0 = 2; q0 <= 10; q0++) for (let s = 0; s < 6; s++) {
+    const q = B.generate(id, d, q0, { rng: seeded(d * 131 + q0 * 17 + s), maxFactor: 10 });
+    if (!q || q.format !== 'choice') continue;
+    const vals = q.options.map((o) => +o.split('= ')[1]).sort((a, b) => a - b);
+    total++; if (vals[1] === q0 && vals[0] === q0 - 1 && vals[2] === q0 + 1) middle++;
+  }
+  assert.ok(middle / total < 0.2, `${middle} of ${total} have the answer as the middle of three numbers in a row`);
 });
 
 test('pictures match the numbers exactly (sharing, grouping, repeated subtraction, arrays)', () => {

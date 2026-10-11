@@ -17,6 +17,8 @@
       famsText: (t) => (t.length === 12 ? 'all tables' : t.length === 10 && t.every((n) => n <= 10) ? 'tables 1–10' : `the ${andList(t.map((n) => `${n}s`))}`),
       famOne: (n) => `the ${n}s`, factText: (fam, other) => `${fam} × ${other}`, coreText: 'core tables mastered', extLabel: 'Include 11s and 12s (extension)',
       goalText: 'The third-grade goal is every fact up to 10 × 10. The extension adds the 11s and 12s.',
+      unit: 'table', units: 'tables',
+      kindsHelp: 'Practice uses the nine core kinds. Challenge kinds (check the work, times as many, equal products) join after their lesson.',
       flashFront: (fam, other) => `<span class="fc-tag">${fam}s table</span><div class="vert"><div>${fam}</div><div class="op"><b>×</b>${other}</div></div>`,
       flashBack: (fam, other) => `<div><span class="fc-ans">${fam * other}</span><span class="fc-eq">${fam} × ${other} = ${fam * other}</span></div>`,
       flashAria: (fam, other) => `${fam} times ${other}`, flashAnswerAria: (fam, other) => `${fam} times ${other} equals ${fam * other}`
@@ -27,6 +29,8 @@
       famsText: (t) => (t.length === 12 ? 'all division families' : t.length === 10 && t.every((n) => n <= 10) ? 'dividing by 1–10' : `dividing by ${andList(t.map(String))}`),
       famOne: (n) => `dividing by ${n}`, factText: (fam, other) => `${fam * other} ÷ ${fam}`, coreText: 'core division families mastered', extLabel: 'Include ÷11 and ÷12 (extension)',
       goalText: 'The third-grade goal is every division fact up to 100 ÷ 10 (quotients 1–10). The extension adds dividing by 11 and 12, and quotients of 11 and 12.',
+      unit: 'family', units: 'families',
+      kindsHelp: 'Practice uses the eleven core kinds. The challenge kind (Who is right?) joins after its lesson.',
       flashFront: (fam, other) => `<span class="fc-tag">÷${fam} family</span><div class="div-face">${fam * other} <b>÷</b> ${fam}</div>`,
       flashBack: (fam, other) => `<div><span class="fc-ans">${other}</span><span class="fc-eq">${fam * other} ÷ ${fam} = ${other}</span></div>`,
       flashAria: (fam, other) => `${fam * other} divided by ${fam}`, flashAnswerAria: (fam, other) => `${fam * other} divided by ${fam} equals ${other}`
@@ -34,7 +38,8 @@
   };
   let SP = PROFILES.multiplication, M = SP.M, B = SP.B, L = SP.L, store = rootStore.forSubject(SP.key);
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  const rich = (s) => esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
+  /** Escaped text with **bold**; equations such as "100 ÷ 10 = 10" never break across lines. */
+  const rich = (s) => esc(String(s).replace(/(\d) ([+=×÷−]) (?=\d|\?)/g, '$1\u00A0$2\u00A0')).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
   const viz = (spec) => (spec ? `<div class="viz-wrap">${V.render(spec)}</div>` : '');
   /** A question's own picture: number lines drop their landing numbers so the total is not given away. */
   const hideTotals = (spec) => !spec ? spec : spec.kind === 'jumps' ? { ...spec, labels: false }
@@ -777,7 +782,7 @@
       `<div class="panel workspace start-hero test-hero"><div class="hero-icon" aria-hidden="true">⏱️</div><div class="hero-body">
         <h3 class="hero-title">Show what you know</h3>
         <div class="chips-big"><span>${t.count} questions</span><span>${tablesText(tables)}</span><span>${t.timer ? `${t.timer} seconds each` : 'No timer'}</span></div>
-        <p class="lede" id="tsCounts">${countsForMastery(tables, t.count) ? '⭐ This test can help you master these tables.' : 'This is a practice test.'} No hints. Just do your best!</p>
+        <p class="lede" id="tsCounts">${countsForMastery(tables, t.count) ? `⭐ This test can help you master these ${SP.units}.` : 'This is a practice test.'} No hints. Just do your best!</p>
         <button class="btn btn-go btn-lg" id="tsStart">▶ Start test</button></div></div>
        <p class="grownup-note">Grown-ups: questions, timer and ${SP.famsNoun} are in <a href="${MENU}/settings" data-nav="${MENU}/settings">Parent Settings</a>.</p>`;
     $('tsStart').onclick = () => startTest({ families: tables, count: t.count, timer: t.timer, kind: 'test' });
@@ -862,8 +867,8 @@
         ${ts.timer && sc.avgCorrectMs !== null ? `<p class="center muted">You answered in about ${(sc.avgCorrectMs / 1000).toFixed(1)} seconds each.</p>` : ''}
         ${sc.missed.length ? `<h3 style="margin-top:16px">Missed facts</h3><ul class="missed-list" id="rMissed" style="margin-top:8px">${sc.missed.map((m) =>
           `<li><b>${esc(m.q.equation)}</b> <span class="muted">· ${m.result === 'unanswered' ? 'no answer' : `you answered ${esc(m.given)}`}</span></li>`).join('')}</ul>` : '<p class="center" style="margin-top:12px"><b>No missed facts!</b></p>'}
-        <h3 style="margin-top:16px">Accuracy by table</h3>
-        <div class="table-wrap"><table class="data" id="rFam"><thead><tr><th>Table</th><th>Right</th><th>%</th>${counts ? '<th>Star</th>' : ''}</tr></thead><tbody>${fams.map((f) => {
+        <h3 style="margin-top:16px">Accuracy by ${SP.unit}</h3>
+        <div class="table-wrap"><table class="data" id="rFam"><thead><tr><th>${SP.key === 'div' ? 'Family' : 'Table'}</th><th>Right</th><th>%</th>${counts ? '<th>Star</th>' : ''}</tr></thead><tbody>${fams.map((f) => {
           const b = sc.byFamily[f], pct = Math.round((b.correct / b.total) * 100);
           const note = b.total < M.MASTERY_MIN_QUESTIONS ? '–' : pct >= 90 ? '⭐ counts' : 'not yet';
           return `<tr><td>${SP.fam(f)}${f > M.CORE_MAX ? ' <span class="badge ext">ext</span>' : ''}</td><td>${b.correct} / ${b.total}</td><td>${pct}%</td>${counts ? `<td>${note}</td>` : ''}</tr>`;
@@ -901,7 +906,7 @@
         <section class="panel settings-card"><h3>✏️ Practice and 🧪 Lab</h3>
           <div class="set-row" id="stPracCount"></div>
           <div class="set-row"><div id="stLabTypes"></div>
-            <p class="set-help"><b>As they learn them:</b> Practice uses the nine core kinds. Challenge kinds (check the work, times as many, equal products) join after their lesson.</p>
+            <p class="set-help"><b>As they learn them:</b> ${SP.kindsHelp}</p>
             <p class="set-help">The Lab starts with six kinds and adds one when its lesson is finished, or after 3 right answers of that kind in Practice.</p></div></section>
         <section class="panel settings-card"><h3>🃏 Flashcards</h3>
           <div class="set-row" id="stReveal"></div><div class="set-row" id="stHold"></div><div class="set-row" id="stMin"></div><div class="set-row" id="stOrder"></div></section>
@@ -922,17 +927,17 @@
     holdSeg.disable(S.fc.reveal === 0);
     seg($('stMin'), 'Session length', [{ v: 3, label: '3 min' }, { v: 5, label: '5 min' }, { v: 10, label: '10 min' }], S.fc.minutes, (v) => { S.fc.minutes = v; save(); });
     seg($('stOrder'), 'Order', [{ v: 'shuffle', label: 'Shuffled' }, { v: 'order', label: 'In order' }], S.fc.order, (v) => { S.fc.order = v; save(); });
-    seg($('stTestMode'), 'Which tables', [{ v: 'auto', label: 'Automatic' }, { v: 'custom', label: 'I choose' }], S.test.mode, (v) => { S.test.mode = v; save(); $('stTestTables').hidden = v !== 'custom'; masteryNote(); });
+    seg($('stTestMode'), `Which ${SP.units}`, [{ v: 'auto', label: 'Automatic' }, { v: 'custom', label: 'I choose' }], S.test.mode, (v) => { S.test.mode = v; save(); $('stTestTables').hidden = v !== 'custom'; masteryNote(); });
     familyPicker($('stTestTables'), `Test ${SP.famsNoun}`, S.test.families, (v) => { S.test.families = v; save(); masteryNote(); }, () => S.extension);
     $('stTestTables').hidden = S.test.mode !== 'custom';
     seg($('stTestCount'), 'Questions', [{ v: 10, label: '10' }, { v: 20, label: '20' }, { v: 36, label: '36' }], S.test.count, (v) => { S.test.count = v; save(); masteryNote(); });
     seg($('stTimer'), 'Time for each question', [{ v: 0, label: 'Untimed' }, { v: 2, label: '2 s' }, { v: 3, label: '3 s' }, { v: 5, label: '5 s' }, { v: 10, label: '10 s' }], S.test.timer, (v) => { S.test.timer = v; save(); });
     function masteryNote() {
       const limit = M.masteryTableLimit(S.test.count), n = testTables().length;
-      if (S.test.mode === 'auto') { $('stMastery').innerHTML = `<strong>Automatic:</strong> each test covers ${limit === 1 ? '1 table' : `up to ${limit} tables`} that are not mastered yet (5+ questions each), so every test can count toward mastery. The tables change as they are mastered.`; return; }
+      if (S.test.mode === 'auto') { $('stMastery').innerHTML = `<strong>Automatic:</strong> each test covers ${limit === 1 ? `1 ${SP.unit}` : `up to ${limit} ${SP.units}`} that are not mastered yet (5+ questions each), so every test can count toward mastery. The ${SP.units} change as they are mastered.`; return; }
       $('stMastery').innerHTML = n <= limit
-        ? `<strong>Counts toward mastery:</strong> each table gets at least ${M.MASTERY_MIN_QUESTIONS} questions.`
-        : `<strong>Practice test:</strong> with ${n} tables and ${S.test.count} questions, each table gets fewer than ${M.MASTERY_MIN_QUESTIONS} questions, so the test will not count toward mastery. Pick up to ${limit} table${limit === 1 ? '' : 's'} for ${S.test.count} questions to earn mastery.`;
+        ? `<strong>Counts toward mastery:</strong> each ${SP.unit} gets at least ${M.MASTERY_MIN_QUESTIONS} questions.`
+        : `<strong>Practice test:</strong> with ${n} ${n === 1 ? SP.unit : SP.units} and ${S.test.count} questions, each ${SP.unit} gets fewer than ${M.MASTERY_MIN_QUESTIONS} questions, so the test will not count toward mastery. Pick up to ${limit} ${limit === 1 ? SP.unit : SP.units} for ${S.test.count} questions to earn mastery.`;
     }
     masteryNote();
     show('settings', `${SP.sym} ${SP.name} · Parent Settings`);
@@ -956,7 +961,7 @@
           <div class="stat"><b id="pgLab">${s.labSessions}</b>Thinking Lab challenges<small>${labAvg === null ? 'none yet' : `average ${labAvg}%`}</small></div>
           <div class="stat"><b id="pgTests">${s.testsTaken}</b>tests taken<small>independent</small></div>
           <div class="stat"><b id="pgCore">${s.coreMastered}/10</b>${SP.coreText}<small>from tests</small></div></div>
-        <p class="hint-text" style="margin-top:10px">Four kinds of evidence are kept apart: <b>understanding</b> (Teach lessons), <b>practice</b> (with hints), <b>reasoning</b> (Thinking Lab, no hints) and <b>independent tests</b>. Memorization speed comes only from timed tests. A table is mastered at 90%+ in two separate tests; a kind of problem is “Strong” only after 10+ problems at 90%+ across at least two sessions.</p></div>
+        <p class="hint-text" style="margin-top:10px">Four kinds of evidence are kept apart: <b>understanding</b> (Teach lessons), <b>practice</b> (with hints), <b>reasoning</b> (Thinking Lab, no hints) and <b>independent tests</b>. Memorization speed comes only from timed tests. A ${SP.unit} is mastered at 90%+ in two separate tests; a kind of problem is “Strong” only after 10+ problems at 90%+ across at least two sessions.</p></div>
        <div class="panel"><h3>Kinds of problems (Practice and Lab)</h3><div class="table-wrap"><table class="data" id="pgTypes"><thead><tr><th>Kind of problem</th><th>Practice</th><th>Lab</th><th>Status</th></tr></thead><tbody>
          ${s.types.map((t) => `<tr><td>${t.letter}. ${esc(t.name)}</td><td>${pc(t.practice)}</td><td>${pc(t.lab)}</td><td><span class="status st-${t.status.id}">${esc(t.status.label)}</span></td></tr>`).join('')}
        </tbody></table></div></div>
@@ -971,7 +976,7 @@
           `<tr><td>${date(t.at)}</td><td>${t.percent}%</td><td>${t.correct} / ${t.incorrect} / ${t.unanswered} of ${t.total}</td><td>${t.kind === 'retry' ? 'retry missed' : t.timed ? `${t.timed} s timed` : 'untimed'}</td></tr>`).join('')}</tbody></table></div>` : '<p class="muted">No tests yet.</p>'}</div>
        <div class="panel cream"><h3>Problems to practice</h3>${s.missedQuestions.length || s.misses.length ? `<div class="chips-list" style="margin-top:8px" id="pgMissed">${s.missedQuestions.slice(0, 20).map((m) => `<span>${esc(B.TYPE[m.type].name)}: ${SP.factText(m.fam, m.other)}</span>`).join('')}${s.misses.filter((f) => !s.missedQuestions.some((m) => m.fam === f.fam && m.other === f.other)).slice(0, 12).map((f) => `<span>Test: ${SP.factText(f.fam, f.other)}</span>`).join('')}</div>
           <div class="btn-row" style="margin-top:12px"><button class="btn btn-primary" data-nav="${MENU}/practice">Go to Practice my misses</button></div>` : '<p class="muted">None right now.</p>'}</div>
-       <div class="panel"><h3>Milestones</h3>${s.milestones.length ? `<ul class="words" style="margin-top:8px">${s.milestones.map((m) => `<li>⭐ ${esc(m)}</li>`).join('')}</ul>` : '<p class="muted">Milestones appear as lessons are finished, challenges completed and tables mastered.</p>'}
+       <div class="panel"><h3>Milestones</h3>${s.milestones.length ? `<ul class="words" style="margin-top:8px">${s.milestones.map((m) => `<li>⭐ ${esc(m)}</li>`).join('')}</ul>` : `<p class="muted">Milestones appear as lessons are finished, challenges completed and ${SP.units} mastered.</p>`}
          <p class="muted" style="margin-top:10px">Memory practice: ${s.flash.sessions} flashcard session${s.flash.sessions === 1 ? '' : 's'}, ${fmt(s.flash.seconds)} total, ${s.flash.cards} cards. Flashcards and opening lessons never count as mastery.</p></div>
        <div class="btn-row between" style="margin-top:16px"><button class="btn btn-ghost" data-nav="${MENU}">⬅ ${SP.name}</button><button class="btn btn-danger" id="pgReset">Reset progress</button></div>`;
     let armed = false;

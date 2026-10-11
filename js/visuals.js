@@ -93,20 +93,22 @@
   }
 
   /* ---------------- division pictures ---------------- */
-  /** n dots in rows of 10 (a small gap after 5), so a child can count them by fives and tens. */
-  function pileBody(n, x0, y0, cls = 'dot pile') {
-    const cell = 16, per = 10, mid = 8;
+  /** n dots in rows of `per` (10 or 20) with a small gap after every 5, so a child can count them by fives and tens. */
+  function pileBody(n, x0, y0, cls = 'dot pile', per = 10) {
+    const cell = 16, mid = 8;
     let body = '';
     for (let k = 0; k < n; k++) {
       const c = k % per, row = Math.floor(k / per);
-      body += `<circle class="${cls}" cx="${x0 + 10 + c * cell + (c >= 5 ? mid : 0)}" cy="${y0 + 10 + row * cell}" r="5.5" fill="${C.dot}"/>`;
+      body += `<circle class="${cls}" cx="${x0 + 10 + c * cell + Math.floor(c / 5) * mid}" cy="${y0 + 10 + row * cell}" r="5.5" fill="${C.dot}"/>`;
     }
-    return { body, w: Math.min(n, per) * cell + (n > 5 ? mid : 0) + 6, h: Math.ceil(n / per) * cell + 6 };
+    const cols = Math.min(n, per);
+    return { body, w: cols * cell + Math.floor((cols - 1) / 5) * mid + 6, h: Math.ceil(n / per) * cell + 6 };
   }
   /** Equal sharing: what is left of the pile on top, `groups` plates below holding `dealt` each (dealt 0 = empty plates). */
   function share({ total, groups: g, dealt = 0 }) {
     const left = total - g * dealt;
-    const pile = left > 0 ? pileBody(left, 0, 0) : { body: '', w: 0, h: 0 };
+    // big piles go 20 to a row so the picture is wide rather than tall (readable on phones)
+    const pile = left > 0 ? pileBody(left, 0, 0, 'dot pile', total > 50 ? 20 : 10) : { body: '', w: 0, h: 0 };
     const plates = groupsBody(Array(g).fill(dealt), 0, pile.h + (pile.h ? 6 : 0), 'grp plate');
     const w = Math.max(pile.w, plates.w), h = pile.h + (pile.h ? 6 : 0) + plates.h;
     const label = dealt ? `${total} shared into ${g} equal groups: ${dealt} in each group so far, ${left} left` : `${total} to share equally into ${g} groups`;
@@ -135,7 +137,7 @@
     for (let k = 0; k <= n; k++) {
       const x = x0 + k * size * unit;
       body += `<line x1="${x}" x2="${x}" y1="${y - 7}" y2="${y + 7}" stroke="${C.line}" stroke-width="2"/>`;
-      if (labels || k === n) body += `<text x="${x}" y="${y + 24}" text-anchor="middle" font-size="${fs1}" fill="${C.line}">${k * size}</text>`;
+      if (labels || k === n || k === 0) body += `<text x="${x}" y="${y + 24}" text-anchor="middle" font-size="${fs1}" fill="${C.line}">${k * size}</text>`;
     }
     for (let j = 0; j < shown; j++) {   // jump j goes from (n − j) × size back to (n − j − 1) × size
       const xa = x0 + (n - j) * size * unit, xb = x0 + (n - j - 1) * size * unit, mid = (xa + xb) / 2, top = y - Math.min(46, 16 + (xa - xb) * 0.45);

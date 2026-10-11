@@ -39,12 +39,28 @@
   }
   const groupsPic = (g, n) => (g <= 12 ? { kind: 'groups', groups: g, size: n } : { kind: 'array', rows: g, cols: n });
   const firstJumps = (size, total) => { const k = Math.min(2, total / size - 1); return k >= 1 ? { kind: 'jumps', jumps: k, size, labels: false } : null; };
+  /** How much of the answer a partial hint picture may show: 2 steps, but always fewer than the quotient (0 when it is 1). */
+  const partial = (q) => Math.min(2, q - 1);
+  /** Second hint for sharing: the picture after a round or two of dealing (never the finished answer). */
+  function shareHint(p, d, q, lead) {
+    const k = partial(q);
+    if (k < 1) return { text: `${lead}Give each of the ${d} groups one. Are any left over?` };
+    return { text: `${lead}Here is the sharing after ${plural(k, 'round')}: every group has ${k} so far. Keep dealing until none are left. How many will each group get?`,
+      visual: { kind: 'share', total: p, groups: d, dealt: k } };
+  }
+  /** Second hint for grouping: the first group or two circled (never the finished answer). */
+  function groupHint(p, d, q, lead) {
+    const k = partial(q);
+    if (k < 1) return { text: `${lead}Circle one group of ${d}. Are any left over?` };
+    return { text: `${lead}Here ${k === 1 ? 'is the first group' : 'are the first 2 groups'} of ${d}, circled. Keep circling until none are left. How many groups?`,
+      visual: { kind: 'grouping', total: p, size: d, circled: k } };
+  }
 
   // Story pieces: sharing (how many in each?) and grouping (how many groups?).
   const SHARE_STORIES = [
     (p, d) => `${p} stickers are shared equally by ${d} friends. How many stickers does each friend get?`,
     (p, d) => `${p} apples are put equally into ${d} baskets. How many apples go in each basket?`,
-    (p, d) => `A teacher shares ${p} pencils equally among ${d} tables. How many pencils does each table get?`,
+    (p, d) => `A teacher shares ${p} pencils equally among ${d} groups of students. How many pencils does each group get?`,
     (p, d) => `The Galaxy Math rocket crew packs ${p} space snacks equally into ${d} lunch boxes for a long trip around the Moon. How many snacks go in each lunch box?`
   ];
   const GROUP_STORIES = [
@@ -70,7 +86,7 @@
       case 'dfact':
         return done({ a: p, b: d, answer: q, prompt: `${p} ÷ ${d} = ?`, big: true,
           hints: [{ text: `Think multiplication: ${d} times what number makes ${p}?` },
-            { text: `Count by ${d}s until you reach ${p}, and count the jumps. Here is how it starts.`, visual: firstJumps(d, p) }],
+            { text: `Count by ${d}s until you reach ${p}, and count the jumps.${firstJumps(d, p) ? ' Here is how it starts.' : ''}`, visual: firstJumps(d, p) }],
           explain: { text: `${d} × ${q} = ${p}, so ${p} ÷ ${d} = ${q}. ${p} shared into ${plural(d, 'equal group')} gives ${q} in each.`, visual: d <= 10 ? fullShare : null } });
       case 'missdivisor':
         return done({ a: p, b: d, answer: d, prompt: `${p} ÷ ? = ${q}`, big: true, variantKey: `${base.factKey}:d`,
@@ -81,13 +97,13 @@
         return done({ a: p, b: d, answer: p, prompt: `? ÷ ${d} = ${q}`, big: true, variantKey: `${base.factKey}:p`,
           hints: [{ text: `The missing number is the dividend: the total before it was divided.` },
             { text: `Put the ${plural(d, 'group')} of ${q} back together. How many is that in all?`, visual: d <= 10 ? fullShare : null }],
-          explain: { text: `${d} groups of ${q} make ${p} (${d} × ${q} = ${p}), so ${p} ÷ ${d} = ${q}.`, visual: d <= 10 ? fullShare : null } });
+          explain: { text: `${plural(d, 'group')} of ${q} make${d === 1 ? 's' : ''} ${p} (${d} × ${q} = ${p}), so ${p} ÷ ${d} = ${q}.`, visual: d <= 10 ? fullShare : null } });
       case 'share': {
         if (d < 2 || d > 10 || p > 100) return null;
         const story = pickFrom(SHARE_STORIES.slice(0, 3), rng)(p, d);
         return done({ a: p, b: d, answer: q, prompt: story, visual: { kind: 'share', total: p, groups: d }, variantKey: `${base.factKey}:s`,
           hints: [{ text: `This is sharing: you know the number of groups (${d}). Deal the things out one at a time until they are all gone.` },
-            { text: `Here is the sharing after two rounds: every group got 2. Keep dealing. How many will each group get?`, visual: q > 2 ? { kind: 'share', total: p, groups: d, dealt: 2 } : null }],
+            shareHint(p, d, q, '')],
           explain: { text: `Sharing ${p} equally into ${plural(d, 'group')} puts ${q} in each group: ${p} ÷ ${d} = ${q}. Check: ${d} × ${q} = ${p}.`, visual: { kind: 'share', total: p, groups: d, dealt: q } } });
       }
       case 'group': {
@@ -95,44 +111,45 @@
         const story = pickFrom(GROUP_STORIES.slice(0, 3), rng)(p, d);
         return done({ a: p, b: d, answer: q, prompt: story, visual: { kind: 'grouping', total: p, size: d }, variantKey: `${base.factKey}:g`,
           hints: [{ text: `This is grouping: you know the size of each group (${d}). Circle groups of ${d} until none are left.` },
-            { text: `Here are the first 2 groups of ${d}, circled. Keep circling. How many groups?`, visual: q > 2 ? { kind: 'grouping', total: p, size: d, circled: 2 } : null }],
+            groupHint(p, d, q, '')],
           explain: { text: `${p} in groups of ${d} makes ${plural(q, 'group')}: ${p} ÷ ${d} = ${q}. Check: ${q} × ${d} = ${p}.`, visual: { kind: 'grouping', total: p, size: d, circled: q } } });
       }
       case 'darray': {
-        if (d > 12 || q > 12) return null;
+        if (d < 2 || q < 2 || d > 12 || q > 12) return null;
         const askRows = rng() < 0.5;
-        // the array always has d rows and q columns; ask for the side that is not given
-        return done({ a: p, b: d, answer: askRows ? d : q, variantKey: `${base.factKey}:${askRows ? 'r' : 'c'}`, visual: { kind: 'array', rows: d, cols: q },
-          prompt: askRows ? `These ${p} dots are in rows of ${q}. How many rows are there?` : `These ${p} dots are in ${d} equal rows. How many dots are in each row?`,
-          hints: [{ text: askRows ? `Each row has ${q}. How many rows of ${q} make ${p}?` : `There are ${d} rows. ${d} times what number makes ${p}?` },
-            { text: askRows ? `Count by ${q}s, one row at a time, until you reach ${p}.` : `Count the dots in just the top row.` }],
-          explain: { text: askRows ? `${p} ÷ ${q} = ${d}: there are ${d} rows of ${q}.` : `${p} ÷ ${d} = ${q}: each of the ${d} rows has ${q} dots.`, visual: null } });
+        // Always p ÷ d = q, so the question stays in the divisor's family: either rows of d (find the rows) or d rows (find each row).
+        return done({ a: p, b: d, answer: q, variantKey: `${base.factKey}:${askRows ? 'r' : 'c'}`, visual: askRows ? { kind: 'array', rows: q, cols: d } : { kind: 'array', rows: d, cols: q },
+          prompt: askRows ? `These ${p} dots are in rows of ${d}. How many rows are there?` : `These ${p} dots are in ${d} equal rows. How many dots are in each row?`,
+          hints: [{ text: askRows ? `Each row has ${d}. How many rows of ${d} make ${p}?` : `There are ${d} rows. ${d} times what number makes ${p}?` },
+            { text: askRows ? `Count by ${d}s, one row at a time, until you reach ${p}.` : `Count the dots in just the top row.` }],
+          explain: { text: askRows ? `${p} ÷ ${d} = ${q}: there are ${q} rows of ${d}.` : `${p} ÷ ${d} = ${q}: each of the ${d} rows has ${q} dots.`, visual: null } });
       }
       case 'subtract': {
         if (d < 2 || q > 10) return null;
         return done({ a: p, b: d, answer: q, prompt: `Start at ${p}. Subtract ${d} again and again until you reach 0. How many times do you subtract ${d}?`,
           hints: [{ text: `Write it out: ${p} − ${d} = ${p - d}, then keep going and count your subtractions.` },
-            { text: `Here are the first jumps back from ${p}. Keep jumping back by ${d} to 0, and count the jumps.`, visual: { kind: 'jumpsBack', jumps: q, size: d, labels: false, shown: Math.min(2, q - 1) } }],
-          explain: { text: `Taking ${d} away from ${p} again and again reaches 0 after ${q} subtractions, so ${p} ÷ ${d} = ${q}.`, visual: { kind: 'jumpsBack', jumps: q, size: d } } });
+            partial(q) >= 1 ? { text: `Here ${partial(q) === 1 ? 'is the first jump' : 'are the first 2 jumps'} back from ${p}. Keep jumping back by ${d} to 0, and count the jumps.`, visual: { kind: 'jumpsBack', jumps: q, size: d, labels: false, shown: partial(q) } }
+              : { text: `Take ${d} away from ${p} once. What is left?` }],
+          explain: { text: `Taking ${d} away from ${p} again and again reaches 0 after ${plural(q, 'subtraction')}, so ${p} ÷ ${d} = ${q}.`, visual: { kind: 'jumpsBack', jumps: q, size: d } } });
       }
       case 'dfamily': {
         if (rng() < 0.5) {   // number form: given the multiplication, use the other division member
-          return done({ a: p, b: q, answer: d, prompt: `${d} × ${q} = ${p}. So ${p} ÷ ${q} = ?`, variantKey: `${base.factKey}:n`, equation: `${p} ÷ ${q} = ${d}`,
-            hints: [{ text: `A fact family uses the same three numbers: ${d}, ${q} and ${p}.` },
-              { text: `${p} ÷ ${q} asks: ${q} times what makes ${p}? The multiplication fact tells you.` }],
-            explain: { text: `${d} × ${q} = ${p}, so ${p} ÷ ${q} = ${d} and ${p} ÷ ${d} = ${q}. They are all in the same family.`, visual: null } });
+          return done({ a: p, b: d, answer: q, prompt: `${q} × ${d} = ${p}. So ${p} ÷ ${d} = ?`, variantKey: `${base.factKey}:n`,
+            hints: [{ text: d === q ? `A fact family uses the same numbers: ${d} and ${p}.` : `A fact family uses the same three numbers: ${d}, ${q} and ${p}.` },
+              { text: `${p} ÷ ${d} asks: ${d} times what makes ${p}? The multiplication fact tells you.` }],
+            explain: { text: d === q ? `${d} × ${d} = ${p}, so ${p} ÷ ${d} = ${d}. This family has only two facts because both factors are ${d}.` : `${q} × ${d} = ${p}, so ${p} ÷ ${d} = ${q} and ${p} ÷ ${q} = ${d}. They are all in the same family.`, visual: null } });
         }
         const correct = `${p} ÷ ${d} = ${q}`;
-        const qn = near(q, maxFactor), qm = q - 1;
+        const qn = rng() < 0.5 && q > 1 ? q - 1 : near(q, maxFactor), dn = near(d, maxFactor);
         // TRUE facts from other families (no false fact is ever offered), each using different numbers.
         const same = (a, b, c) => [a, b, c].sort((x, y) => x - y).join() === [p, d, q].sort((x, y) => x - y).join();
         const third = [[p, d, p - d, `${p} − ${d} = ${p - d}`], [d, q, d + q, `${d} + ${q} = ${d + q}`], [p, d, p + d, `${p} + ${d} = ${p + d}`]]
           .find(([a, b, c]) => c > 0 && !same(a, b, c))[3];
-        const ds = uniq(correct, [`${d * qn} ÷ ${d} = ${qn}`, qm >= 1 ? `${d * qm} ÷ ${d} = ${qm}` : null, third]);
+        const ds = uniq(correct, [`${d * qn} ÷ ${d} = ${qn}`, !same(dn * q, dn, q) ? `${dn * q} ÷ ${dn} = ${q}` : null, third, `${d * near(qn === q - 1 ? q : qn, maxFactor)} ÷ ${d} = ${near(qn === q - 1 ? q : qn, maxFactor)}`]);
         return done({ ...choiceQuestion({ ...base, a: p, b: d, prompt: `Which division fact is in the same family as ${d} × ${q} = ${p}?`, variantKey: `${base.factKey}:c` }, correct, ds, rng),
           hints: [{ text: `A fact family uses the same three numbers. Which choice uses only ${d}, ${q} and ${p}?` },
-            { text: `The family is ${d} × ${q} = ${p}, ${q} × ${d} = ${p}, ${p} ÷ ${d} = ${q} and ${p} ÷ ${q} = ${d}.` }],
-          explain: { text: `${p} ÷ ${d} = ${q} uses the same three numbers as ${d} × ${q} = ${p}. The other choices use different numbers.`, visual: null } });
+            { text: d === q ? `The family is ${d} × ${d} = ${p} and ${p} ÷ ${d} = ${d}.` : `The family is ${d} × ${q} = ${p}, ${q} × ${d} = ${p}, ${p} ÷ ${d} = ${q} and ${p} ÷ ${q} = ${d}.` }],
+          explain: { text: `${p} ÷ ${d} = ${q} uses the same numbers as ${d} × ${q} = ${p}. The other choices use different numbers.`, visual: null } });
       }
       case 'related': {
         const form = rng();
@@ -158,7 +175,7 @@
         const correct = `${p} ÷ ${d}`;
         // Never offer ${p} ÷ ${q}: the same picture could also be read that way. Distractors are common mix-ups.
         const ds = uniq(correct, [`${p} − ${d}`, `${d} ÷ ${p}`, `${p} + ${d}`]);
-        return done({ ...choiceQuestion({ ...base, a: p, b: d, prompt: `${p} stars are put into ${d} equal groups. Which division matches the picture?`, visual: groupsPic(d, q), variantKey: `${base.factKey}:m` }, correct, ds, rng),
+        return done({ ...choiceQuestion({ ...base, a: p, b: d, prompt: `${p} dots are put into ${d} equal groups. Which division matches the picture?`, visual: groupsPic(d, q), variantKey: `${base.factKey}:m` }, correct, ds, rng),
           hints: [{ text: `Division starts with the total. How many in all? How many groups?` },
             { text: `Total ÷ number of groups = how many in each group.` }],
           explain: { text: `${p} things in ${d} equal groups is ${p} ÷ ${d} = ${q}: each group has ${q}.`, visual: null } });
@@ -169,21 +186,20 @@
         const pool = sharing ? SHARE_STORIES : GROUP_STORIES;
         const story = pickFrom(pool, rng)(p, d);
         return done({ a: p, b: d, answer: q, prompt: story, variantKey: `${base.factKey}:${sharing ? 's' : 'g'}${pool.indexOf(pool.find((f) => f(p, d) === story))}`,
-          hints: [{ text: sharing ? `Do you know the number of groups, or the size of each group? Here you know the number of groups (${d}).` : `Do you know the number of groups, or the size of each group? Here you know the size of each group (${d}).` },
-            sharing ? { text: `Share ${p} equally into ${d} groups. Each group gets the same number.`, visual: q > 2 ? { kind: 'share', total: p, groups: d, dealt: 2 } : null }
-              : { text: `Make groups of ${d} from ${p}. How many groups?`, visual: q > 2 ? { kind: 'grouping', total: p, size: d, circled: 2 } : null }],
+          hints: [{ text: `Read the story again. Does ${d} tell you how many groups there are, or how many go in each group?` },
+            sharing ? shareHint(p, d, q, `Share ${p} equally into ${d} groups. `) : groupHint(p, d, q, `Make groups of ${d} from ${p}. `)],
           explain: { text: `${sharing ? `Sharing ${p} into ${plural(d, 'group')}` : `${p} in groups of ${d}`} gives ${q}: ${p} ÷ ${d} = ${q}. Check: ${d} × ${q} = ${p}.`,
             visual: sharing ? { kind: 'share', total: p, groups: d, dealt: q } : { kind: 'grouping', total: p, size: d, circled: q } } });
       }
       case 'derror': {
         if (p < 4) return null;
         const names = D.shuffle(NAMES.slice(), rng).slice(0, 3);
-        const wrong = [...new Set([q + 1, q > 1 ? q - 1 : null, p - d !== q ? p - d : null].filter((v) => v !== null && v > 0 && v !== q))].slice(0, 2);
-        while (wrong.length < 2) wrong.push(q + 1 + wrong.length + 1);
-        const claims = [q, ...wrong];
+        const slip = rng() < 0.5 && q > 1 ? q - 1 : q + 1;
+        const second = [p - d, slip === q + 1 ? (q > 1 ? q - 1 : q + 2) : q + 1].find((v) => v > 0 && v !== q && v !== slip);
+        const claims = [q, slip, second];
         const options = names.map((n, i) => `${n}: ${p} ÷ ${d} = ${claims[i]}`);
         const correct = options[0];
-        const why = (v) => (v === p - d ? `subtracted instead of dividing` : v === q + 1 ? `${v} × ${d} = ${v * d}, too many` : `${v} × ${d} = ${v * d}, too few`);
+        const why = (v) => (v === p - d ? `subtracted instead of dividing (${p} − ${d} = ${v})` : `said ${v}, but ${v} × ${d} = ${v * d}, which is too ${v > q ? 'many' : 'few'}`);
         return done({ ...choiceQuestion({ ...base, a: p, b: d, prompt: `Which student solved ${p} ÷ ${d} correctly?`, variantKey: `${base.factKey}:e` }, correct, options.slice(1), rng),
           hints: [{ text: `Solve ${p} ÷ ${d} yourself first. Then find the student who got the same answer.` },
             { text: `Check each answer by multiplying it by ${d}. Which one makes ${p}?` }],
