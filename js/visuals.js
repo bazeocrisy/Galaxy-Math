@@ -37,7 +37,7 @@
   /** rows × cols dots. split: rows from this index on use the second colour. fade: rows from this index on are faded.
       labels: number the rows and columns. */
   function array({ rows, cols, split = null, fade = null, labels = false }) {
-    const cell = rows > 8 || cols > 8 ? 20 : 26, rad = cell * 0.3, off = labels ? 30 : 8;
+    const cell = rows > 8 || cols > 8 ? 20 : rows > 5 || cols > 6 ? 26 : 34, rad = cell * 0.3, off = labels ? 30 : 8;
     const w = off + cols * cell + 8, h = off + rows * cell + 8;
     let body = '';
     if (labels) {
