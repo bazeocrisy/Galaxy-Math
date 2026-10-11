@@ -223,7 +223,7 @@
     const showFeedback = () => setTimeout(() => {
       const box = el.querySelector('.qa-feedback'); if (!box) return;
       const r = box.getBoundingClientRect();
-      if (r.top > window.innerHeight - 80 || r.bottom < 0) box.scrollIntoView({ block: 'start', behavior: 'auto' });
+      if (r.top > window.innerHeight - 80 || r.bottom < 0) box.scrollIntoView({ block: 'nearest', behavior: 'auto' });
     }, 20);
     const status = (s) => { const st = el.querySelector('#qStatus'); if (st) st.textContent = s; };
     function finish(given, skipped) {
@@ -510,7 +510,7 @@
     const ls = labState, q = ls.qs[ls.i], n = ls.qs.length, last = ls.i === n - 1;
     $('lab').innerHTML = `<div class="screen-head"><h2 id="labTitle" tabindex="-1">🧪 Math Thinking Lab</h2><button class="btn btn-ghost" id="labExit">✕ Exit</button></div>
         <div class="feedback info" id="labLeave" hidden><strong>Leave the challenge?</strong> Problems you have answered can still count.
-          <div class="btn-row" style="margin-top:8px">${ls.answers.length ? '<button class="btn btn-primary" id="labFinishNow">Finish now and see my report</button>' : ''}<button class="btn btn-secondary" id="labStay">Keep going</button><button class="btn btn-danger" data-nav="${MENU}" id="labQuit">Leave without saving</button></div></div>` +
+          <div class="btn-row" style="margin-top:8px"><button class="btn btn-primary" id="labFinishNow">Finish now and see my report</button><button class="btn btn-secondary" id="labStay">Keep going</button><button class="btn btn-danger" data-nav="${MENU}" id="labQuit">Leave without saving</button></div></div>` +
       `<div class="panel q-panel"><div class="meta-row"><span id="lCount">Problem ${ls.i + 1} of ${n}</span><span class="muted" id="lScore">${ls.answers.filter((a) => a.correct).length} right so far</span></div>
         <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="${n}" aria-valuenow="${ls.i}" aria-label="Challenge progress"><span style="width:${(ls.i / n) * 100}%"></span></div>
         <div id="lQ" class="q-host"></div></div>`;
@@ -518,9 +518,9 @@
     askQuestion($('lQ'), q, { tries: 1, allowHint: false, allowSkip: true, revealType: true, hideHintSub: true, checkLabel: 'Submit', nextLabel: last ? 'See my report →' : 'Next problem →',
       onDone: (r) => { ls.answers.push({ q, given: r.skipped ? null : r.given, correct: r.firstTry }); },
       onNext: () => { if (last) finishLab(); else { ls.i++; renderLabQ(); } } });
-    $('labExit').onclick = () => { $('labLeave').hidden = false; $('labStay').focus(); };
+    $('labExit').onclick = () => { $('labFinishNow').hidden = ls.answers.length === 0; $('labLeave').hidden = false; $('labStay').focus(); };
     $('labStay').onclick = () => { $('labLeave').hidden = true; };
-    if ($('labFinishNow')) $('labFinishNow').onclick = () => finishLab();
+    $('labFinishNow').onclick = () => finishLab();
     if (first) show('lab', crumbFor('Math Thinking Lab'));
     else { $('labTitle').focus({ preventScroll: true }); window.scrollTo(0, 0); }
   }

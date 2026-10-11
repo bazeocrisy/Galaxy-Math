@@ -14,6 +14,33 @@
   - Screenshot names below refer to my scratch folder (`…/scratchpad/audit/`). They are not committed.
 - **Honest limitation:** I had no real phones or tablets. Every "mobile" result comes from Chrome viewport and touch emulation. I did not test real touch behaviour, on-screen keyboard behaviour, iOS Safari, or font rendering on real devices. Reading-level remarks are expert judgement, not a formal readability score.
 
+## Retest summary (2026-10-11, commit `6f3f607`)
+
+- **Result:** 25 of 26 findings verified fixed. One is partly fixed (A-06, Medium). A-26 was declined at the owner's request, and I accept the rationale.
+- **Critical and High:** **No Critical or High findings remain open.**
+  - A-01 (Critical) is verified.
+  - A-02 (High) is verified.
+  - A-03 (High) is verified.
+- **New findings from the retest:** 3, all Low.
+  - A-27: some hints mention a picture that isn't drawn.
+  - A-28: on a small phone, the auto-scroll after a miss hides the question picture.
+  - A-29: the Lab's "Finish now" option is missing when only the problem on screen has been answered.
+- **Other regression checks:**
+  - **Automatic test tables:** sensible for a fresh child, after one pass, after a failed test, and when all tables are mastered.
+  - **Lab Exit / Finish now:** works.
+  - **Practice:** leaves out challenge kinds until their lesson is done.
+  - **Phone layouts:** fine at 320×640, 375×667, 390×844, 768×1024 and 1366×768.
+  - **Developer-added change:** Match no longer uses ×1 facts.
+- **Commands run for the retest:**
+  - `npm test`: 68/68 pass.
+  - `npm run test:browser`: run once, 604/604 checks pass.
+  - Node generator probes: 106,320 questions plus a targeted probe.
+  - Two headless-Chrome scripts, run one at a time (screenshots in `…/scratchpad/audit/re/`).
+- **Limitation:** I still had no real devices. All phone results come from emulation.
+- **Open counts after retest:**
+  - Original 26 findings: 0 Critical, 0 High, 1 Medium partly fixed (A-06), and 1 Low declined and accepted (A-26).
+  - New findings: 3 Low.
+
 ---
 
 ## Checklist
@@ -57,7 +84,7 @@ Severity counts: **Critical 1 · High 2 · Medium 11 · Low 12** (26 total)
 - **Evidence:** `js/mult-bank.js:135` (`Math.max(1, b - 1)`). Probe output: `Eli says 7 × 1 = 7. Is Eli right? :: Skip-count by 1s, 7 times, or use a fact you know (like 7 × 1 = 7, then add 7).` This affects every J question whose second factor is 1, which is common in the 1s table and in ×1 facts from every table.
 - **Recommended fix:** When b = 1, use a different strategy line ("a × 1 is just a"), or use (a−1) × b + b. Add a unit test that evaluates the hint's suggested computation.
 - Developer response: **Fixed.** The hint now says “Anything times 1 stays the same: a × 1 is just a” when b = 1, “1 × b is just one group of b” when a = 1, and otherwise “Use a fact you know: a × (b−1) = …. Then add one more a.” A unit test checks that hint 2 does correct arithmetic for every J question, all facts 1–12 (`tests/bank.test.mjs`, “A-01”).
-- Retest result: _pending_
+- Retest result: **Verified.** I parsed hint 2 of every generated J question (all facts 1–10 and 1–12, 40 seeds each) and recomputed it: 0 arithmetic errors. ×1 cases now read, for example, "Anything times 1 stays the same: 7 × 1 is just 7."
 
 ### A-02: High: With default settings no Test ever counts toward mastery
 - **Area:** Test / Progress
@@ -68,7 +95,7 @@ Severity counts: **Critical 1 · High 2 · Medium 11 · Low 12** (26 total)
 - **Evidence:** `js/app.js:57` (defaults `count 10`, `families CORE`). `js/mult-math.js:201` (`masteryTableLimit(10) = 2`). Probe output: `mastery limit 10q: 2 20q: 4 36q: 7`. Screenshots `320x640-settings.png` ("Practice test: … will not count toward mastery") and `320x640-test-results.png` (every row "needs 5+ questions").
 - **Recommended fix:** Make the default test count toward mastery (for example, 10 questions on 2 tables, or a "mastery test" that rotates tables automatically). Show "This test counts / is practice" on the Test start screen.
 - Developer response: **Fixed.** Test tables now default to **Automatic**: each test covers as many tables as can get 5+ questions (10 → 2, 20 → 4, 36 → 7). It starts with tables that have one passing test, then the lowest unmastered tables, and moves on as tables are mastered. The child’s Test screen says “⭐ This test can help you master these tables” or “This is a practice test.” Parents can switch to “I choose” in Parent Settings, which keeps the live mastery note. Browser checks: “default test can count toward mastery (A-02)” and the settings checks.
-- Retest result: _pending_
+- Retest result: **Verified.** A fresh child's Test screen reads "10 questions from the 1, 2 tables … ⭐ This test can help you master these tables." A perfect test gave "⭐ counts" for the 1s and 2s, and Progress showed "●○ 1/2" for both. A Node simulation of the Automatic rule: fresh → [1, 2] (20 q → 1–4, 36 q → 1–7). After one pass → still [1, 2]. After the second pass → [3, 4]. After a failed test → stays on [3, 4]. When all 10 are mastered → all 10 tables, labelled a practice test (a sensible review). Screenshots `re/320-test-setup.png`, `re/320-test-results.png`.
 
 ### A-03: High: At 320×640 a wrong answer and requested hints appear off screen
 - **Area:** Practice / Teach question layout (mobile)
@@ -81,7 +108,7 @@ Severity counts: **Critical 1 · High 2 · Medium 11 · Low 12** (26 total)
 - **Evidence:** Measured at 320×640: hint box top = 684 px and feedback top = 780 px, with viewport height = 640 and scrollY = 0. Screenshot `320-practice-after-wrong-viewport.png` shows no message visible. Code: `js/app.js:184-198` (layout), `js/app.js:210-216` (`revealHints` never scrolls), `js/app.js:249-255`. At 390×844 the feedback lands at about 700 px, so it is visible.
 - **Recommended fix:** Scroll the feedback and hint box into view on every miss and hint (as `finish()` does), or place the feedback above the number pad on narrow screens. Change the message to "Read the help below" or make it position-neutral.
 - Developer response: **Fixed.** After every miss and every Hint tap, the feedback area scrolls into view when it is below the screen. A short status line also appears right under the answer box (“Not quite. Try again. Help is below.” / “💡 Help is below.”). The message no longer says “above”. A browser check at all six viewports confirms that the message is on screen after a miss (“after a miss the child can see a message (A-03)”; screenshot `practice-miss-320`).
-- Retest result: _pending_
+- Retest result: **Verified** (one small leftover, see A-28). Measured at 320×640 on an array question: after Hint, the status line "💡 Help is below." sits at y = 160–180. After the first miss, "Not quite. Try again. Help is below." is at 85–104, and the number pad, Check, hint (432–520) and feedback (528–596) are all on screen. 375×667, 390×844 and 768×1024 also have everything visible after the first miss. The text no longer says "above". Screenshot `re/320x640-array-after-miss.png`.
 
 ### A-04: Medium: Missing-factor strategy hint shows the answer as a count of jumps
 - **Area:** Hints, type B
@@ -89,7 +116,7 @@ Severity counts: **Critical 1 · High 2 · Medium 11 · Low 12** (26 total)
 - **Evidence:** `js/mult-bank.js:180` (`jumps: q.answer`). The probe flagged 9,760 of 9,760 B questions. Screenshot `320x640-practice-missing-hints.png` (`? × 7 = 42` with 6 arcs).
 - **Recommended fix:** Show the jumps only part of the way (for example, the first 2–3), as the text hints already do with `countStart`. Or show the number line to the product without the hops.
 - Developer response: **Fixed.** The strategy picture now shows only the first one or two jumps (“Here is how it starts”), never the full count. A unit test checks that the picture has fewer jumps than the answer for every fact.
-- Retest result: _pending_
+- Retest result: **Verified.** Probe over all B questions: hint pictures always have fewer jumps than the answer (≤ 2 jumps; none when the answer is 1). Text-only check: 0 hints contain the answer.
 
 ### A-05: Medium: Feedback says "This was a Arrays problem"
 - **Area:** Lab feedback grammar
@@ -97,7 +124,7 @@ Severity counts: **Critical 1 · High 2 · Medium 11 · Low 12** (26 total)
 - **Evidence:** `js/app.js:219`. Measured feedback text: "…There are 9 dots.This was a Arrays problem." There is also no space before "This", because the text is joined directly.
 - **Recommended fix:** Use a phrasing such as "Kind of problem: **Arrays**", or add a singular display name for each type.
 - Developer response: **Fixed.** The feedback line now reads “Kind of problem: **Arrays**” as its own paragraph.
-- Retest result: _pending_
+- Retest result: **Verified.** The feedback shows "Kind of problem: **Arrays**" as its own paragraph. A probe of all generated text found no "This was a".
 
 ### A-06: Medium: The Lab is mostly Practice without hints; for a new child it is only "compute a × b"
 - **Area:** Math Thinking Lab design
@@ -108,7 +135,7 @@ Severity counts: **Critical 1 · High 2 · Medium 11 · Low 12** (26 total)
 - **Evidence:** `js/mult-bank.js:26` (STARTER_TYPES), `js/app.js:477`, `js/app.js:494`. Lab setup shows "4 of 12" for a new child.
 - **Recommended fix:** Start the Lab with at least one reasoning type (G or D, which are low-risk). Consider Lab-only formats (for example, "Which way would you use?" or "Is this always true?"), or harder variants of the same type.
 - Developer response: **Fixed in part.** The Lab’s starter kinds now include two reasoning kinds, Switch the order and Match the equation (6 starters). A new child’s Lab therefore mixes reasoning with computing. The Lab still differs from Practice by mechanics: no hints, one try, the kind is not named before answering, report by kind, recommended lessons. Lab-only formats (“which way would you use?”) are noted as a recommendation for a later milestone (see STATUS.md).
-- Retest result: _pending_
+- Retest result: **Partly.** This matches the developer's own "in part". `unlockedTypes([], {})` now gives 6 starters, including Switch the order and Match the equation, so a new child's Lab mixes reasoning with computation. The Lab still uses the same items as Practice. I accept deferring Lab-only formats.
 
 ### A-07: Medium: Submit/Check is below the fold at 320×640 for several types
 - **Area:** Mobile layout
@@ -116,7 +143,7 @@ Severity counts: **Critical 1 · High 2 · Medium 11 · Low 12** (26 total)
 - **Evidence:** Measured bottom of `#qCheck`: array 9×8 = 777, compare = 649, match = 649, missing = 622 (fits). Practice first question = 649 or more. Screenshots: `320x640-lab-array-q.png`, `320x640-lab-compare-q.png`.
 - **Recommended fix:** Make the number pad smaller or two-column, or the answer row sticky, on short viewports. Cap array picture height at narrow widths.
 - Developer response: **Fixed.** On phones shorter than 700 px, the brand bar is hidden during activities (Exit and the heading stay). Pictures, the number pad (44 px keys) and the prompt are more compact. The browser suite now checks that Submit is fully on screen for all 12 kinds at all six viewports, **including 320×640**.
-- Retest result: _pending_
+- Retest result: **Verified.** In my own script, Submit/Check was fully on screen for all 12 kinds at 320×640, 375×667, 390×844, 768×1024 and 1366×768, with 0 off-screen. The brand bar is hidden on short phones, and the array picture is still countable (`re/320-lab-array.png`).
 
 ### A-08: Medium: Default Practice serves grade-4 "Times as many" and stretch types to every child
 - **Area:** Practice content / grade level
@@ -124,7 +151,7 @@ Severity counts: **Critical 1 · High 2 · Medium 11 · Low 12** (26 total)
 - **Evidence:** `js/app.js:435`. `js/mult-bank.js:205`. Probe: `compare: 417 / 5000`. Screenshot `320-practice-after-wrong-viewport.png` (question 1 of a fresh practice is a K problem).
 - **Recommended fix:** Apply the same unlock rule (or "core types only") to Practice by default. Label K as "challenge", or add a parent toggle.
 - Developer response: **Fixed.** Practice uses the 9 core kinds (difficulty 1–2). The challenge kinds (J Check the work, K Times as many, L Equal products) join only after their Teach lesson is finished. “Times as many” is labelled “(challenge)” everywhere it is named. The parent option “All 12 kinds now” covers both Practice and the Lab.
-- Retest result: _pending_
+- Retest result: **Verified.** Across 8 fresh Practice sessions only the 9 core kinds appeared. After the Times-as-many lesson was completed, `compare` appeared. The name now reads "Times as many (challenge)". Note: Practice my misses still brings back a missed challenge kind (an `error` miss gave error, match, error, error). That is acceptable, since the child has already met it.
 
 ### A-09: Medium: The Lab's "as they learn them" unlock is bypassed through Practice
 - **Area:** Lab unlock rule
@@ -132,7 +159,7 @@ Severity counts: **Critical 1 · High 2 · Medium 11 · Low 12** (26 total)
 - **Evidence:** `js/mult-bank.js:249-252`. `js/app.js:445` (`recordPracticeAnswer` counts every attempt).
 - **Recommended fix:** Unlock on lesson completion, or on N correct answers (not attempts) in Practice. Keep K behind its lesson.
 - Developer response: **Fixed.** Practice unlocks a Lab kind only after **3 right first-try answers** (not attempts). Challenge kinds unlock only through their lesson. Covered by unit tests.
-- Retest result: _pending_
+- Retest result: **Verified.** `unlockedTypes([], {compare: 5, missing: 3, word: 2})` unlocks `missing` only. Challenge kinds need their lesson, and core kinds need 3 right first-try answers.
 
 ### A-10: Medium: "Equal products" (L) is tied to a lesson that barely teaches it
 - **Area:** Teach ↔ question bank mapping
@@ -140,7 +167,7 @@ Severity counts: **Critical 1 · High 2 · Medium 11 · Low 12** (26 total)
 - **Evidence:** `js/mult-bank.js:23`. `js/mult-lessons.js:114-139`.
 - **Recommended fix:** Add a worked example and a check question on balancing both sides, or create a dedicated short lesson.
 - Developer response: **Fixed.** The Equations lesson explains equal products in its own sentence (“The = sign can sit between two multiplications too…”). Its third check question is now an equal-products item (“Make both sides equal: 2 × 6 = 3 × ?”), and its explanation shows both arrays.
-- Retest result: _pending_
+- Retest result: **Verified.** The lesson now explains equal products, and its third check question is "Make both sides equal: 2 × 6 = 3 × ?" (answer 4, checked). Its explanation shows both arrays.
 
 ### A-11: Medium: Lab Exit discards the whole session in one tap without warning
 - **Area:** Lab controls
@@ -148,7 +175,7 @@ Severity counts: **Critical 1 · High 2 · Medium 11 · Low 12** (26 total)
 - **Evidence:** `js/app.js:499` (plain `data-nav`). Browser check: after starting a Lab and pressing Exit, `labSessions` = 0.
 - **Recommended fix:** Use a two-tap confirmation as in Test. Better still, offer "Finish now and see my report" so the answered problems count.
 - Developer response: **Fixed.** Exit now asks first and offers three buttons: “Finish now and see my report” (answered problems count), “Keep going” and “Leave without saving”. Browser checks cover all three.
-- Retest result: _pending_
+- Retest result: **Verified** (one small gap, see A-29). Exit shows a panel. "Keep going" hides it and stays on the same problem. "Finish now and see my report" opens the report for the answered problems ("0 of 13 right") and saves 1 Lab session. "Leave without saving" returns to the menu with no session saved and 0 timers. Screenshot `re/320-lab-leave.png`.
 
 ### A-12: Medium: Recommended lessons ignore difficulty when misses are tied
 - **Area:** Lab report
@@ -156,7 +183,7 @@ Severity counts: **Critical 1 · High 2 · Medium 11 · Low 12** (26 total)
 - **Evidence:** `js/app.js:518`. Screenshot `320x640-lab-report.png` (recommends Equal groups, Times as many (challenge), Pictures…), and `1366x768-lab-report.png`.
 - **Recommended fix:** Break ties by type difficulty and lesson order (foundational first). Consider never recommending the challenge lesson while core lessons are unfinished.
 - Developer response: **Fixed.** Recommendations are sorted by number of misses, then by difficulty (foundational first), then by lesson order.
-- Retest result: _pending_
+- Retest result: **Verified** by code review: misses are sorted by count, then difficulty, then lesson order (`js/app.js`, `finishLab`).
 
 ### A-13: Medium: Match-explanation picture does not match the equation for 11×11, 11×12 and 12×12 (extension)
 - **Area:** Visuals
@@ -164,7 +191,7 @@ Severity counts: **Critical 1 · High 2 · Medium 11 · Low 12** (26 total)
 - **Evidence:** `js/mult-bank.js:65`, `js/mult-bank.js:77`.
 - **Recommended fix:** Use an array (rows = g) when g > 10, or omit the picture.
 - Developer response: **Fixed.** Match explanations use an array (rows = groups) when there are more than 10 groups. A unit test checks that the picture’s total equals the product for 11×11, 11×12 and 12×12.
-- Retest result: _pending_
+- Retest result: **Verified.** Probe including 11×11, 11×12 and 12×12: 0 explanation pictures whose groups×size or rows×cols differs from the product.
 
 ### A-14: Medium: Distractors and claims bring in ×11 numbers when the extension is off
 - **Area:** Question bank range
@@ -177,7 +204,7 @@ Severity counts: **Critical 1 · High 2 · Medium 11 · Low 12** (26 total)
 - **Evidence:** `js/mult-bank.js:70`, `js/mult-bank.js:112`, `js/mult-bank.js:122`. Probe (extension off): match 12, family 117 and error 93 distinct items mention ×11. Example: `Which fact is in the same family as 10 × 10 = 100? [10 + 10 = 20 / 10 × 11 = 110 / 100 ÷ 10 = 10]`.
 - **Recommended fix:** When `maxFactor` is 10, use b−1 instead of b+1 for b = 10 (and similar), and pass `maxFactor` into these branches.
 - Developer response: **Fixed.** Distractors and wrong claims stay within the chosen range (a nearby factor is n − 1 when n + 1 would pass the limit). A unit test checks every kind × every core fact with extension off: no factor above 10 and no number above 100 in any prompt or option.
-- Retest result: _pending_
+- Retest result: **Verified.** Probe with the extension off over all kinds × facts 1–10 × 40 seeds: no factor above 10 and no number above 100 in any prompt, option, hint or explanation.
 
 ### A-15: Low: Awkward phrasing in explanations ("Adding 4 7 times", "There are 4 added 7 times")
 - **Area:** Content wording
@@ -185,7 +212,7 @@ Severity counts: **Critical 1 · High 2 · Medium 11 · Low 12** (26 total)
 - **Evidence:** `js/mult-math.js:142` (repeated explanation). `js/mult-bank.js:72`, `js/mult-bank.js:77` (match explanation). Probe sample: "Adding 4 7 times is 7 × 4."
 - **Recommended fix:** "Adding seven 4s is 7 × 4" or "4 is added 7 times, so…".
 - Developer response: **Fixed.** The wording is now “4 added 7 times is 7 × 4” and “4 is added 7 times, which is 7 groups of 4”.
-- Retest result: _pending_
+- Retest result: **Verified.** The text reads "4 added 7 times is 7 × 4" and "4 is added 7 times, which is 7 groups of 4".
 
 ### A-16: Low: The Strategies lesson explanation is too dense for grade 3
 - **Area:** Reading level
@@ -193,7 +220,7 @@ Severity counts: **Critical 1 · High 2 · Medium 11 · Low 12** (26 total)
 - **Evidence:** `js/mult-lessons.js:217-221`.
 - **Recommended fix:** Split it into a few short paragraphs or a table, and drop the curriculum sentence (it belongs in Parent Settings).
 - Developer response: **Fixed.** The Strategies explanation is now short lines, one strategy each (×2, ×4, ×5, ×10, ×9, then splitting for ×3, ×6, ×7, ×8, then the extension line). The curriculum sentence was removed; it remains in Parent Settings.
-- Retest result: _pending_
+- Retest result: **Verified.** Short one-line strategies. The worked numbers are correct (9 × 6 = 60 − 6, 6 × 7 = 35 + 7, 12 × 6 = 60 + 12), and the curriculum sentence is gone.
 
 ### A-17: Low: Adult wording on child screens
 - **Area:** Lab report / Test results
@@ -204,7 +231,7 @@ Severity counts: **Critical 1 · High 2 · Medium 11 · Low 12** (26 total)
 - **Evidence:** `js/app.js:525`, `js/app.js:760`, `js/app.js:769`. Screenshot `320x640-test-results.png`.
 - **Recommended fix:** Move these lines to Progress, or reword them for children.
 - Developer response: **Fixed.** The adult lines are gone from the Lab report and Test results. Speed now reads “You answered in about 2.1 seconds each.” The rules (“Strong” after 10+ problems in 2+ sessions; mastery = 90% in two separate tests) are on the Progress page.
-- Retest result: _pending_
+- Retest result: **Verified.** The Lab report and Test results no longer contain the adult lines. Speed reads "You answered in about 0.1 seconds each" (`re/320-test-results.png`).
 
 ### A-18: Low: Fact family with equal factors makes the prompt itself the answer
 - **Area:** Type H
@@ -212,7 +239,7 @@ Severity counts: **Critical 1 · High 2 · Medium 11 · Low 12** (26 total)
 - **Evidence:** `js/mult-bank.js:109`.
 - **Recommended fix:** For a = b, always use the division member.
 - Developer response: **Fixed.** For squares, the fact-family choice always uses the division member. Covered by a unit test.
-- Retest result: _pending_
+- Retest result: **Verified.** Probe: 0 square fact-family choice items whose answer repeats the given fact.
 
 ### A-19: Low: Number-line hint pictures are tiny at 320 px
 - **Area:** Visuals (mobile)
@@ -220,7 +247,7 @@ Severity counts: **Critical 1 · High 2 · Medium 11 · Low 12** (26 total)
 - **Evidence:** Screenshot `320x640-practice-missing-hints.png`. `js/visuals.js:61`.
 - **Recommended fix:** Set a minimum font size, or reduce the SVG width for few jumps.
 - Developer response: **Fixed.** Number lines with few jumps are drawn narrower (240–520 px wide), and labels are larger (16 px / 15 px), so they stay readable when shrunk on phones.
-- Retest result: _pending_
+- Retest result: **Verified.** Number lines with few jumps are drawn 240 px or more wide with 15–16 px labels. Missing-factor hint lines now have ≤ 2 jumps.
 
 ### A-20: Low: Test results at 320 px: tally label overflows and the Mastery column is cut off
 - **Area:** Mobile layout
@@ -228,7 +255,7 @@ Severity counts: **Critical 1 · High 2 · Medium 11 · Low 12** (26 total)
 - **Evidence:** Screenshot `320x640-test-results.png`. `css/galaxy.css:254`, `css/galaxy.css:384`.
 - **Recommended fix:** Use smaller tally labels at narrow widths, and shorten the mastery note (for example, "need 5+").
 - Developer response: **Fixed.** Tally labels are smaller and wrap at ≤420 px. The table columns are now “Table · Right · % · Star”, with the short notes “⭐ counts” / “not yet” / “–”.
-- Retest result: _pending_
+- Retest result: **Verified.** At 320 px the tally labels fit, and the columns (Table, Right, %, Star) fit without a sideways scroll (`re/320-test-results.png`).
 
 ### A-21: Low: Repeated-addition prompt reveals its structure before answering (also in the Lab)
 - **Area:** Lab "no strategy before answering"
@@ -236,7 +263,7 @@ Severity counts: **Critical 1 · High 2 · Medium 11 · Low 12** (26 total)
 - **Evidence:** `js/mult-bank.js:58`.
 - **Recommended fix:** Drop the sub-line in the Lab (it can stay as a Practice hint).
 - Developer response: **Fixed.** The “That is 7 groups with 4 in each group” line now shows in Practice only, as support. It is hidden in the Lab (browser check: no `.q-sub` in the Lab before answering).
-- Retest result: _pending_
+- Retest result: **Verified** by code review: the Lab passes `hideHintSub`, and the repeated-addition sub-line is marked `subIsHint`. The developer's browser check also covers this.
 
 ### A-22: Low: Word-problem and times-as-many hint 2 hand over the equation
 - **Area:** Hints
@@ -244,7 +271,7 @@ Severity counts: **Critical 1 · High 2 · Medium 11 · Low 12** (26 total)
 - **Evidence:** `js/mult-bank.js:185`, `js/mult-bank.js:152`.
 - **Recommended fix:** Ask the child to name the groups and the size ("How many groups? How many in each?") together with the picture, and keep the equation for the explanation.
 - Developer response: **Fixed.** Word-problem hint 2 asks the child to find the groups and the size using the picture. Times-as-many hint 2 points at the bars. Neither states the equation, which stays in the worked explanation. Covered by a unit test.
-- Retest result: _pending_
+- Retest result: **Verified.** Neither hint 2 states the equation any more. The new word-problem wording can mention a picture that isn't drawn (see A-27).
 
 ### A-23: Low: Choice questions in Practice allow 2 tries with only 3 options
 - **Area:** Practice
@@ -252,7 +279,7 @@ Severity counts: **Critical 1 · High 2 · Medium 11 · Low 12** (26 total)
 - **Evidence:** `js/app.js:444` (`tries: q.format === 'choice' ? 2 : 3`).
 - **Recommended fix:** Use 1 try plus an explanation for choice questions, or add a 4th option.
 - Developer response: **Fixed.** Choice questions in Practice now have one try, then the answer and explanation. The Hint button is still available before answering.
-- Retest result: _pending_
+- Retest result: **Verified.** A wrong choice at 320×640 immediately shows the answer and explanation after one try.
 
 ### A-24: Low: 11s and 12s can be selected while the extension is off, and are silently ignored
 - **Area:** Parent Settings
@@ -260,7 +287,7 @@ Severity counts: **Critical 1 · High 2 · Medium 11 · Low 12** (26 total)
 - **Evidence:** `js/app.js:63` (`usableTables`). `js/app.js:113` (11 and 12 always clickable).
 - **Recommended fix:** Disable 11 and 12 while the extension is off, or turn the extension on when they are picked, with a note.
 - Developer response: **Fixed.** The 11, 12 and “All 1–12” buttons are disabled while the extension is off, and they enable as soon as it is turned on. A browser check covers this.
-- Retest result: _pending_
+- Retest result: **Verified.** With the extension off, 11, 12 and "All 1–12" are disabled. They are enabled as soon as the extension is turned on.
 
 ### A-25: Low: The answer box is not an input for assistive technology
 - **Area:** Accessibility
@@ -268,7 +295,7 @@ Severity counts: **Critical 1 · High 2 · Medium 11 · Low 12** (26 total)
 - **Evidence:** `js/app.js:190`, `js/app.js:171`.
 - **Recommended fix:** Add `role="textbox" aria-readonly="true"` or `role="status"`, and describe the pad as the way to enter answers. This is acceptable for the target age group but should be noted.
 - Developer response: **Fixed.** Both answer displays have `role="textbox" aria-readonly="true"` and the label “Your answer (use the number keys)”. Physical keyboards still type directly.
-- Retest result: _pending_
+- Retest result: **Verified** by code review: both answer boxes have `role="textbox" aria-readonly="true"` and the label "Your answer (use the number keys)".
 
 ### A-26: Low: Division is "open" to an all-Coming-soon menu rather than locked
 - **Area:** Landing / registry
@@ -276,6 +303,34 @@ Severity counts: **Critical 1 · High 2 · Medium 11 · Low 12** (26 total)
 - **Evidence:** `js/registry.js` (Division `status: 'open', ready: []`). Browser check: menuSub = "Division lessons and cards are being built. Check back soon!"
 - **Recommended fix:** Optional: show it as Coming Soon like Addition, or keep it as is if this is intended.
 - Developer response: **Kept on purpose (declined).** The owner asked that Division keep its existing navigation state: the menu opens and every activity says Coming soon. Division development has not started. This will be revisited when Division begins.
+- Retest result: **Accepted (declined by owner).** The rationale is reasonable. The Division menu is harmless and gives an honest "being built" message (re-checked: route `#/division`, no errors). Revisit it when Division work starts.
+
+### A-27: Low (found during retest): Hint text mentions a picture that isn't drawn
+- **Area:** Hints, types B and I
+- **Finding:** The new hint wording refers to a picture in cases where no picture is drawn:
+  - Missing-factor hint 2 ends "Here is how it starts." but draws no picture when the answer is 1 (for example, "? × 7 = 7"). The probe found 44 such variants.
+  - Word-problem hint 2 says "Draw it, or look at this picture: each circle is one group…" but draws no picture when there are more than 10 groups. This happens only with the extension on (for example, "They fill 12 bags…"). The probe found 191 such variants.
+- **Evidence:** `js/mult-bank.js` HINTS.missing (`q.answer > 1 ? … : null`) and HINTS.word (`q.a <= 10 ? … : null`). Probe output: `hint refers to missing picture: { missing: 44, word: 191 }`.
+- **Recommended fix:** Use different wording when there is no picture, or draw an array for more than 10 groups.
+- Developer response: **Fixed.** The missing-factor hint for an answer of 1 now says “7 is already 7. How many 7s is that?” with no picture. The word-problem hint mentions a picture only when one is drawn (10 or fewer groups); otherwise it suggests drawing the groups on paper. A unit test (“A-27”) checks every missing and word hint: any text that mentions a picture has one.
+- Retest result: _pending_
+
+### A-28: Low (found during retest): On small phones, the auto-scroll after a miss hides the question and its picture
+- **Area:** Practice layout (A-03 fix side effect)
+- **Finding:**
+  - **320×640, array question:** after a miss the page scrolls 259 px. The prompt and the dot array leave the top of the screen, but the clue that is now shown asks "How many rows are there?". The child has to scroll up to see the picture the hint refers to.
+  - **After the second miss:** the page does not scroll again, because the top of the help box is already visible. The strategy text and the feedback can run below the fold: 712–780 px on a 640-px screen (fact question), and 917–985 px on an 844-px screen (word problem). The status line "Not quite. Try again. Help is below." stays visible, so this is minor.
+- **Evidence:** Retest measurements (`recheck2.mjs`). Screenshot `re/320x640-array-after-miss.png`.
+- **Recommended fix:** On short screens, keep the question picture visible. For example, show the clue next to or above the pad, or scroll only so the bottom of the feedback reaches the bottom of the screen. Re-check the position after each hint level.
+- Developer response: **Fixed (reduced).** The auto-scroll now moves only as far as needed (`block: "nearest"`) instead of putting the feedback at the top, so on 320×640 more of the problem stays on screen. On the very smallest screens the picture can still scroll partly out of view after a second miss; the “Help is below” status line remains by the answer box.
+- Retest result: _pending_
+
+### A-29: Low (found during retest): Lab "Finish now" is missing when only the current problem has been answered
+- **Area:** Lab Exit panel
+- **Finding:** The Exit panel is built when the problem is first shown, using the number of answers *before* the problem. If the child answers (or skips) problem 1 and then taps Exit before Next, only "Keep going" and "Leave without saving" are offered, even though one answer exists. The same gap applies to the newest answer later in a session: it is counted only if the child presses Next first.
+- **Evidence:** `js/app.js` `renderLabQ` (`${ls.answers.length ? … : ''}`). Browser check: "1st answered (skipped), Exit before Next: finishNow shown? false".
+- **Recommended fix:** Build or refresh the panel when Exit is tapped, using the current answer count.
+- Developer response: **Fixed.** “Finish now and see my report” is shown whenever at least one problem has an answer, including the one just answered on screen before Next. A browser check covers answering problem 1, tapping Exit and finishing.
 - Retest result: _pending_
 
 ---

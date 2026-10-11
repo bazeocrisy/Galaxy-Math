@@ -246,3 +246,10 @@ test('A-08 / A-22: Practice keeps challenge kinds behind their lessons; hints do
     assert.doesNotMatch(c.hints[1].text, /\d+ × \d+/, c.hints[1].text);
   }
 });
+
+test('A-27: hints only mention a picture when one is drawn', () => {
+  for (const type of ['missing', 'word']) for (let fam = 1; fam <= 12; fam++) for (let other = 1; other <= 12; other++) for (let s = 0; s < 3; s++) {
+    const q = B.generate(type, fam, other, { rng: seeded(fam * 50 + other + s) });
+    for (const h of q.hints) if (/picture|how it starts/i.test(h.text)) assert.ok(h.visual, `${type} ${fam}×${other}: ${h.text}`);
+  }
+});

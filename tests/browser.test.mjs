@@ -240,6 +240,12 @@ try {
   for (let i = 0; i < 3; i++) { await answerQ(ls.qs[i], true); await enter(); }
   await click('#labExit', 80); await click('#labFinishNow', 250);
   check('finish now → report for the 3 answered problems', (await visible('labDone')) && (await text('#ldPct')) === '100%' && (await text('#ldC')) === '3' && (await q('window.__galaxy.store.summary().labSessions')) === 2);
+  await goto('#/multiplication/lab'); await click('[data-size="10"]', 200);
+  ls = (await state()).lab;
+  await answerQ(ls.qs[0], true); await click('#labExit', 80);
+  check('Finish now offered right after the first answer, before Next (A-29)', !(await q('labFinishNow.hidden')));
+  await click('#labStay', 50); await click('#labExit', 50); await click('#labFinishNow', 250);
+  check('finish now after one answer → report', (await visible('labDone')) && (await text('#ldC')) === '1' && (await q('window.__galaxy.store.summary().labSessions')) === 3);
 
   // =============== FLASHCARDS (child picks a table; timing set by parents) ===============
   await goto('#/multiplication/flashcards');
@@ -366,7 +372,7 @@ try {
   check('progress after reload', await visible('progress'));
   check('progress: lessons kept', /^\d+\/13$/.test(await text('#pgLessons')) && (await text('#pgLessons')) !== '0/13');
   check('progress: tests kept', (await text('#pgTests')) === '3', await text('#pgTests'));
-  check('progress: lab challenges kept', (await text('#pgLab')) === '2');
+  check('progress: lab challenges kept', (await text('#pgLab')) === '3');
   check('progress: mastery kept', /6s.*⭐ Mastered/.test(await q(`document.querySelector('#pgTable').innerText.replace(/\\n/g, ' ')`)));
   const typeRows = await q(`[...document.querySelectorAll('#pgTypes tbody tr')].map(r => r.innerText)`);
   check('progress: all 12 kinds of problems listed', typeRows.length === 12);

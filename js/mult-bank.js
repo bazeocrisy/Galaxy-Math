@@ -183,12 +183,14 @@
     fact: (q) => [{ text: `${q.a} × ${q.b} means ${plural(q.a, 'group')} of ${q.b}.` },
       { text: q.a === 1 ? `One group of ${q.b} is just ${q.b} things.` : `Skip-count by ${q.b}s, ${q.a} times: ${countStart(q.b, q.a)} Or use a fact you know and add one more group.`, visual: q.a <= 10 ? { kind: 'array', rows: q.a, cols: q.b } : null }],
     missing: (q) => { const known = q.hidden === 'a' ? q.b : q.a; return [{ text: `What number times ${known} makes ${q.product}?` },
-      { text: `Count by ${known}s and keep going until you reach ${q.product}. Count how many jumps it takes. Here is how it starts.`, visual: q.answer > 1 ? { kind: 'jumps', jumps: Math.min(2, q.answer - 1), size: known, labels: false } : null }]; },
+      q.answer > 1 ? { text: `Count by ${known}s and keep going until you reach ${q.product}. Count how many jumps it takes. Here is how it starts.`, visual: { kind: 'jumps', jumps: Math.min(2, q.answer - 1), size: known, labels: false } }
+        : { text: `${known} is already ${q.product}. How many ${known}s is that?` }]; },
     groups: (q, h) => [{ text: 'How many groups are there? How many are in each group?' }, { text: h.text }],
     array: (q, h) => [{ text: 'How many rows are there? How many dots are in each row?' }, { text: h.text }],
     repeated: (q, h) => [{ text: `Count how many ${q.b}s are added.` }, { text: h.text, visual: { kind: 'groups', groups: q.a, size: q.b } }],
     word: (q) => [{ text: 'Find the equal groups in the story: how many groups, and how many in each group?' },
-      { text: 'Draw it, or look at this picture: each circle is one group. How many groups? How many in each? Then find the total.', visual: q.a <= 10 ? { kind: 'groups', groups: q.a, size: q.b } : null }]
+      q.a <= 10 ? { text: 'Look at this picture: each circle is one group. How many groups? How many in each? Then find the total.', visual: { kind: 'groups', groups: q.a, size: q.b } }
+        : { text: 'Draw the groups on paper: how many groups, and how many in each? Then find the total.' }]
   };
 
   /** Is the given answer right? Numbers: whole numbers only (spaces and leading zeros ignored). Choices: exact option. */
