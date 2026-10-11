@@ -105,7 +105,9 @@ export async function startBrowser() {
       const code = key === 'Tab' ? 'Tab' : key;
       const vk = { Tab: 9, Enter: 13, ' ': 32 }[key] || 0;
       const mods = shift ? 8 : 0;
-      await send('Input.dispatchKeyEvent', { type: 'keyDown', key, code, windowsVirtualKeyCode: vk, modifiers: mods });
+      // text makes Chrome treat it as a real keypress (Enter/Space activate a focused button).
+      const text = key === 'Enter' ? String.fromCharCode(13) : key.length === 1 ? key : undefined;
+      await send('Input.dispatchKeyEvent', { type: 'keyDown', key, code, windowsVirtualKeyCode: vk || (key.length === 1 ? key.toUpperCase().charCodeAt(0) : 0), modifiers: mods, text });
       await send('Input.dispatchKeyEvent', { type: 'keyUp', key, code, windowsVirtualKeyCode: vk, modifiers: mods });
     },
     // Ask Chrome to quit, then make sure the whole process tree is gone (on Windows, proc.kill() alone can leave

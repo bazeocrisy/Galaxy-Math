@@ -5,11 +5,12 @@
 
   // status: 'open' subjects have a menu; 'coming-soon' subjects are shown but cannot be opened.
   // ready: the activities that actually work today. Anything else is shown as "Coming soon".
+  // views: extra screens under the subject (e.g. the parent progress page).
   const SUBJECTS = [
-    { id: 'addition', name: 'Addition', symbol: '+', status: 'coming-soon', ready: [] },
-    { id: 'subtraction', name: 'Subtraction', symbol: '−', status: 'coming-soon', ready: [] },
-    { id: 'multiplication', name: 'Multiplication', symbol: '×', status: 'open', ready: ['flashcards', 'test'] },
-    { id: 'division', name: 'Division', symbol: '÷', status: 'open', ready: [] }
+    { id: 'addition', name: 'Addition', symbol: '+', status: 'coming-soon', ready: [], views: [] },
+    { id: 'subtraction', name: 'Subtraction', symbol: '−', status: 'coming-soon', ready: [], views: [] },
+    { id: 'multiplication', name: 'Multiplication', symbol: '×', status: 'open', ready: ['teach', 'practice', 'flashcards', 'test'], views: ['progress'] },
+    { id: 'division', name: 'Division', symbol: '÷', status: 'open', ready: [], views: [] }
   ];
 
   const ACTIVITIES = [
@@ -31,17 +32,20 @@
     return s && s.status === 'open' ? s.ready.length : 0;
   }
 
-  // Hash routes: #/ (landing), #/<subject> (activity menu), #/<subject>/<activity> (activity setup).
+  function hasView(subjectId, view) { const s = getSubject(subjectId); return !!s && s.status === 'open' && s.views.includes(view); }
+
+  // Hash routes: #/ (landing), #/<subject> (activity menu), #/<subject>/<activity> (activity start screen), #/<subject>/<view>.
   // Anything that points at a locked subject or unfinished activity falls back to the nearest safe screen.
   function resolveRoute(hash) {
     const parts = String(hash || '').replace(/^#\/?/, '').split('/').filter(Boolean);
     const [subject, activity] = parts;
     if (!subject || !isSubjectOpen(subject)) return { view: 'landing', hash: '#/' };
+    if (activity && parts.length === 2 && hasView(subject, activity)) return { view: activity, subject, hash: `#/${subject}/${activity}` };
     if (!activity || parts.length > 2 || !isActivityReady(subject, activity)) return { view: 'menu', subject, hash: `#/${subject}` };
     return { view: 'setup', subject, activity, hash: `#/${subject}/${activity}` };
   }
 
-  const api = { SUBJECTS, ACTIVITIES, getSubject, getActivity, isSubjectOpen, isActivityReady, readyCount, resolveRoute };
+  const api = { SUBJECTS, ACTIVITIES, getSubject, getActivity, isSubjectOpen, isActivityReady, readyCount, hasView, resolveRoute };
   if (typeof module === 'object' && module.exports) module.exports = api;
   else root.GalaxyMathRegistry = api;
 })(this);
