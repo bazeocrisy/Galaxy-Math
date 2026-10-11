@@ -72,10 +72,10 @@ try {
   await goto('#/subtraction/practice');
   check('#/subtraction/practice → landing', (await visible('landing')) && (await q('location.hash')) === '#/');
   await goto('#/division');
-  check('division menu: all five activities locked', (await q(`[...document.querySelectorAll('#modes .mode')].filter(e => e.getAttribute('aria-disabled') === 'true').length`)) === 5);
+  check('division menu: all five activities open', (await q(`[...document.querySelectorAll('#modes .mode')].filter(e => !e.getAttribute('aria-disabled')).length`)) === 5);
   for (const a of ['teach', 'practice', 'lab', 'flashcards', 'test', 'progress', 'settings']) {
     await goto(`#/division/${a}`);
-    check(`#/division/${a} cannot launch`, (await q('location.hash')) === '#/division' && (await visible('menu')));
+    check(`#/division/${a} opens`, (await q('location.hash')) === `#/division/${a}` && !(await visible('menu')));
   }
   await goto('#/');
   await b.js(`document.querySelector('[data-subject=multiplication]').focus();`);

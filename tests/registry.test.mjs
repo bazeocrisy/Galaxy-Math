@@ -30,8 +30,8 @@ test('only finished activities are marked ready', () => {
   assert.equal(GM.isActivityReady('multiplication', 'teach'), true);
   assert.equal(GM.isActivityReady('multiplication', 'practice'), true);
   assert.equal(GM.isActivityReady('multiplication', 'lab'), true);
-  for (const a of GM.ACTIVITIES) assert.equal(GM.isActivityReady('division', a.id), false, `division ${a.id}`);
-  assert.equal(GM.readyCount('division'), 0);
+  for (const a of GM.ACTIVITIES) assert.equal(GM.isActivityReady('division', a.id), true, `division ${a.id}`);
+  assert.equal(GM.readyCount('division'), 5);
   assert.equal(GM.readyCount('addition'), 0);
 });
 
@@ -49,8 +49,8 @@ test('resolveRoute sends valid hashes to the right screen', () => {
   assert.deepEqual(GM.resolveRoute('#/multiplication/test'), { view: 'setup', subject: 'multiplication', activity: 'test', hash: '#/multiplication/test' });
   for (const a of ['teach', 'practice', 'lab']) assert.equal(GM.resolveRoute(`#/multiplication/${a}`).view, 'setup');
   assert.equal(GM.resolveRoute('#/multiplication/settings').view, 'settings');
-  assert.equal(GM.resolveRoute('#/division/lab').hash, '#/division');
-  assert.equal(GM.resolveRoute('#/division/settings').hash, '#/division');
+  assert.equal(GM.resolveRoute('#/division/lab').view, 'setup');
+  assert.equal(GM.resolveRoute('#/division/settings').view, 'settings');
   assert.deepEqual(GM.resolveRoute('#/multiplication/progress'), { view: 'progress', subject: 'multiplication', hash: '#/multiplication/progress' });
 });
 
@@ -58,11 +58,12 @@ test('resolveRoute never opens locked subjects or unfinished activities', () => 
   assert.equal(GM.resolveRoute('#/addition').view, 'landing');
   assert.equal(GM.resolveRoute('#/subtraction/flashcards').view, 'landing');
   assert.equal(GM.resolveRoute('#/nope').view, 'landing');
-  assert.equal(GM.resolveRoute('#/division/flashcards').hash, '#/division');
-  assert.equal(GM.resolveRoute('#/division/test').hash, '#/division');
+  assert.equal(GM.resolveRoute('#/division/flashcards').view, 'setup');
+  assert.equal(GM.resolveRoute('#/division/test').view, 'setup');
   assert.equal(GM.resolveRoute('#/multiplication/test/extra').hash, '#/multiplication');
   assert.equal(GM.resolveRoute('#/multiplication/bogus').hash, '#/multiplication');
   assert.equal(GM.resolveRoute(undefined).view, 'landing');
-  assert.equal(GM.resolveRoute('#/division/progress').hash, '#/division', 'no progress page for division yet');
+  assert.equal(GM.resolveRoute('#/division/progress').view, 'progress');
+  assert.equal(GM.resolveRoute('#/division/bogus').hash, '#/division');
   assert.equal(GM.resolveRoute('#/addition/progress').view, 'landing');
 });

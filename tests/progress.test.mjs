@@ -122,7 +122,7 @@ test('nothing personal is stored', () => {
   st.recordLesson('arrays', 3, true);
   st.recordTest(M.scoreTest([{ q: q(2, 2), given: '4' }]), { families: [2], responses: [{ q: q(2, 2), given: '4' }] });
   const saved = JSON.parse(s.map.get(P.KEY));
-  assert.deepEqual(Object.keys(saved), ['v', 'mult']);
+  assert.deepEqual(Object.keys(saved), ['v', 'mult', 'div']);
   assert.deepEqual(Object.keys(saved.mult).sort(), ['facts', 'flash', 'lab', 'lessons', 'missedQs', 'misses', 'practice', 'tests', 'types']);
   assert.doesNotMatch(JSON.stringify(saved), /name|email|child/i);
 });
@@ -141,7 +141,7 @@ test('v1 progress (from the first Multiplication release) is upgraded, not lost'
   assert.equal(sum.labSessions, 0);
   assert.equal(sum.types.length, 12);
   st.recordFlash(10, 1);
-  assert.equal(JSON.parse(st.data && JSON.stringify(st.data())).v, 2, 'saved back as v2');
+  assert.equal(JSON.parse(JSON.stringify(st.data())).v, 3, 'saved back as v3');
 });
 
 test('Lab sessions record results by question type and missed questions', () => {
@@ -187,4 +187,64 @@ test('corrupt v2 fields are dropped safely', () => {
   assert.equal(sum.lab.length, 1);
   assert.deepEqual(sum.lab[0].byType, {});
   assert.deepEqual(sum.types.find((t) => t.id === 'fact').practice, { correct: 0, total: 3 });
+});
+
+// ---- v3: separate subjects ----
+const DB = require('../js/div-bank.js');
+const DM = require('../js/div-math.js');
+
+test('v3: division progress is kept separately from multiplication', () => {
+  const s = memoryStorage();
+  const st = P.createStore(s);
+  const div = st.forSubject('div');
+  st.recordLesson('arrays', 3, true);
+  div.recordLesson('equal-sharing', 3, true);
+  const q = DB.generate('share', 6, 4, { rng: seeded(3) });
+  div.recordPracticeAnswer(q, false, true);
+  const answers = [{ q: DB.generate('dfact', 7, 6, { rng: seeded(1) }), given: '6' }, { q: DB.generate('missdivisor', 8, 3, { rng: seeded(2) }), given: null }];
+  div.recordLab(DB.scoreSession(answers), answers);
+  const resp = [{ q: DM.makeFact(6, 7), given: '7' }];
+  div.recordTest(DM.scoreTest(resp), { families: [6], responses: resp });
+  const again = P.createStore(s);
+  const m = again.summary(), d = again.forSubject('div').summary({ lessonsTotal: 15 });
+  assert.equal(m.lessonsDone, 1); assert.ok(m.lessons.arrays && !m.lessons['equal-sharing']);
+  assert.equal(d.lessonsDone, 1); assert.ok(d.lessons['equal-sharing'] && !d.lessons.arrays);
+  assert.equal(m.labSessions, 0); assert.equal(d.labSessions, 1);
+  assert.equal(m.testsTaken, 0); assert.equal(d.testsTaken, 1);
+  assert.equal(d.types.length, 12); assert.equal(d.types.find((x) => x.id === 'share').practice.total, 1);
+  assert.deepEqual(d.missedQuestions.map((x) => x.type).sort(), ['missdivisor', 'share']);
+  assert.ok(d.families.every((f) => f.fam >= 1), 'divisor families never 0');
+});
+
+test('v3: v2 multiplication progress is upgraded and kept; division starts empty', () => {
+  const v2 = { v: 2, mult: { lessons: { arrays: { completed: true, best: 3, attempts: 1 } }, types: { fact: { practice: { correct: 4, total: 5 }, lab: { correct: 1, total: 2 }, sessions: 2 } }, lab: [{ total: 10, correct: 8, incorrect: 1, unanswered: 1, percent: 80, byType: {} }] } };
+  const st = P.createStore(memoryStorage({ [P.KEY]: JSON.stringify(v2) }));
+  assert.equal(st.summary().lessonsDone, 1);
+  assert.equal(st.summary().labSessions, 1);
+  assert.deepEqual(st.summary().types.find((x) => x.id === 'fact').practice, { correct: 4, total: 5 });
+  assert.equal(st.forSubject('div').summary().lessonsDone, 0);
+  assert.equal(st.forSubject('div').summary().labSessions, 0);
+});
+
+test('v3: resetting one subject keeps the other', () => {
+  const s = memoryStorage();
+  const st = P.createStore(s);
+  st.recordLesson('arrays', 3, true);
+  st.forSubject('div').recordLesson('equal-grouping', 2, true);
+  st.forSubject('div').reset();
+  const again = P.createStore(s);
+  assert.equal(again.summary().lessonsDone, 1, 'multiplication kept');
+  assert.equal(again.forSubject('div').summary().lessonsDone, 0, 'division erased');
+  assert.throws(() => st.forSubject('addition'));
+});
+
+test('v3: division mastery uses divisor families and constructive milestones', () => {
+  const div = P.createStore(memoryStorage()).forSubject('div');
+  const deck = DM.factsFor([6]).slice(0, 10).map((f) => DM.makeFact(f.fam, f.other));
+  const perfect = deck.map((q) => ({ q, given: String(q.answer), ms: 1200 }));
+  for (let i = 0; i < 2; i++) div.recordTest(DM.scoreTest(perfect), { kind: 'test', timed: 5, families: [6], responses: perfect });
+  const sum = div.summary();
+  assert.equal(sum.families[5].mastered, true);
+  assert.ok(sum.milestones.includes('Mastered dividing by 6'));
+  assert.equal(sum.families[5].avgSeconds, 1.2);
 });

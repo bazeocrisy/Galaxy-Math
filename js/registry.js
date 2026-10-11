@@ -10,7 +10,7 @@
     { id: 'addition', name: 'Addition', symbol: '+', status: 'coming-soon', ready: [], views: [] },
     { id: 'subtraction', name: 'Subtraction', symbol: '−', status: 'coming-soon', ready: [], views: [] },
     { id: 'multiplication', name: 'Multiplication', symbol: '×', status: 'open', ready: ['teach', 'practice', 'lab', 'flashcards', 'test'], views: ['progress', 'settings'] },
-    { id: 'division', name: 'Division', symbol: '÷', status: 'open', ready: [], views: [] }
+    { id: 'division', name: 'Division', symbol: '÷', status: 'open', ready: ['teach', 'practice', 'lab', 'flashcards', 'test'], views: ['progress', 'settings'] }
   ];
 
   const ACTIVITIES = [
