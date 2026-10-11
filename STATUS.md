@@ -1,122 +1,135 @@
 # Galaxy Math — Development Status
 
-Updated: 2026-10-11 (branch `feature/galaxy-math-foundation`; not merged to `main`)
+Updated: 2026-10-11 (branch `feature/galaxy-math-foundation`; not merged to `main`). Division has **not** been started.
 
-## Summary
+## Multiplication 2.0: summary
 
-**Multiplication is complete**: Teach, Practice, Flashcards, Test and a Progress page. Every acceptance step below was demonstrated by the automated browser suite. Division still shows its menu with all four activities locked, and Addition and Subtraction are Coming Soon. Division work has **not** started.
+The Multiplication menu has five activities that share one design:
+- **Teach** (Show me how)
+- **Practice** (Let me try)
+- **Math Thinking Lab** (Make me think)
+- **Flashcards** (Help me remember)
+- **Test** (Show what I know)
 
-| Acceptance criterion | Demonstrated by (tests/browser.test.mjs) |
-|---|---|
-| 1. Open Galaxy Math | landing at 320–1366 px; four light cards, navy text, logo loads |
-| 2. Select Multiplication | keyboard focus + Enter on the card opens the menu; all four activities ready |
-| 3. Teach: complete a real lesson | Lesson 1 completed step by step: a wrong guided answer gets specific feedback, then the right answer; the check scores 2 of 3. **All 10 lessons** are then completed through the UI. A failed check (0 of 3) does **not** complete a lesson. Opening a lesson does not complete it. |
-| 4. Practice with feedback | 10 questions from the 3s in ≥4 question types, no repeats. A miss gives a hint, then an explanation with a picture. Hint on request, review screen, Practice my misses. |
-| 5. Flashcards with adjustable timers | 2 s reveal and 1 s hold measured; pause freezes the card and clock; previous/next; shuffle; tap mode with Space/arrow keys; summary; never starts a test; Test timer unchanged |
-| 6. Independent Test | 2 s timed test: countdown measured; no hints or right/wrong shown during the test; a blank question auto-advances at 2 s; results are 80% with 8/1/1; 36-question and untimed (Skip) options; quitting needs two taps and is not saved |
-| 7. Review missed questions | Test results list missed facts ("you answered 43" / "no answer"); Retry missed facts; the Practice review lists misses with explanations |
-| 8. Return to the menu without broken navigation | Exit, Quit, the logo and browser Back from every activity; no timers left running (checked with the app's timer registry) |
-| 9. Reopen the site and keep progress | after a reload, the Progress page shows the finished lesson, 3 tests, **6s mastered** (two separate 100% tests) and missed facts; the Teach list still shows "Completed" |
+**Parent Settings** and a **Progress** page sit behind "For grown-ups" links. Every problem comes from one validated question bank of 12 kinds (A–L). An independent auditor (a separate Claude Code subagent) reviewed the build. All Critical and High findings were fixed and then verified by the auditor (see `AUDIT-REPORT.md`).
 
-## Phases
+### Acceptance checklist
 
-### Phase 1 — Baseline audit (done earlier)
-The original prototype's defects (countdown lost its first second, forced quiz after flashcards, flashcard speed overwrote the test timer, unvalidated storage, span buttons) were fixed in Phase 2. The prototype's flashcard engine has since been rebuilt (Phase D).
+| Requirement | Status | Evidence |
+|---|---|---|
+| All five activities are functional | ✅ | Browser suite walks through each one (Chrome and Edge) |
+| Existing question types are preserved | ✅ | Facts, missing factor, equal groups, arrays, repeated addition and word problems use the original generators, wording and pictures (`js/mult-bank.js` wraps `js/mult-math.js`) |
+| Lab supports 10, 25 and 50 problems | ✅ | Browser checks start each size; unit tests check exact size, balance and no repeats |
+| Teach explains the reasoning | ✅ | 13 lessons: Goal → Explanation → See it → Worked example → Try it together → Check yourself → Finish; all 13 completed through the UI |
+| Practice uses varied representations | ✅ | ≥6 kinds per 10-problem session (checked); progressive help: clue → strategy with a picture → worked explanation |
+| Flashcards have a simple child interface | ✅ | Child picks a table (or Mixed) → Start; Show answer, Pause, I'm done; timing in Parent Settings |
+| Test scoring is accurate | ✅ | 8 correct / 1 incorrect / 1 unanswered → 80%; unanswered counts; mastery = 90% in two separate tests; unit tests |
+| Parent Settings hold the advanced options | ✅ | Tables, 11s/12s extension, problems per practice, which kinds (Practice + Lab), flashcard reveal/hold/length/order, test questions/timer/tables (Automatic or I choose); saved locally; says plainly that it is not locked |
+| Progress by fact family and by kind of problem | ✅ | Progress shows understanding, practice, Lab reasoning and tests separately; a table of the 12 kinds with constructive statuses; a times-table table with accuracy, test mastery and timed speed |
+| Mobile and desktop layouts pass QA | ✅ (emulated) | 320×640, 375×812, 390×844, 768×1024, 1280×800, 1366×768: no horizontal overflow, no clipped text, touch targets ≥ 44 px, **Submit on screen for all 12 kinds at every size incl. 320×640**, long word problems. No real devices were available. |
+| Auditor resolved all Critical and High findings | ✅ | A-01 (Critical) and A-02, A-03 (High) verified fixed in the retest |
+| Live deployment verified | see "Deployment" below | |
+| GitHub contains final code, tests and docs | see "Deployment" below | |
 
-### Phase 2 — Landing page, logo, menus (done earlier)
+## What changed in 2.0
 
-### Phase A — Visual redesign (done)
-- `css/galaxy.css` design system: color tokens (galaxy, light surfaces, navy text, AA-contrast accents), spacing and radius tokens, buttons (primary/go/secondary/ghost/danger), segmented controls, times-table picker, number pad, feedback boxes, badges, progress bars.
-- Home: lavender (×), pink (÷) and grey (Coming Soon) cards with navy text and colorful symbols. Active cards say "Learn · Practice · Flash · Test →".
-- Activity menu: cream / ice / lavender / pink cards.
-- Flashcards keep the original purple-to-blue front and teal/purple/pink back with yellow answer, at about 440 px wide instead of 640 px. Tests use a separate white "assessment sheet" with a coral top edge.
-- Practice, Flashcards and Test fit at 1280×800 and 1366×768 without scrolling (tested). Phones have no horizontal overflow (tested at 320, 390, 768).
+**Question bank** (`js/mult-bank.js`). 12 kinds, A–L:
+- A facts
+- B missing factor
+- C repeated addition, showing the number of groups and the size of each
+- D match the equation
+- E equal groups
+- F arrays
+- G switch the order (commutative)
+- H fact families with ×/÷
+- I word problems, short and long
+- J check the work (error analysis)
+- K times as many (multiplicative comparison, a grade-4 stretch labelled "challenge")
+- L equal products (4 × 6 = 3 × ?)
 
-### Phase B — Teach (done)
-- Ten lessons (`js/mult-lessons.js`): equal groups, repeated addition, rows and columns, arrays, equations (factor/product), commutative property, fact families, strategies 1–12, word problems, connecting representations.
-- Each lesson runs Objective + key words → Picture it → Worked example (steps revealed one at a time) → Try it together (hint, two tries) → Check yourself (3 questions, no hints, feedback after each) → Finish.
-- A lesson is completed only with at least 2 of 3 right on the first try. Otherwise the child can retry the check or review the lesson.
-- Pictures are generated SVG: equal groups, arrays (with split/faded rows for strategies), number-line jumps and labelled equations.
-- Core vs extension: strategies for ×11 and ×12 are taught and labelled "Extension". Every guided and check question uses core facts only.
+Each kind has a stable ID, skill, difficulty and related lesson. Each problem has a prompt, answer, accepted format, distractors, picture, a clue, a strategy and a worked explanation. These rules are unit-tested over every fact 1×1–12×12:
+- Distractors never include a second right answer.
+- Fact-family distractors are true facts from other families.
+- With core settings, no number goes above 10 × 10.
 
-### Phase C — Practice (done)
-- Choose tables (multi-select, All 1–12, Core 1–10) and 10/20/30 questions. Untimed.
-- Six question types: fact, missing factor, equal groups, array, repeated addition, word problem. No identical question repeats unless the chosen facts run out of types.
-- 💡 Hint on request. A first miss shows "Not quite — try again" with a hint; a second miss shows the answer and an explanation with a picture.
-- Review screen with explanations and "Practice these again". **Practice my misses** uses facts missed in Practice or Test (two questions per fact, 4–30).
+**Teach.** Three new lessons: Missing factors, Check the work, and Times as many (challenge). Fact families now teach ÷ as the reverse of ×. Equations now teaches equal products. Strategies is now short, readable lines.
 
-### Phase D — Flashcards (done)
-- Choose tables; show the answer on tap or after 2/3/5/10 s; separate answer hold of 1/2/3/5 s; sessions of 3/5/10 min; shuffled or in order.
-- Pause/Resume, Shuffle, Previous/Next, Flip, Finish, Exit. Keyboard: Space flips, arrows move, P pauses.
-- Summary shows cards seen and time. Leaving early also saves the time. Flashcards never start a test or count toward mastery.
-- Flashcard settings are stored separately from Test settings (tested).
+**Practice.** One Start with 10 problems by default. It uses the nine core kinds; the challenge kinds join after their lessons. Help is progressive. Choice questions get one try (no guessing by elimination). Practice my misses brings back missed problems of the same kind, from Practice, the Lab or Tests.
 
-### Phase E — Test (done)
-- Compact assessment sheet with progress bar, problem with answer box, number pad (Clear, ⌫), Submit, and Skip (untimed only).
-- 10/20/36 questions; untimed or 2/3/5/10 s per question. The deadline-based countdown refreshes every 0.1 s and freezes while the tab is hidden.
-- Chosen tables share the questions evenly. The setup screen says whether a test can count toward mastery: each table needs ≥5 questions, so 10 questions → up to 2 tables, 20 → 4, 36 → 7.
-- No hints and no right/wrong during the test. Results show percentage, correct/incorrect/unanswered (blanks count against the total), missed facts with the child's answer, accuracy by table with mastery notes, and speed for timed tests. Buttons: Retry missed facts (never counts for mastery), Retake test, Multiplication menu.
+**Math Thinking Lab** (new):
+- Choose 10 (Quick Challenge), 25 (Thinking Workout) or 50 (Big Challenge). No timer, no hints, one try, and Skip is allowed.
+- The kind of problem is never named or hinted before answering. It is shown with the explanation afterwards.
+- Kinds join the Lab as the child learns them:
+  - Six starter kinds, including two reasoning kinds.
+  - Any kind whose lesson is finished.
+  - Core kinds after 3 right answers in Practice.
+  - The Lab setup screen shows the next lesson to unlock more. A parent override, "All 12 kinds now", is available.
+- Report:
+  - percentage, and correct / incorrect / skipped
+  - results by kind of problem
+  - missed problems with worked explanations
+  - recommended lessons (most-missed and most basic first)
+  - Practice my misses, and Start another challenge
+- Exit asks first: Finish now (answered problems count), Keep going, or Leave without saving.
 
-### Phase F — Progress (done)
-- `js/progress.js` stores lessons, practice, tests (last 60), per-fact accuracy, missed facts and flashcard time under one versioned key, `galaxy-math.progress`. Corrupt or unknown data is replaced with safe defaults. If storage is blocked, everything works in memory and the Progress page says so.
-- Mastery per table = 90%+ in two separate full tests with ≥5 questions from that table each time. Speed is shown separately and comes from timed tests only.
-- Progress page for grown-ups covers summary, the times-table table (accuracy / mastery dots / speed, extension rows labelled), lessons, recent tests, facts to practice, milestones, and Reset (two taps).
-- No names, accounts, analytics or network calls.
+**Flashcards.** The child picks a table and taps Start. The answer shows after 5 s (2 s hold), or sooner with Show answer. Pause and I'm done are available. Everything else is in Parent Settings.
 
-### Phase G — Testing (done; live verification below)
+**Test.** One Start. Tables default to **Automatic**: tables that can each get the 5 questions mastery needs, rotating as they are mastered. The child's screen says whether the test can help master the tables.
 
-## Independent review (2026-10-11)
+**Progress v2.** Version-1 data is upgraded, not lost. The page shows:
+- results by kind of problem (Practice and Lab separately)
+- Lab sessions and recent missed problems
+- a "Strong" status only after 10+ problems at 90%+ across 2+ sessions
+- statuses that never say "weak" or "poor"
 
-A separate reviewer read all the source code. Findings and outcomes:
+**Layout.** A single question layout on every activity:
+- Phones: progress → problem → picture → answer → feedback.
+- Desktop: the picture sits beside the answer area.
+- Short phones (≤ 700 px tall) use a compact layout.
+- After a miss, the help scrolls into view and a status line appears by the answer.
 
-| Finding | Outcome |
-|---|---|
-| Enter after tapping a number-pad key typed the digit again | **Fixed**: Enter on a pad key submits. Browser test added. |
-| Lesson number lines showed the total (answer) before answering; the equation picture labelled the factors/product being asked about | **Fixed**: question pictures hide landing numbers; equation pictures appear only in feedback. Unit and browser tests added. |
-| Practice hints for small first factors listed the answer; the repeated-addition hint picture showed the total | **Fixed**: skip-count hints stop before the answer; hint number lines are unlabelled. Unit test covers every fact 2–12. |
-| Corrupt saved data could crash the menu | **Fixed**: unknown fact keys are dropped on load. Unit test added. |
-| Timers kept running in a hidden tab | **Fixed**: flashcards pause; the test timer freezes. Browser test added. |
-| "1 groups" / "added 1 times" grammar; "7 = ?" repeated addition for ×1 | **Fixed**: ×1 is pictured as 7 groups of 1, and repeated addition is skipped for ×1. Unit test added. |
-| An extension fact (11 × 4) counted toward finishing the strategies lesson | **Fixed**: replaced with 9 × 6 (×10 strategy). Extension stays in the explanation. |
-| Mastery impossible with default test settings (12 tables, 10 questions) | **Fixed**: tables share questions evenly, and setup explains when a test counts. |
-| Practice-my-misses length inconsistent and repetitive | **Fixed**: one formula (2 per fact, 4–30). |
-| Exiting flashcards discarded the session | **Fixed**: time is saved on any exit. |
-| Test progress bar lacked aria values; hint button stayed active after the auto-hint | **Fixed** |
-| Division menu can still be opened | **Kept on purpose**: the owner asked that Division keep its existing navigation state. All four activities stay locked. |
+## Independent audit (Agent 2)
 
-## Tests (run 2026-10-11 on this branch)
+`AUDIT-REPORT.md` holds the 10-question checklist, 29 findings (each with evidence, recommended fix, developer response and retest result) and the retest summary.
 
-- `npm test`: **47/47** unit tests.
-  - Math for all 144 facts; core vs extension.
-  - Missing factors, arrays, equal groups and repeated addition agree.
-  - Word-problem grammar; hints never reveal answers.
-  - Practice variety with no repeats; even test decks with no back-to-back repeats.
-  - Scoring with unanswered questions; mastery rules.
-  - Pictures draw the right number of dots/groups/jumps.
-  - All 10 lessons are well-formed with mathematically correct answers and core-only checks.
-  - Progress persistence, blocked/full/corrupt storage, no personal data.
-- `npm run test:browser` (localhost): **206/206** headless-Chrome checks. They cover the acceptance walk-through above plus:
-  - layouts at 320, 390, 768, 1280 and 1366 px (overflow, fit, light cards with navy text, ≥44 px pad keys)
-  - Division locked (including direct links)
-  - keyboard use; timer cleanup on every exit
-  - blocked storage
-  - no page errors; no missing files
-- The page also works when opened straight from disk (`file://`): practice and saving checked.
-- Screenshots are in `docs/screenshots/`: landing (390/1280), menu, lesson steps, practice feedback and review, flashcard front/back, test, test setup, test results, progress, and phone views of practice, flashcards, test and a lesson.
-- Not tested: real phones/tablets, Safari, Firefox, screen readers (headless Chrome only).
+- **First audit (`6e1a185`):** 1 Critical, 2 High, 11 Medium, 12 Low.
+- **Retest (`6f3f607`):**
+  - 25 verified fixed.
+  - 1 partly fixed: A-06. The Lab still uses the same question bank as Practice, and Lab-only formats are a recommendation for later.
+  - 1 declined and accepted by the auditor: A-26 (Division menu kept as instructed).
+  - No Critical or High findings open.
+- **New Lows from the retest:** A-27, A-28 and A-29 were fixed afterwards (developer responses recorded; see "Deployment" for the auditor's live check).
+
+## Tests (run 2026-10-11)
+
+- `npm test`: **69/69** unit tests.
+  - Question bank: all kinds × all facts, independent answer checks, distractor rules, range, hints, sessions, unlock rules, statuses.
+  - Lessons, progress v1→v2, blocked storage, plus the audit regression tests.
+- `npm run test:browser` on this PC:
+  - **Chrome 155.0.8059.39: 605/605.**
+  - **Microsoft Edge 155.0.4283.45: 604/604.** A few checks depend on which problem comes first, which explains the one-check difference.
+- Not available here: Firefox, Safari, and real iPhone/Android devices. All phone and tablet results come from viewport and touch emulation in Chrome and Edge.
 
 ## Deployment
 
-Pending at the time of this commit. The build is published to `gh-pages` with `npm run publish:pages`, and the live results are recorded in the next commit.
+Pending at the time of this commit. The build is published to `gh-pages` with `npm run publish:pages` and verified with the live browser suite. Results are recorded in the next commit.
 
 ## Known limitations
 
-- Fredoka font comes from Google Fonts; offline it falls back to a system font.
-- The Progress page is per browser/device (no sync, by design: no accounts).
-- Lessons are text plus pictures (no audio narration). A non-reader will need an adult nearby.
-- Flashcards show the vertical form with the table number on top (e.g. 7 over × 3). Test and Practice mix both factor orders.
-- `CLAUDE.md` mentions a `worksheets/` folder and a `LICENSE` file; neither exists in this repository.
+- No real-device testing (iPhone Safari, Android Chrome); emulation only.
+- The Lab uses the same question bank as Practice. Its difference is in the mechanics (no hints, one try, unnamed kinds, report, recommendations). Lab-only formats such as "Which way would you use?" or "Is this always true?" are recommended next.
+- On 320-px-wide phones, after a second miss the picture can scroll partly out of view (A-28, reduced).
+- "Times as many" is a grade-4 standard. It is kept as a labelled challenge and stays out of Practice until its lesson is done.
+- Progress is per device and browser; no sync, by design.
+- Lessons are text and pictures with no read-aloud.
+- The Fredoka font comes from Google Fonts and falls back to a system font offline.
+- `CLAUDE.md` mentions a `worksheets/` folder and a `LICENSE` file that do not exist.
 
-## Next
+## Recommendations before Division
 
-Owner tests Multiplication on the live testing site. Division (Teach, Practice, Flashcards, Test) only after approval. Do not merge to `main` without approval.
+1. **Real-device check** on the child's actual phone or tablet (and Safari if the family uses iPhone/iPad), especially 320–375 px screens.
+2. **Use Multiplication for a week or two** and read the Progress page: which kinds stay at "Growing", and whether Automatic tests move through the tables.
+3. **Lab-only reasoning formats** (A-06), e.g. "Which strategy would you use?" or "Is this always true?", before adding more topics.
+4. **Read-aloud** (browser speech) for lesson text, if the child is still building reading fluency.
+5. **Reuse the bank pattern for Division:** sharing / grouping / missing dividend / fact families already exist on the ÷ side (type H). The question-bank structure, Lab, Practice and Test screens can take a Division generator without new UI.
+6. **Self-host the font** so the app works fully offline.

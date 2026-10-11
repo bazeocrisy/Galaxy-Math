@@ -58,19 +58,31 @@
   /** Number line from 0 with `jumps` hops of `size`. labels: false hides the landing numbers (used in questions,
       so the picture never shows the total before the child answers). */
   function jumps({ jumps: n, size, labels = true }) {
-    const total = n * size, x0 = 18, width = 520, unit = (width - 2 * x0) / total, y = 78;
+    // Fewer jumps → a narrower picture, so labels stay readable when it is shrunk to fit a phone.
+    const total = n * size, x0 = 18, width = Math.max(240, Math.min(520, 60 + n * 80)), unit = (width - 2 * x0) / total, y = 78;
     let body = `<line x1="${x0 - 6}" x2="${width - x0 + 6}" y1="${y}" y2="${y}" stroke="${C.line}" stroke-width="3"/>`;
     for (let k = 0; k <= n; k++) {
       const x = x0 + k * size * unit;
       body += `<line x1="${x}" x2="${x}" y1="${y - 7}" y2="${y + 7}" stroke="${C.line}" stroke-width="2"/>` +
-        (labels || k === 0 ? `<text x="${x}" y="${y + 24}" text-anchor="middle" font-size="14" fill="${C.line}">${k * size}</text>` : '');
+        (labels || k === 0 ? `<text x="${x}" y="${y + 24}" text-anchor="middle" font-size="16" fill="${C.line}">${k * size}</text>` : '');
       if (k < n) {
         const x2 = x0 + (k + 1) * size * unit, mid = (x + x2) / 2, top = y - Math.min(46, 16 + (x2 - x) * 0.45);
         body += `<path class="hop" d="M${x} ${y - 4} Q${mid} ${top} ${x2} ${y - 4}" fill="none" stroke="${C.dot}" stroke-width="3"/>`;
-        if (x2 - x >= 26) body += `<text x="${mid}" y="${top + 12}" text-anchor="middle" font-size="13" font-weight="700" fill="${C.dot}">+${size}</text>`;
+        if (x2 - x >= 26) body += `<text x="${mid}" y="${top + 12}" text-anchor="middle" font-size="15" font-weight="700" fill="${C.dot}">+${size}</text>`;
       }
     }
     return svg(width, 112, labels ? `number line: ${plural(n, 'jump')} of ${size} from 0 to ${total}` : `number line: ${plural(n, 'jump')} of ${size} from 0`, body, 'viz-jumps');
+  }
+
+  /** Bar model for "times as many": one bar of `size` for the first person, `times` equal bars for the second.
+      The total is never written, so it can be used as a hint. */
+  function compare({ times, size, names = ['Mia', 'Ben'] }) {
+    const box = 40, h = 30, labelW = 64, gap = 16, w = labelW + times * box + 8;
+    const row = (y, n, color) => Array.from({ length: n }, (_, i) =>
+      `<rect class="bar-box" x="${labelW + i * box}" y="${y}" width="${box - 2}" height="${h}" rx="5" fill="${color}"/><text x="${labelW + i * box + (box - 2) / 2}" y="${y + h / 2 + 5}" text-anchor="middle" font-size="14" font-weight="700" fill="#fff">${size}</text>`).join('');
+    const body = `<text x="0" y="${8 + h / 2 + 5}" font-size="14" font-weight="700" fill="${C.line}">${esc(names[0])}</text>${row(8, 1, C.ring)}` +
+      `<text x="0" y="${8 + h + gap + h / 2 + 5}" font-size="14" font-weight="700" fill="${C.line}">${esc(names[1])}</text>${row(8 + h + gap, times, C.dot)}`;
+    return svg(w, 8 + 2 * h + gap + 8, `bar model: ${names[0]} has 1 bar of ${size}; ${names[1]} has ${times} bars of ${size}`, body, 'viz-compare');
   }
 
   /** 4 × 3 = 12 with "factor / factor / product" labels. */
@@ -85,7 +97,7 @@
     return `<div class="viz-set">${items.map((it) => `<figure>${render(it.visual)}<figcaption>${esc(it.caption)}</figcaption></figure>`).join('')}</div>`;
   }
 
-  const KINDS = { groups, uneven, array, jumps, equation, set };
+  const KINDS = { groups, uneven, array, jumps, equation, set, compare };
   function render(spec) {
     if (!spec) return '';
     const fn = KINDS[spec.kind];
@@ -93,7 +105,7 @@
     return fn(spec);
   }
 
-  const api = { render, groups, uneven, array, jumps, equation, set, KINDS };
+  const api = { render, groups, uneven, array, jumps, equation, set, compare, KINDS };
   if (typeof module === 'object' && module.exports) module.exports = api;
   else root.GalaxyVisuals = api;
 })(this);

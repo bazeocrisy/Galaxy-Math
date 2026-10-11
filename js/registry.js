@@ -9,15 +9,16 @@
   const SUBJECTS = [
     { id: 'addition', name: 'Addition', symbol: '+', status: 'coming-soon', ready: [], views: [] },
     { id: 'subtraction', name: 'Subtraction', symbol: '−', status: 'coming-soon', ready: [], views: [] },
-    { id: 'multiplication', name: 'Multiplication', symbol: '×', status: 'open', ready: ['teach', 'practice', 'flashcards', 'test'], views: ['progress'] },
+    { id: 'multiplication', name: 'Multiplication', symbol: '×', status: 'open', ready: ['teach', 'practice', 'lab', 'flashcards', 'test'], views: ['progress', 'settings'] },
     { id: 'division', name: 'Division', symbol: '÷', status: 'open', ready: [], views: [] }
   ];
 
   const ACTIVITIES = [
-    { id: 'teach', name: 'Teach', icon: '💡', blurb: 'Learn how it works' },
-    { id: 'practice', name: 'Practice', icon: '✏️', blurb: 'Try it with hints' },
-    { id: 'flashcards', name: 'Flashcards', icon: '🃏', blurb: 'Flip and remember' },
-    { id: 'test', name: 'Test', icon: '⏱️', blurb: 'Show what you know' }
+    { id: 'teach', name: 'Teach', icon: '💡', blurb: 'Show me how' },
+    { id: 'practice', name: 'Practice', icon: '✏️', blurb: 'Let me try' },
+    { id: 'lab', name: 'Math Thinking Lab', icon: '🧪', blurb: 'Make me think' },
+    { id: 'flashcards', name: 'Flashcards', icon: '🃏', blurb: 'Help me remember' },
+    { id: 'test', name: 'Test', icon: '⏱️', blurb: 'Show what I know' }
   ];
 
   function getSubject(id) { return SUBJECTS.find((s) => s.id === id) || null; }

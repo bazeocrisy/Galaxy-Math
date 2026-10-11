@@ -4,19 +4,57 @@ A space-themed, third-grade math learning application. This repository starts fr
 
 ## Current status
 
-**Multiplication is complete.** It has Teach (10 lessons), Practice, Flashcards and Test, plus a Progress page for grown-ups. Division opens to a menu where every activity is marked Coming soon. Addition and Subtraction are Coming Soon. See `STATUS.md` for what was tested.
+**Multiplication 2.0.** Five activities, a shared question bank of 12 kinds of problems, Parent Settings and a Progress page. Division opens to a menu where every activity is locked. Addition and Subtraction are Coming Soon. See `STATUS.md` for what was tested and `AUDIT-REPORT.md` for the independent audit.
 
-| Multiplication activity | What it does |
-|---|---|
-| **Teach** | Ten lessons. Each one goes Goal → Picture → Worked example → Try it together (hints) → Check yourself (3 questions) → Finish. A lesson counts as complete only when at least 2 of the 3 check questions are right. |
-| **Practice** | Choose times tables and 10/20/30 questions. There is no timer. Question types are facts, missing factors, equal groups, arrays, repeated addition and word problems. Hints are available on request. A child gets two tries, then an explanation with a picture. Ends with a review screen. **Practice my misses** reuses facts missed in Practice or Test. |
-| **Flashcards** | The original purple cards in vertical notation. Flip on tap, or reveal after 2/3/5/10 s with a separate answer-hold time. Sessions last 3/5/10 min, with pause, shuffle and previous/next, and end with a summary. Flashcards never start a test, and their settings are separate from Test. |
-| **Test** | 10/20/36 questions, untimed or 2/3/5/10 s each, with no hints. Unanswered questions count against the total. Results show the percentage, correct/incorrect/unanswered, missed facts, accuracy by table and speed (timed tests only). Buttons offer Retry missed and Retake. |
-| **Progress** | Lessons, practice, tests, accuracy and mastery by table, missed facts and milestones. A table is mastered at 90% or better in two separate full tests with at least 5 questions from that table each time. Everything is stored only in this browser. |
+| Activity | Purpose | What the child does |
+|---|---|---|
+| **Teach** | Show me how | 13 lessons. Each one goes Goal → Explanation → See it (picture) → Worked example → Try it together (hints) → Check yourself (3 questions) → Finish. A lesson counts as complete only when at least 2 of the 3 check questions are right. |
+| **Practice** | Let me try | Press Start: 10 mixed problems (no timer). Help comes in steps: a clue after the first miss, a strategy with a picture after the second, then a worked explanation. **Practice my misses** brings back missed problems of the same kind. |
+| **Math Thinking Lab** | Make me think | Choose 10, 25 or 50 problems. Kinds of problems are mixed and never named before answering. There are no hints, one try per problem, and Skip is allowed. Every answer gets an explanation. The report shows results by kind of problem, missed problems, recommended lessons and Practice my misses. |
+| **Flashcards** | Help me remember | Pick a times table (or Mixed) and press Start. The answer shows after 5 seconds (or sooner with *Show answer*). Pause and *I'm done* are available. |
+| **Test** | Show what I know | Press Start. No hints. Unanswered questions count against the total. Results show the percentage, missed facts, accuracy by table and speed (timed tests only). |
+
+**Parent Settings** (saved on the device, not locked) cover times tables, 11s/12s extension, problems per practice, which kinds of problems the Lab uses, flashcard timing, session length and order, and test questions, timer and tables. **Progress** keeps four kinds of evidence apart:
+- understanding (lessons)
+- practice (with hints)
+- reasoning (Lab)
+- independent tests
+
+It shows results by kind of problem and by times table. Statuses are constructive ("Just starting", "Growing", "Getting stronger", "Strong"). A table is mastered at 90%+ in two separate tests. A kind of problem is "Strong" only after 10+ problems at 90%+ across 2+ sessions.
+
+### The question bank (`js/mult-bank.js`)
+
+| | Kind | Skill | Lesson |
+|---|---|---|---|
+| A | Multiplication facts | Recall or work out a product | Strategies |
+| B | Missing factor | Find an unknown factor | Missing factors |
+| C | Repeated addition | Add equal groups (groups and size shown) | Repeated addition |
+| D | Match the equation | Connect addition or a picture to an equation | Pictures, addition and equations |
+| E | Equal groups | Total of equal groups | Equal groups |
+| F | Arrays | Rows × columns | Arrays |
+| G | Switch the order | Commutative property | Switch the order |
+| H | Fact families | × and ÷ facts with the same three numbers | Fact families |
+| I | Word problems | Find equal groups in a story (short and long stories) | Word problems |
+| J | Check the work | Decide if an answer is right; fix it | Check the work |
+| K | Times as many | Multiplicative comparison (a grade-4 stretch, marked as a challenge) | Times as many |
+| L | Equal products | Keep an equation balanced (4 × 6 = 3 × ?) | Equations |
+
+Each generated problem has:
+- a stable type ID, skill, difficulty and related lesson
+- the prompt, the correct answer and the accepted answer format
+- distractors (multiple choice only)
+- a picture, a clue, a strategy and a worked explanation
+
+Rules that keep the choices fair:
+- Multiple-choice distractors never include a second correct answer. For example, *6 × 4* is never offered beside *4 × 6* when matching *6 + 6 + 6 + 6*.
+- Fact-family distractors are true facts from other families, so a child never sees a false fact shown as an option.
+- Unit tests check every type against every fact from 1 × 1 to 12 × 12.
 
 ## Tests
 
 `npm test` (unit, Node 22+) and `npm run test:browser` (headless Chrome or Edge; set `CHROME_PATH` if needed). No dependencies to install.
+
+Run the browser suite in Edge: `CHROME_PATH="C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe" npm run test:browser`.
 
 To run the browser suite against the published site instead of a local server:
 `LIVE_URL=https://bazeocrisy.github.io/Galaxy-Math/ npm run test:browser`
@@ -63,7 +101,7 @@ The script authenticates with the same GitHub login `git push` uses (`git creden
 |---|---|
 | Addition (+) | Coming Soon placeholder |
 | Subtraction (−) | Coming Soon placeholder |
-| Multiplication (×) | **Complete:** Teach, Practice, Flashcards, Test, Progress |
+| Multiplication (×) | **2.0:** Teach, Practice, Math Thinking Lab, Flashcards, Test, Parent Settings, Progress |
 | Division (÷) | Next. The menu exists, but every activity is locked. |
 
 ## Project layout
@@ -73,10 +111,11 @@ The script authenticates with the same GitHub login `git push` uses (`git creden
 | `index.html` | Page shell and screen containers |
 | `css/galaxy.css` | Design system: tokens, light panels, buttons, controls, flashcard and test styles |
 | `js/registry.js` | Subjects and which activities are ready; hash routes |
-| `js/mult-math.js` | Multiplication engine: facts, question types, hints, explanations, test decks, scoring, mastery |
+| `js/mult-math.js` | Multiplication engine: facts, original question generators, test decks, scoring, mastery |
+| `js/mult-bank.js` | Shared question bank (12 kinds A–L), mixed sessions, Lab unlock rules, skill statuses |
 | `js/visuals.js` | Equal groups, arrays, number-line jumps and labelled equations as inline SVG |
-| `js/mult-lessons.js` | The ten Teach lessons |
-| `js/progress.js` | Local progress (versioned `localStorage` key `galaxy-math.progress`, in-memory fallback) |
+| `js/mult-lessons.js` | The 13 Teach lessons |
+| `js/progress.js` | Local progress (versioned `localStorage` key `galaxy-math.progress`, v1 data migrated, in-memory fallback) |
 | `js/app.js` | Router, shared components and the activity screens |
 | `tests/` | Unit tests (`node --test`) and the headless-Chrome browser suite |
 

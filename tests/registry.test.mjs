@@ -17,8 +17,9 @@ test('addition and subtraction are Coming Soon and cannot be opened', () => {
   }
 });
 
-test('every open subject offers Teach, Practice, Flashcards, Test in that order', () => {
-  assert.deepEqual(GM.ACTIVITIES.map((a) => a.name), ['Teach', 'Practice', 'Flashcards', 'Test']);
+test('every open subject offers the five activities in order', () => {
+  assert.deepEqual(GM.ACTIVITIES.map((a) => a.name), ['Teach', 'Practice', 'Math Thinking Lab', 'Flashcards', 'Test']);
+  assert.deepEqual(GM.ACTIVITIES.map((a) => a.blurb), ['Show me how', 'Let me try', 'Make me think', 'Help me remember', 'Show what I know']);
   assert.equal(GM.isSubjectOpen('multiplication'), true);
   assert.equal(GM.isSubjectOpen('division'), true);
 });
@@ -28,6 +29,7 @@ test('only finished activities are marked ready', () => {
   assert.equal(GM.isActivityReady('multiplication', 'test'), true);
   assert.equal(GM.isActivityReady('multiplication', 'teach'), true);
   assert.equal(GM.isActivityReady('multiplication', 'practice'), true);
+  assert.equal(GM.isActivityReady('multiplication', 'lab'), true);
   for (const a of GM.ACTIVITIES) assert.equal(GM.isActivityReady('division', a.id), false, `division ${a.id}`);
   assert.equal(GM.readyCount('division'), 0);
   assert.equal(GM.readyCount('addition'), 0);
@@ -45,7 +47,10 @@ test('resolveRoute sends valid hashes to the right screen', () => {
   assert.deepEqual(GM.resolveRoute('#/division'), { view: 'menu', subject: 'division', hash: '#/division' });
   assert.deepEqual(GM.resolveRoute('#/multiplication/flashcards'), { view: 'setup', subject: 'multiplication', activity: 'flashcards', hash: '#/multiplication/flashcards' });
   assert.deepEqual(GM.resolveRoute('#/multiplication/test'), { view: 'setup', subject: 'multiplication', activity: 'test', hash: '#/multiplication/test' });
-  for (const a of ['teach', 'practice']) assert.equal(GM.resolveRoute(`#/multiplication/${a}`).view, 'setup');
+  for (const a of ['teach', 'practice', 'lab']) assert.equal(GM.resolveRoute(`#/multiplication/${a}`).view, 'setup');
+  assert.equal(GM.resolveRoute('#/multiplication/settings').view, 'settings');
+  assert.equal(GM.resolveRoute('#/division/lab').hash, '#/division');
+  assert.equal(GM.resolveRoute('#/division/settings').hash, '#/division');
   assert.deepEqual(GM.resolveRoute('#/multiplication/progress'), { view: 'progress', subject: 'multiplication', hash: '#/multiplication/progress' });
 });
 

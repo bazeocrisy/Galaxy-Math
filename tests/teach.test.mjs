@@ -45,9 +45,9 @@ test('equation labels factors and product', () => {
   assert.match(s, />product</);
 });
 
-test('ten lessons cover the required topics in order', () => {
-  assert.deepEqual(L.LESSONS.map((l) => l.id), ['equal-groups', 'repeated-addition', 'rows-columns', 'arrays', 'equations', 'commutative', 'fact-families', 'strategies', 'word-problems', 'connecting']);
-  assert.deepEqual(L.STEPS, ['Objective', 'Picture it', 'Worked example', 'Try it together', 'Check yourself', 'Finish']);
+test('thirteen lessons cover the required topics in order', () => {
+  assert.deepEqual(L.LESSONS.map((l) => l.id), ['equal-groups', 'repeated-addition', 'rows-columns', 'arrays', 'equations', 'missing-factors', 'commutative', 'fact-families', 'strategies', 'word-problems', 'connecting', 'check-the-work', 'times-as-many']);
+  assert.deepEqual(L.STEPS, ['Goal', 'Explanation', 'See it', 'Worked example', 'Try it together', 'Check yourself', 'Finish']);
 });
 
 test('every lesson has all six parts and a real picture', () => {
@@ -55,6 +55,7 @@ test('every lesson has all six parts and a real picture', () => {
     assert.ok(l.objective.startsWith('I can'), l.id);
     assert.ok(l.words.length >= 1, `${l.id} vocabulary`);
     assert.ok(l.explain.text.length >= 2 && l.explain.visual, `${l.id} explanation + picture`);
+    assert.ok(l.explain.caption && l.explain.caption.length < 70, `${l.id} short caption for See it`);
     assert.ok(V.render(l.explain.visual).length > 100, `${l.id} picture renders`);
     assert.ok(l.example.steps.length >= 3 && l.example.visual, `${l.id} worked example`);
     assert.ok(l.guided.hint && l.guided.explain, `${l.id} guided hint/feedback`);
