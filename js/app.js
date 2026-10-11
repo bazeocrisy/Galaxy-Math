@@ -61,7 +61,14 @@
   const settings = loadSettings();
   function saveSettings() { try { localStorage.setItem(SKEY, JSON.stringify(settings)); } catch (e) { /* in-memory only */ } }
   const usableTables = (list) => { const t = M.cleanFamilies(list).filter((n) => settings.extension || n <= M.CORE_MAX); return t.length ? t : CORE.slice(); };
-  const tablesText = (list) => { const t = usableTables(list); return t.length === 12 ? 'all tables' : t.length === 10 && t.every((n) => n <= 10) ? 'tables 1–10' : `the ${t.join(', ')} table${t.length === 1 ? '' : 's'}`; };
+  /** "the 6s", "the 1s and 2s", "the 3s, 4s and 7s", "tables 1–10", "all tables". */
+  const tablesText = (list) => {
+    const t = usableTables(list);
+    if (t.length === 12) return 'all tables';
+    if (t.length === 10 && t.every((n) => n <= 10)) return 'tables 1–10';
+    const s = t.map((n) => `${n}s`);
+    return `the ${s.length > 1 ? `${s.slice(0, -1).join(', ')} and ${s[s.length - 1]}` : s[0]}`;
+  };
 
   /* ---------- screens and routing ---------- */
   const SCREENS = ['landing', 'menu', 'teach', 'lesson', 'practiceSetup', 'practice', 'practiceDone', 'labSetup', 'lab', 'labDone',
@@ -107,7 +114,15 @@
     `<div class="act-head">${exit}<div class="act-title"><h2 id="${id}" tabindex="-1">${title}</h2>${count}</div><div class="act-right">${right}</div></div>
      <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="${max}" aria-valuenow="${now}" aria-label="${label}"${barId ? ` id="${barId}"` : ''}><span${spanId ? ` id="${spanId}"` : ''} style="width:${(now / max) * 100}%"></span></div>`;
   /** Arithmetic text that only wraps after a "+" (never leaves "+ 6" or "= ?" alone at the start of a line). */
-  const exprHtml = (s) => rich(s.replace(/ ([+=×]) /g, '\u00A0$1 '));
+  const exprHtml = (s) => {
+    if (/^[\d ×+=?−]+$/.test(s) && s.includes(' + ')) {   // a long sum: keep each "6 +" together so lines break evenly
+      const parts = s.split(' + ');
+      return parts.map((p, i) => `<span class="t">${esc(p.replace(/ ([=×]) /g, '\u00A0$1\u00A0'))}${i < parts.length - 1 ? '\u00A0+' : ''}</span>`).join(' ');
+    }
+    return rich(s.replace(/ ([+=×]) /g, '\u00A0$1 '));
+  };
+  /** The problem as plain text for reports (prompt plus its expression line, if any). */
+  const promptText = (q) => (q.expr ? `${q.prompt} ${q.expr}` : q.prompt);
   const screenHead = (id, title, back = MENU, backLabel = '⬅ Multiplication') =>
     `<div class="screen-head"><h2 id="${id}" tabindex="-1">${title}</h2><button class="btn btn-ghost" data-nav="${back}">${backLabel}</button></div>`;
 
@@ -181,7 +196,8 @@
   }
 
   /** Lesson questions ({ type, hint, explain, ... }) in the shape askQuestion() uses. */
-  const fromLesson = (q) => ({ format: q.type === 'choice' ? 'choice' : 'number', prompt: q.prompt, answer: q.answer, options: q.options, big: q.big,
+  const fromLesson = (q) => ({ format: q.type === 'choice' ? 'choice' : 'number', prompt: q.prompt, answer: q.answer, options: q.options,
+    big: q.big || /^[\d\s×+=?÷−]+$/.test(q.prompt),
     visual: q.visual || null, hints: q.hint ? [{ text: q.hint, visual: q.hintVisual || null }] : [], explain: { text: q.explain, visual: q.explainVisual || null } });
 
   /** One question: problem → picture → answer → feedback (that order on phones; picture beside the answer on desktop).
@@ -190,7 +206,7 @@
   function askQuestion(el, q, opts) {
     const tries = opts.tries || 1, hints = q.hints || [];
     el.innerHTML = `<div class="qa${q.visual ? '' : ' no-visual'}${q.format === 'choice' ? ' is-choice' : ''}">
-        <div class="qa-q"><p class="q-prompt${q.big ? ' big' : ''}${q.big && q.prompt.length > 22 ? ' long' : ''}" id="qPrompt">${exprHtml(q.prompt)}</p>${q.sub && !(opts.hideHintSub && q.subIsHint) ? `<p class="q-sub">${esc(q.sub)}</p>` : ''}</div>
+        <div class="qa-q"><p class="q-prompt${q.big ? ' big' : ''}${q.big && q.prompt.length > 22 ? ' long' : ''}" id="qPrompt">${exprHtml(q.prompt)}</p>${q.expr ? `<p class="q-prompt big q-expr${q.expr.length > 22 ? ' long' : ''}">${exprHtml(q.expr)}</p>` : ''}${q.sub && !(opts.hideHintSub && q.subIsHint) ? `<p class="q-sub">${esc(q.sub)}</p>` : ''}</div>
         <div class="qa-visual">${viz(hideTotals(q.visual))}</div>
         <div class="qa-feedback"><div id="qHintBox"></div><div class="feedback" id="qFeedback" role="status" aria-live="polite"></div></div>
         <div class="qa-dock">
@@ -224,7 +240,7 @@
       if (hb) { if (hintLevel >= hints.length) hb.disabled = true; else hb.textContent = '💡 More help'; }
     }
     let requested = false;
-    if (opts.allowHint && hints.length) el.querySelector('#qHint').addEventListener('click', () => { requested = true; revealHints(hintLevel + 1); status('💡 Help is below.'); showFeedback(); });
+    if (opts.allowHint && hints.length) el.querySelector('#qHint').addEventListener('click', () => { requested = true; revealHints(hintLevel + 1); status('💡 Read the hint.'); showFeedback(); });
     const typeLine = () => (opts.revealType && q.typeName ? `<p class="type-reveal">Kind of problem: <b>${esc(q.typeName)}</b></p>` : '');
     /** Bring the help/feedback into view on small screens (it sits below the answer pad). */
     const showFeedback = () => setTimeout(() => {
@@ -239,6 +255,7 @@
       el.querySelectorAll('[data-opt]').forEach((b) => { b.disabled = true; if (b.dataset.opt === String(q.answer)) b.classList.add('right'); else if (b.dataset.opt === given) b.classList.add('wrong'); });
       const qb = el.querySelector('#qButtons'); if (qb) qb.remove();
       el.querySelector('.qa').classList.add('done');   // the pad folds away; feedback sits next to Next
+      const box = el.querySelector('#qAnswer'); if (box) { box.textContent = String(q.answer); box.classList.add('shown'); }
       const row = el.querySelector('#qNextRow');
       row.innerHTML = `<button type="button" class="btn btn-go btn-lg" id="qNext">${opts.nextLabel || 'Next →'}</button>`;
       row.querySelector('#qNext').addEventListener('click', () => opts.onNext());
@@ -269,7 +286,7 @@
         revealHints(attempts);
         fb.className = 'feedback bad';
         fb.innerHTML = `<strong>Not quite — try again.</strong> ${hints.length ? 'Use the help to think it through.' : ''}`;
-        status(hints.length ? 'Not quite. Try again. Help is below.' : 'Not quite. Try again.');
+        status(hints.length ? 'Not quite. Read the hint and try again.' : 'Not quite. Try again.');
         if (pad) pad.clear(); else { choice = null; el.querySelectorAll('[data-opt]').forEach((x) => x.setAttribute('aria-pressed', 'false')); }
         showFeedback();
         return;
@@ -394,9 +411,9 @@
         ${all ? '' : '<div class="btn-row"><button class="btn btn-secondary" id="exMore">Show the next step</button></div>'}`;
       nextOk = all;
     } else if (st.step === 4) {
-      body = '<p class="step-label">Solve this one together. Ask for a hint if you need it.</p><div id="lessonQ"></div>';
+      body = '<p class="step-label lead-in">Solve this one together. Ask for a hint if you need it.</p><div id="lessonQ"></div>';
     } else if (st.step === 5) {
-      body = `<p class="step-label">Question ${st.checkI + 1} of 3 · On your own: no hints this time.</p><div id="lessonQ"></div>`;
+      body = `<p class="step-label lead-in">Question ${st.checkI + 1} of 3 · On your own: no hints this time.</p><div id="lessonQ"></div>`;
     } else {
       const score = st.checkRes.filter(Boolean).length, passed = score >= L.PASS;
       if (!st.recorded) { store.recordLesson(l.id, score, passed); st.recorded = true; }
@@ -453,8 +470,11 @@
   function renderPracticeSetup() {
     const pairs = missPairs();
     $('practiceSetup').innerHTML = screenHead('practiceSetupTitle', '✏️ Practice <span class="h-sub">Let me try</span>') +
-      `<div class="panel start-panel"><p class="lede">${settings.practice.count} problems from ${tablesText(settings.tables)}, in lots of different ways. No timer, and you can ask for a hint.</p>
-        <button class="btn btn-go btn-lg btn-block" id="psStart">▶ Start practice</button></div>
+      `<div class="panel workspace start-hero"><div class="hero-icon" aria-hidden="true">✏️</div><div class="hero-body">
+        <h3 class="hero-title">Let's practice!</h3>
+        <div class="chips-big"><span>${settings.practice.count} problems</span><span>${tablesText(settings.tables)}</span><span>No timer</span></div>
+        <p class="lede">Lots of different kinds of problems. Ask for a hint any time.</p>
+        <button class="btn btn-go btn-lg" id="psStart">▶ Start practice</button></div></div>
        <div class="panel ice"><div class="panel-head"><h3>Practice my misses</h3><span class="badge">${pairs.length} problem${pairs.length === 1 ? '' : 's'}</span></div>
          ${pairs.length ? `<p class="muted">Problems you missed in Practice, the Lab or a Test come back here until you get them right.</p>
            <div class="btn-row" style="margin-top:12px"><button class="btn btn-primary" id="psMisses">Practice my misses</button></div>`
@@ -483,7 +503,7 @@
     else { $('practiceTitle').focus({ preventScroll: true }); window.scrollTo(0, 0); }
   }
   /** Missed questions with their worked explanations (shared by the Practice and Lab reports). */
-  const reviewList = (items, id) => `<ul class="missed-list" id="${id}">${items.map((q) => `<li><details><summary><span class="badge type">${esc(q.typeName)}</span> ${rich(q.prompt)} → <b>${esc(q.answer)}</b></summary>
+  const reviewList = (items, id) => `<ul class="missed-list" id="${id}">${items.map((q) => `<li><details><summary><span class="badge type">${esc(q.typeName)}</span> ${rich(promptText(q))} → <b>${esc(q.answer)}</b></summary>
       <p style="margin-top:6px">${rich(q.explain.text)}</p>${viz(q.explain.visual)}</details></li>`).join('')}</ul>`;
   function finishPractice() {
     const ps = practiceState; onKey = null;
@@ -593,7 +613,6 @@
         <p class="muted center">${f.reveal ? `Each answer shows after ${f.reveal} seconds. Tap the card to see it sooner.` : 'Tap the card to see each answer.'}</p></div>
        <p class="grownup-note">Grown-ups: timing and session length are in <a href="#/multiplication/settings" data-nav="#/multiplication/settings">Parent Settings</a>.</p>`;
     if (!tables.includes(f.table)) f.table = 0;
-    $('fsPick').querySelectorAll('[data-table]').forEach((b) => b.classList.toggle('last', +b.dataset.table === f.table));
     $('fsPick').addEventListener('click', (e) => { const b = e.target.closest('[data-table]'); if (!b) return; f.table = +b.dataset.table; saveSettings(); startFlashcards(); });
     show('fcSetup', crumbFor('Flashcards'));
   }
@@ -611,7 +630,7 @@
           <button class="btn btn-primary btn-lg" id="fcFlip">👀 Show answer</button>
           ${tap ? '<button class="btn btn-secondary btn-lg" id="fcNext">Next card ➜</button>' : ''}
           <button class="btn btn-secondary btn-lg" id="fcPause">⏸ Pause</button>
-          <button class="btn btn-secondary btn-lg" id="fcEnd">✓ I'm done</button>
+          <button class="btn btn-ghost-light btn-lg" id="fcEnd">✓ I'm done</button>
         </div></div>`;
     $('fcCard').onclick = () => fcFlip();
     $('fcFlip').onclick = () => fcFlip();
@@ -721,9 +740,11 @@
   function renderTestSetup() {
     const t = settings.test, tables = testTables();
     $('testSetup').innerHTML = screenHead('testSetupTitle', '⏱️ Test <span class="h-sub">Show what I know</span>') +
-      `<div class="panel start-panel center"><p class="lede"><b>${t.count} questions</b> from ${tablesText(tables)} · ${t.timer ? `${t.timer} seconds for each` : 'no timer'}</p>
-        <p class="muted" id="tsCounts">${countsForMastery(tables, t.count) ? '⭐ This test can help you master these tables.' : 'This is a practice test.'} No hints. Just do your best!</p>
-        <button class="btn btn-go btn-lg btn-block" id="tsStart">▶ Start test</button></div>
+      `<div class="panel workspace start-hero test-hero"><div class="hero-icon" aria-hidden="true">⏱️</div><div class="hero-body">
+        <h3 class="hero-title">Show what you know</h3>
+        <div class="chips-big"><span>${t.count} questions</span><span>${tablesText(tables)}</span><span>${t.timer ? `${t.timer} seconds each` : 'No timer'}</span></div>
+        <p class="lede" id="tsCounts">${countsForMastery(tables, t.count) ? '⭐ This test can help you master these tables.' : 'This is a practice test.'} No hints. Just do your best!</p>
+        <button class="btn btn-go btn-lg" id="tsStart">▶ Start test</button></div></div>
        <p class="grownup-note">Grown-ups: questions, timer and tables are in <a href="#/multiplication/settings" data-nav="#/multiplication/settings">Parent Settings</a>.</p>`;
     $('tsStart').onclick = () => startTest({ families: tables, count: t.count, timer: t.timer, kind: 'test' });
     show('testSetup', crumbFor('Test'));

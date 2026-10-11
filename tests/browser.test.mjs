@@ -295,7 +295,7 @@ try {
   // =============== TEST (one Start; options in Parent Settings) ===============
   await goto('#/multiplication/test');
   check('test: one Start, summary of options', (await exists('#tsStart')) && !(await exists('#testSetup .seg')) && /10 questions/.test(await text('#testSetup')) && /5 seconds/.test(await text('#testSetup')));
-  check('default test can count toward mastery (A-02)', /help you master/.test(await text('#tsCounts')) && /the 1, 2 tables/.test(await text('#testSetup')), await text('#testSetup'));
+  check('default test can count toward mastery (A-02)', /help you master/.test(await text('#tsCounts')) && /the 1s and 2s/.test(await text('#testSetup')), await text('#testSetup'));
   await goto('#/multiplication/settings');
   check('settings: automatic test tables explained', /Automatic:/.test(await text('#stMastery')) && (await q('stTestTables.hidden')));
   await setSetting('#stTestMode [data-v="custom"]');
@@ -307,7 +307,7 @@ try {
   await setSetting('#stTestTables [data-fam="6"]'); await setSetting('#stTimer [data-v="2"]');
   check('settings: one table × 10 counts toward mastery', /Counts toward mastery/.test(await text('#stMastery')));
   await goto('#/multiplication/test');
-  check('test summary updates', /the 6 table/.test(await text('#testSetup')) && /2 seconds/.test(await text('#testSetup')));
+  check('test summary updates', /the 6s/.test(await text('#testSetup')) && /2 seconds/.test(await text('#testSetup')));
   await click('#tsStart', 30);
   let ts = (await state()).test;
   check('test: 10 questions from the 6s', ts.qs.length === 10 && ts.qs.every((x) => x.fam === 6));
@@ -477,6 +477,20 @@ try {
       }
     }
     await goto('#/multiplication');
+  }
+
+  // =============== worst-case layouts: biggest picture and longest text, Submit must stay on screen ===============
+  const WORST = `(() => { const G = window.GalaxyBank, r = (v) => () => v; return [
+    G.generate('array', 10, 10, { rng: r(0.1), maxFactor: 10 }), G.generate('word', 7, 4, { rng: r(0.99), maxFactor: 10 }),
+    G.generate('repeated', 6, 10, { rng: r(0.1), maxFactor: 10 }), G.generate('match', 9, 7, { rng: r(0.7), maxFactor: 10 }),
+    G.generate('groups', 10, 10, { rng: r(0.1), maxFactor: 10 }), G.generate('compare', 10, 9, { rng: r(0.1), maxFactor: 10 })]; })()`;
+  const WORST_NAMES = ['10×10 array', 'long word problem', 'long sum', 'long match', '10 groups of 10', 'times as many 10×9'];
+  for (const [w, h] of [[320, 640], [375, 812], [390, 844], [768, 1024]]) {
+    await b.viewport(w, h); await b.load(URL + '#/multiplication');
+    for (const mode of ['startLabWith', 'startPracticeWith']) for (let k = 0; k < WORST_NAMES.length; k++) {
+      await b.js(`window.__galaxy.${mode}(${WORST}.slice(${k}, ${k + 1}))`); await b.wait(120);
+      check(`${w}: worst case "${WORST_NAMES[k]}" (${mode === 'startLabWith' ? 'Lab' : 'Practice'}): Submit on screen, no overflow`, (await submitOnScreen()) && (await noOverflowX()));
+    }
   }
 
   // =============== storage blocked ===============
