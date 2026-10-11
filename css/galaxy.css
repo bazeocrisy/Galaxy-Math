@@ -408,3 +408,256 @@ table.data th { font-size: .88rem; color: var(--navy-2); }
   .tally b { font-size: 1.3rem; }
   .tally div { font-size: .8rem; padding: var(--s2) 4px; overflow-wrap: anywhere; }
 }
+
+/* =====================================================================
+   UI REDESIGN (review/ui-redesign): a full-width learning workspace.
+   Problem + picture are the biggest things on screen; one answer dock
+   (answer box, number pad, buttons) sits in the same place everywhere.
+   ===================================================================== */
+:root { --content: 1200px; --dock: 360px; }
+.wrap { max-width: var(--content); padding: 10px clamp(12px, 2.5vw, 28px) 28px; }
+.btn-ghost-light { background: transparent; color: var(--navy); border-color: var(--line); box-shadow: none; min-height: 44px; padding: 6px 14px; }
+.btn-sm { min-height: 44px; padding: 6px 14px; font-size: .95rem; }
+
+/* workspace header: Exit · title · count · extra, then progress */
+.workspace { padding: clamp(14px, 2vw, 24px); }
+.act-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: var(--s3); margin-bottom: var(--s3); }
+.act-title { display: flex; align-items: baseline; gap: 4px var(--s3); flex-wrap: wrap; min-width: 0; }
+.act-title h2 { color: var(--navy); font-size: clamp(1.05rem, 2.2vw, 1.35rem); text-shadow: none; }
+.act-count { font-weight: 700; color: var(--navy-2); }
+.act-right { display: flex; align-items: center; gap: var(--s2); }
+.workspace > .bar { margin-bottom: var(--s4); height: 10px; }
+.lab-leave { margin-bottom: var(--s3); }
+
+/* the question: problem, picture, feedback on the left; answer dock on the right */
+.qa { display: grid; gap: var(--s4) var(--s6); grid-template-columns: minmax(0, 1fr); grid-template-areas: "q" "visual" "dock" "feedback"; }
+.qa.done { grid-template-areas: "q" "visual" "feedback" "dock"; }
+.qa-q { grid-area: q; }
+.qa-visual { grid-area: visual; display: flex; justify-content: center; align-items: center; }
+.qa-feedback { grid-area: feedback; }
+.qa-dock { grid-area: dock; display: flex; flex-direction: column; gap: var(--s3); align-self: start; width: 100%; max-width: 420px; justify-self: center;
+  background: var(--paper); border: 2px solid var(--line); border-radius: var(--r-lg); padding: var(--s4); }
+.qa.done .numpad, .qa.done .q-status { display: none; }
+.dock-actions { display: flex; gap: var(--s2); }
+.dock-actions:empty { display: none; }
+.dock-actions .btn { flex: 1; }
+.dock-actions .btn-primary, .dock-actions .btn-go { flex: 2; }
+.qa .answer { width: 100%; min-height: 68px; font-size: 2.4rem; }
+.qa .numpad { max-width: none; width: 100%; gap: 8px; }
+.qa .numpad button { min-height: 58px; font-size: 1.55rem; }
+.qa .choices button { min-height: 60px; font-size: 1.2rem; }
+.q-prompt { font-size: clamp(1.3rem, 2.4vw, 1.85rem); line-height: 1.3; }
+.q-prompt.big { font-size: clamp(2.4rem, 6vw, 3.8rem); text-align: center; line-height: 1.2; }
+.q-prompt.big.long { font-size: clamp(1.7rem, 3.6vw, 2.6rem); line-height: 1.45; }
+.q-sub { font-size: 1.05rem; }
+.qa-visual .viz { width: min(100%, calc(var(--w, 300px) * 1.7)); height: auto; max-height: 44vh; }
+.qa-visual .viz-jumps, .qa-visual .viz-compare { width: min(100%, calc(var(--w, 300px) * 1.3)); }
+.qa-visual .viz-set .viz { width: min(100%, calc(var(--w, 200px) * 1.3)); max-height: 34vh; }
+.qa-feedback .viz { width: min(100%, calc(var(--w, 300px) * 1.2)); height: auto; max-height: 34vh; }
+@media (min-width: 860px) {
+  .qa, .qa.done { grid-template-columns: minmax(0, 1fr) var(--dock); grid-template-areas: "q dock" "visual dock" "feedback dock"; grid-template-rows: auto 1fr auto; }
+  .qa.no-visual, .qa.no-visual.done { grid-template-areas: "q dock" "q dock" "feedback dock"; }
+  .qa.no-visual .qa-q { align-self: center; padding: var(--s5) 0; }
+  .qa-dock { max-width: none; }
+  .qa-q .q-prompt:not(.big) { font-size: clamp(1.4rem, 2vw, 1.9rem); }
+}
+@media (max-width: 859px) {
+  .qa { gap: var(--s3); }
+  .qa-visual .viz { max-height: 26vh; }
+  .qa-visual .viz-set .viz { max-height: 18vh; }
+  .qa .numpad button { min-height: 50px; font-size: 1.35rem; }
+  .qa .answer { min-height: 56px; font-size: 2rem; }
+  .q-prompt.big { font-size: clamp(2rem, 9vw, 2.8rem); }
+  .q-prompt.big.long { font-size: clamp(1.45rem, 6.2vw, 2rem); }
+}
+@media (max-width: 859px) and (max-height: 700px) {
+  .workspace { padding: var(--s3); }
+  .act-head { margin-bottom: var(--s2); }
+  .workspace > .bar { margin-bottom: var(--s2); }
+  .qa-visual .viz { max-height: 17vh; }
+  .qa .numpad { gap: 5px; }
+  .qa .numpad button { min-height: 44px; font-size: 1.2rem; }
+  .qa .answer { min-height: 46px; font-size: 1.7rem; }
+  .qa-dock { padding: var(--s3); gap: var(--s2); }
+  .q-prompt { font-size: 1.1rem; }
+  .q-prompt.big { font-size: 1.9rem; }
+  .q-prompt.big.long { font-size: 1.35rem; }
+}
+
+/* Test keeps its "assessment sheet" look but uses the same dock */
+.test-sheet { background: var(--paper); border-top: 10px solid var(--coral-d); }
+.test-sheet .qa-dock { background: #FBFAFF; }
+.test-sheet .timer-bar { margin: -8px 0 var(--s4); }
+.test-qa .q-prompt.big { font-size: clamp(2.8rem, 8vw, 4.6rem); }
+
+/* home and menu: bigger, clearer cards */
+.subjects { max-width: 820px; gap: clamp(12px, 2vw, 20px); }
+@media (min-width: 760px) { .subject { min-height: 230px; } .subject .sym { width: 96px; height: 96px; font-size: 4rem; } .subject .sName { font-size: 1.6rem; } }
+@media (min-width: 900px) {
+  .modes { gap: 16px; }
+  .mode { min-height: 210px; gap: var(--s2); }
+  .mode .mIcon { font-size: 3rem; width: auto; }
+  .mode .mName { font-size: 1.35rem; }
+  .mode .mBlurb { font-size: 1rem; }
+}
+@media (max-width: 899px) { .modes { max-width: 640px; } .mode { min-height: 88px; } .mode .mName { font-size: 1.3rem; } }
+
+/* start screens (Practice, Lab, Flashcards, Test) */
+.start-panel { max-width: 760px; padding: clamp(20px, 3vw, 36px); }
+.start-panel .lede { font-size: clamp(1.15rem, 2vw, 1.35rem); }
+
+/* Teach: up next + three units */
+.teach-layout { display: grid; gap: var(--s4); }
+@media (min-width: 900px) { .teach-layout { grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); align-items: start; } }
+.up-next { background: var(--cream); display: flex; flex-direction: column; gap: var(--s3); align-items: flex-start; }
+.up-title { font-size: clamp(1.7rem, 4vw, 2.3rem); color: var(--navy); }
+.lesson-path h3 { margin-bottom: var(--s2); }
+.unit { border-top: 1px solid var(--line); padding: var(--s2) 0; }
+.unit summary { display: flex; justify-content: space-between; align-items: center; gap: var(--s3); cursor: pointer; font-weight: 700; font-size: 1.12rem; min-height: 48px; list-style: none; }
+.unit summary::-webkit-details-marker { display: none; }
+.unit-name::before { content: '▸ '; color: var(--grape-d); }
+.unit[open] .unit-name::before { content: '▾ '; }
+.lp-list { list-style: none; margin: 0 0 var(--s2); padding: 0; display: grid; gap: 6px; }
+.lesson-row { width: 100%; display: flex; align-items: center; gap: var(--s3); min-height: 52px; padding: 8px 12px; border-radius: var(--r-md); border: 2px solid var(--line);
+  background: var(--paper); color: var(--navy); text-align: left; font-weight: 700; font-size: 1.05rem; }
+.lesson-row.next { border-color: var(--grape-d); box-shadow: inset 0 0 0 2px var(--grape-d); }
+.lesson-row.is-done { background: #F4FFFA; }
+.lp-num { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; background: var(--lav); color: var(--grape-d); flex: none; font-size: .95rem; }
+.lp-title { flex: 1; }
+.lp-done { color: var(--grass-d); font-size: 1.3rem; }
+.lp-tried { font-size: .85rem; color: var(--navy-2); }
+
+/* lesson: labelled steps, bigger text and pictures */
+.lesson-panel { padding: clamp(16px, 2.5vw, 32px); }
+.stepper { list-style: none; display: flex; gap: 4px; margin: 0 0 var(--s2); padding: 0; }
+.stepper li { flex: 1; text-align: center; font-size: .78rem; font-weight: 700; color: var(--navy-2); }
+.stepper li::before { content: ''; display: block; height: 8px; border-radius: 999px; background: rgba(27, 31, 75, .14); margin-bottom: 4px; }
+.stepper li.done::before { background: var(--grass); }
+.stepper li.on::before { background: var(--grape-d); }
+.stepper li.on { color: var(--grape-d); }
+@media (max-width: 760px) { .stepper li span { display: none; } }
+.lesson-body .objective { font-size: clamp(1.5rem, 3.5vw, 2.1rem); }
+.lesson-body .explain.lede p { font-size: clamp(1.2rem, 2.2vw, 1.45rem); line-height: 1.5; }
+.lesson-body > .viz-wrap .viz, .example-grid .viz { width: min(100%, calc(var(--w, 300px) * 1.8)); height: auto; max-height: 48vh; }
+.lesson-body > .viz-wrap .viz-set .viz { width: min(100%, calc(var(--w, 200px) * 1.4)); max-height: 36vh; }
+.lesson-body .caption { font-size: clamp(1.2rem, 2.4vw, 1.5rem); }
+.ex-steps { font-size: clamp(1.1rem, 2vw, 1.3rem); }
+
+/* Flashcards: tap a table to start; one clear row of controls */
+.fc-setup .table-pick { grid-template-columns: repeat(auto-fill, minmax(88px, 1fr)); gap: var(--s3); }
+.fc-setup .table-pick button { min-height: 76px; font-size: 1.55rem; box-shadow: var(--lift); }
+.fc-setup .table-pick button.last { border-color: var(--grape-d); }
+.fc-space .fc-stage { width: min(100%, 520px); margin: var(--s3) auto; }
+.fc-space .fc { max-height: 46vh; }
+.fc-status { text-align: center; color: var(--navy-2); font-weight: 700; min-height: 1.4em; margin-bottom: var(--s3); }
+.fc-controls-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--s3); max-width: 760px; margin: 0 auto; }
+.fc-controls-row .btn { min-height: 60px; }
+
+/* Parent Settings: spaced cards with plain explanations */
+.settings-note { margin: 0 0 var(--s4); padding: var(--s3) var(--s4); border-radius: var(--r-md); background: var(--warn-bg); color: #5E4300; border: 2px solid #F1D27A; font-size: 1.02rem; }
+.settings-grid { display: grid; gap: var(--s4); }
+@media (min-width: 960px) { .settings-grid { grid-template-columns: 1fr 1fr; align-items: start; } }
+.settings-card { padding: clamp(18px, 2.4vw, 28px); }
+.settings-card h3 { font-size: 1.3rem; margin-bottom: var(--s1); }
+.set-row { padding: var(--s4) 0; border-top: 1px solid var(--line); }
+.set-row:first-of-type, h3 + .set-row, .set-help + .set-row { border-top: 0; }
+.set-help { color: var(--navy-2); font-size: .98rem; line-height: 1.5; margin: var(--s2) 0 0; }
+.settings-card .seg { gap: var(--s2); }
+.settings-card .seg button { min-height: 48px; min-width: 64px; font-size: 1.05rem; }
+.settings-card legend { font-size: 1.08rem; margin-bottom: var(--s3); }
+.settings-card .feedback { margin-top: var(--s3); }
+
+/* pictures may grow: the wrapper must span the column, or "100%" collapses to the natural size */
+.qa-visual .viz-wrap, .qa-feedback .viz-wrap, .lesson-body > .viz-wrap, .example-grid .viz-wrap { width: 100%; }
+.qa-visual { min-height: 0; }
+@media (max-width: 520px) { .act-right .muted { display: none; } .act-title h2 { font-size: 1.05rem; } .act-head { gap: var(--s2); } }
+.dock-actions .btn { white-space: nowrap; padding-left: 12px; padding-right: 12px; }
+/* panels side by side in a grid must line up (the stacked-panel margin does not apply) */
+.settings-grid > .panel, .teach-layout > .panel { margin-top: 0; }
+
+/* ===== visual review fixes (UX-REVIEW.md V-01 … V-21) ===== */
+/* V-21 / V-04: prompts wrap in balanced lines; a sum breaks only between "6 +" groups */
+.q-prompt { text-wrap: balance; }
+.q-prompt .t { white-space: nowrap; }
+.q-expr { margin-top: var(--s2); }
+/* V-16: after answering, the box shows the right answer */
+.qa .answer.shown { border-color: var(--grass-d); color: var(--grass-d); background: var(--ok-bg); }
+/* V-06: pictures may grow; hints and feedback sit right under the picture instead of at the bottom */
+@media (min-width: 860px) { .qa-visual .viz { max-height: 52vh; } }
+@media (min-width: 700px) {
+  /* V-07: tablets and up get the side-by-side layout (narrower dock on tablets) */
+  .qa, .qa.done { grid-template-columns: minmax(0, 1fr) var(--dock); grid-template-areas: "q dock" "visual dock" "feedback dock"; grid-template-rows: auto auto 1fr; align-items: start; }
+  .qa.no-visual, .qa.no-visual.done { grid-template-areas: "q dock" "feedback dock"; grid-template-rows: auto 1fr; }
+  .qa.no-visual .qa-q { align-self: start; padding: var(--s6) 0 var(--s4); }
+  .qa-dock { max-width: none; }
+}
+@media (min-width: 700px) and (max-width: 859px) {
+  :root { --dock: 300px; }
+  .qa .numpad button { min-height: 52px; }
+  .q-prompt.big { font-size: clamp(2.4rem, 6vw, 3.2rem); }
+}
+/* V-02: sentence questions are never smaller than the keypad digits */
+@media (max-width: 859px) {
+  .qa .q-prompt:not(.big) { font-size: clamp(1.25rem, 4.6vw, 1.6rem); }
+  .qa .q-prompt.big.long { font-size: clamp(1.6rem, 6.4vw, 2.1rem); }
+}
+/* V-01 / V-14: lessons on phones — compact header, the question and Check on one screen, equal nav buttons */
+@media (max-width: 699px) {
+  #lesson .screen-head h2 { font-size: 1.15rem; }
+  #lesson .screen-head .btn { min-height: 44px; padding: 6px 12px; font-size: .95rem; }
+  .lesson-panel { padding: var(--s3); }
+  .lesson-body { margin-top: var(--s2); }
+  .lesson-body .lead-in { display: none; }
+  #stepLabel { font-size: .85rem; margin-top: 2px; }
+  .lesson-body .qa-visual .viz { max-height: 18vh; }
+  .lesson-body .qa-visual .viz-set .viz { max-height: 13vh; }
+  .lesson-nav { display: grid; grid-template-columns: auto 1fr; gap: var(--s2); }
+  .lesson-nav .btn { width: 100%; white-space: normal; }
+}
+@media (max-width: 699px) and (max-height: 860px) {
+  .lesson-body .qa-dock { padding: var(--s3); gap: var(--s2); }
+  .lesson-body .qa .numpad button { min-height: 44px; font-size: 1.2rem; }
+  .lesson-body .qa .answer { min-height: 46px; font-size: 1.7rem; }
+}
+/* V-10: 320-px headers */
+.act-count { white-space: nowrap; }
+@media (max-width: 360px) { .act-title h2 { font-size: .98rem; } .btn-ghost-light, .act-head .btn-sm { padding: 6px 10px; } }
+/* V-11: number lines in feedback keep a readable size (scroll sideways inside the box if needed) */
+@media (max-width: 699px) {
+  .qa-feedback .viz-jumps { width: 100%; max-height: none; }   /* the whole line, start to answer, is always visible */
+}
+/* V-12: arrays on short phones get a little more room */
+@media (max-width: 859px) and (max-height: 700px) { .qa-visual .viz-array { max-height: 19vh; } .qa .answer { min-height: 42px; } }
+/* V-13: unit badges never wrap */
+.unit summary .badge { white-space: nowrap; flex: none; }
+/* V-15: flashcard controls — Show answer full width, Pause and I'm done beneath */
+@media (max-width: 699px) {
+  .fc-controls-row { grid-template-columns: 1fr 1fr; max-width: 560px; }
+  .fc-controls-row #fcFlip, .fc-controls-row #fcNext { grid-column: 1 / -1; }
+}
+/* V-17: flashcard tables fit at 320 */
+@media (max-width: 360px) { .fc-setup .table-pick { grid-template-columns: repeat(3, 1fr); } .fc-setup .table-pick button { min-height: 60px; } }
+/* V-18: settings buttons stay on one line on phones; desktop cards line up */
+@media (max-width: 420px) { .settings-card .seg button { min-width: 52px; padding: 0 10px; } }
+@media (min-width: 960px) { .settings-grid { align-items: stretch; } }
+/* V-08 / V-20: start screens fill the workspace with a clear hero */
+.start-hero { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--s5); align-items: center; padding: clamp(20px, 4vw, 48px); }
+.hero-icon { font-size: clamp(4rem, 12vw, 8rem); line-height: 1; }
+.hero-body { display: flex; flex-direction: column; gap: var(--s3); align-items: flex-start; }
+.hero-title { font-size: clamp(1.7rem, 4vw, 2.6rem); color: var(--navy); }
+.chips-big { display: flex; flex-wrap: wrap; gap: var(--s2); }
+.chips-big span { background: var(--paper); border: 2px solid var(--line); border-radius: var(--r-pill); padding: 6px 16px; font-weight: 700; font-size: clamp(1rem, 2vw, 1.2rem); }
+.start-hero .btn-go { min-width: 240px; font-size: 1.35rem; min-height: 64px; margin-top: var(--s2); }
+.test-hero { border-top: 10px solid var(--coral-d); background: var(--paper); }
+@media (max-width: 520px) { .start-hero { grid-template-columns: 1fr; text-align: center; } .hero-icon { text-align: center; } .hero-body { align-items: stretch; } .chips-big { justify-content: center; } }
+.start-hero + .panel { max-width: none; }
+.fc-setup { max-width: none; }
+/* worst case (10 x 10 array) must keep Submit on screen at 375 x 812: big pictures are capped on phones */
+@media (max-width: 699px) { .qa-visual .viz-array, .qa-visual .viz-groups { max-height: 20vh; } .qa .numpad button { min-height: 48px; } }
+@media (max-width: 699px) and (max-height: 700px) { .qa-visual .viz-array, .qa-visual .viz-groups { max-height: 19vh; } .qa .numpad button { min-height: 44px; } }
+
+/* V-23: on small phones the badge / score drops to its own line instead of overlapping the title */
+/* (the kind-of-problem badge is hidden there: an extra header row would push Submit off screen for big pictures) */
+@media (max-width: 420px) { .act-head { grid-template-columns: auto minmax(0, 1fr); } .act-right .badge.type { display: none; } .act-right { grid-column: 1 / -1; justify-content: flex-start; } .act-right:not(:has(:not(.badge.type):not(.muted))) { display: none; } }
+/* V-26: Mixed is one tile like the others */
+.fc-setup .table-pick button.mixed { grid-column: auto; }

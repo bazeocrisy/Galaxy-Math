@@ -65,7 +65,7 @@ test('every generated question is mathematically correct (all types × all facts
       case 'repeated': { const adds = q.prompt.replace(' = ?', '').split(' + ').map(Number); assert.equal(adds.reduce((x, y) => x + y, 0), q.answer, where); assert.ok(adds.length >= 2); assert.match(q.sub, new RegExp(`${adds.length} groups with ${adds[0]} in each`)); break; }
       case 'match': {
         const target = q.visual ? (q.visual.kind === 'groups' ? q.visual.groups * q.visual.size : q.visual.rows * q.visual.cols)
-          : q.prompt.match(/matches (.+)\?$/)[1].split(' + ').map(Number).reduce((x, y) => x + y, 0);
+          : q.expr.split(' + ').map(Number).reduce((x, y) => x + y, 0);
         assert.equal(evalExpr(q.answer), target, where);
         const [g, n] = q.answer.split(' × ').map(Number);
         for (const d of q.options.filter((o) => o !== q.answer)) { assert.notEqual(d, `${n} × ${g}`, `${where}: turned-around fact offered`); if (/×/.test(d)) assert.notEqual(evalExpr(d), target, `${where}: ${d} also equals ${target}`); }

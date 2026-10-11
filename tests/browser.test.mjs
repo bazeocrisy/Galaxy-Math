@@ -89,11 +89,12 @@ try {
 
   // =============== TEACH ===============
   await click('#modes [data-activity=teach]', 200);
-  check('teach list: 13 lessons', (await q(`document.querySelectorAll('[data-lesson]').length`)) === 13);
+  check('teach: 13 lessons in 3 units, plus one Up next card', (await q(`document.querySelectorAll('.lesson-row').length`)) === 13 && (await q(`document.querySelectorAll('.unit').length`)) === 3 && (await exists('#upNextStart')));
+  check('teach: only the current unit is open', (await q(`document.querySelectorAll('.unit[open]').length`)) === 1);
   await click('[data-lesson=arrays]');
   await click('#lessonNext');
   await goto('#/multiplication/teach');
-  check('opening a lesson does not complete it', /Not started/.test(await text('[data-lesson=arrays]')));
+  check('opening a lesson does not complete it', (await q('!window.__galaxy.store.summary().lessons.arrays')) && !(await exists('.lesson-row[data-lesson=arrays] .lp-done')));
   await click('[data-lesson=equal-groups]');
   check('step 1 Goal + key words', /Step 1 of 7 · Goal/.test(await text('#stepLabel')) && /equal groups/.test(await text('.words')));
   await click('#lessonNext');
@@ -254,8 +255,7 @@ try {
   await goto('#/multiplication/settings');
   await setSetting('#stReveal [data-v="2"]'); await setSetting('#stHold [data-v="1"]'); await setSetting('#stOrder [data-v="order"]'); await setSetting('#stMin [data-v="3"]');
   await goto('#/multiplication/flashcards');
-  await click('#fsPick [data-table="7"]');
-  await click('#fsStart', 50);
+  await click('#fsPick [data-table="7"]', 50);   // tapping a table starts
   const t0 = Date.now();
   check('flashcards: vertical 7 × 1 first (in order)', (await q(`fcFront.querySelector('.vert').textContent`)) === '7×1');
   check('flashcards: fits on desktop', await fitsY());
@@ -280,7 +280,7 @@ try {
   await goto('#/multiplication/settings');
   await setSetting('#stReveal [data-v="0"]');
   await goto('#/multiplication/flashcards');
-  await click('#fsStart', 50);
+  await click('#fsPick [data-table="7"]', 50);
   await b.wait(2300);
   check('tap mode: no automatic flip, Next offered', !(await q(`fcCard.classList.contains('flip')`)) && (await exists('#fcNext')));
   await b.key(' '); await b.wait(80);
@@ -295,7 +295,7 @@ try {
   // =============== TEST (one Start; options in Parent Settings) ===============
   await goto('#/multiplication/test');
   check('test: one Start, summary of options', (await exists('#tsStart')) && !(await exists('#testSetup .seg')) && /10 questions/.test(await text('#testSetup')) && /5 seconds/.test(await text('#testSetup')));
-  check('default test can count toward mastery (A-02)', /help you master/.test(await text('#tsCounts')) && /the 1, 2 tables/.test(await text('#testSetup')), await text('#testSetup'));
+  check('default test can count toward mastery (A-02)', /help you master/.test(await text('#tsCounts')) && /the 1s and 2s/.test(await text('#testSetup')), await text('#testSetup'));
   await goto('#/multiplication/settings');
   check('settings: automatic test tables explained', /Automatic:/.test(await text('#stMastery')) && (await q('stTestTables.hidden')));
   await setSetting('#stTestMode [data-v="custom"]');
@@ -307,7 +307,7 @@ try {
   await setSetting('#stTestTables [data-fam="6"]'); await setSetting('#stTimer [data-v="2"]');
   check('settings: one table × 10 counts toward mastery', /Counts toward mastery/.test(await text('#stMastery')));
   await goto('#/multiplication/test');
-  check('test summary updates', /the 6 table/.test(await text('#testSetup')) && /2 seconds/.test(await text('#testSetup')));
+  check('test summary updates', /the 6s/.test(await text('#testSetup')) && /2 seconds/.test(await text('#testSetup')));
   await click('#tsStart', 30);
   let ts = (await state()).test;
   check('test: 10 questions from the 6s', ts.qs.length === 10 && ts.qs.every((x) => x.fam === 6));
@@ -370,6 +370,9 @@ try {
   await b.reload();
   await goto('#/multiplication/progress');
   check('progress after reload', await visible('progress'));
+  await goto('#/multiplication/teach');
+  check('teach list remembers completed lessons after reload', await exists('.lesson-row[data-lesson=equal-groups] .lp-done'));
+  await goto('#/multiplication/progress');
   check('progress: lessons kept', /^\d+\/13$/.test(await text('#pgLessons')) && (await text('#pgLessons')) !== '0/13');
   check('progress: tests kept', (await text('#pgTests')) === '3', await text('#pgTests'));
   check('progress: lab challenges kept', (await text('#pgLab')) === '3');
@@ -387,7 +390,7 @@ try {
   await shot('settings-1280');
 
   // =============== RETURN HOME ===============
-  await goto('#/multiplication/flashcards'); await click('#fsStart', 100);
+  await goto('#/multiplication/flashcards'); await click('#fsPick [data-table="7"]', 100);
   await click('.brand', 250);
   check('logo → home from flashcards; timers stopped', (await visible('landing')) && (await timers()) === 0);
 
@@ -457,7 +460,7 @@ try {
     check(`${w}: long word problem: no overflow`, await noOverflowX());
     if (w >= 375) check(`${w}: long word problem: Submit visible`, await submitOnScreen());
     if (w === 320) await shot('practice-long-320');
-    await goto('#/multiplication/flashcards'); await click('#fsStart', 150);
+    await goto('#/multiplication/flashcards'); await click('#fsPick [data-table="7"]', 150);
     check(`${w}: flashcards no overflow; card fits`, (await noOverflowX()) && (await q(`fcCard.getBoundingClientRect().width <= innerWidth - 24`)));
     if (w === 390) await shot('flashcards-390');
     await goto('#/multiplication/test'); await click('#tsStart', 150);
@@ -468,12 +471,26 @@ try {
     check(`${w}: lesson picture no overflow`, await noOverflowX());
     if (w === 390) await shot('lesson-390');
     if ([1280, 1366].includes(w)) {
-      for (const [h2, start] of [['#/multiplication/practice', '#psStart'], ['#/multiplication/flashcards', '#fsStart'], ['#/multiplication/test', '#tsStart']]) {
+      for (const [h2, start] of [['#/multiplication/practice', '#psStart'], ['#/multiplication/flashcards', '#fsPick [data-table="7"]'], ['#/multiplication/test', '#tsStart']]) {
         await goto(h2); await click(start, 150);
         check(`${w}×${h}: ${h2.split('/').pop()} fits without scrolling`, await fitsY());
       }
     }
     await goto('#/multiplication');
+  }
+
+  // =============== worst-case layouts: biggest picture and longest text, Submit must stay on screen ===============
+  const WORST = `(() => { const G = window.GalaxyBank, r = (v) => () => v; return [
+    G.generate('array', 10, 10, { rng: r(0.1), maxFactor: 10 }), G.generate('word', 7, 4, { rng: r(0.99), maxFactor: 10 }),
+    G.generate('repeated', 6, 10, { rng: r(0.1), maxFactor: 10 }), G.generate('match', 9, 7, { rng: r(0.7), maxFactor: 10 }),
+    G.generate('groups', 10, 10, { rng: r(0.1), maxFactor: 10 }), G.generate('compare', 10, 9, { rng: r(0.1), maxFactor: 10 })]; })()`;
+  const WORST_NAMES = ['10×10 array', 'long word problem', 'long sum', 'long match', '10 groups of 10', 'times as many 10×9'];
+  for (const [w, h] of [[320, 640], [375, 812], [390, 844], [768, 1024]]) {
+    await b.viewport(w, h); await b.load(URL + '#/multiplication');
+    for (const mode of ['startLabWith', 'startPracticeWith']) for (let k = 0; k < WORST_NAMES.length; k++) {
+      await b.js(`window.__galaxy.${mode}(${WORST}.slice(${k}, ${k + 1}))`); await b.wait(120);
+      check(`${w}: worst case "${WORST_NAMES[k]}" (${mode === 'startLabWith' ? 'Lab' : 'Practice'}): Submit on screen, no overflow`, (await submitOnScreen()) && (await noOverflowX()));
+    }
   }
 
   // =============== storage blocked ===============
