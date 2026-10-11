@@ -4,7 +4,11 @@ A space-themed, third-grade math learning application. This repository starts fr
 
 ## Current status
 
-**Baseline only:** `index.html` currently provides multiplication flashcards and timed tests. It does **not yet** contain the four-operation landing page, guided teaching, division, or progress reports. Do not misrepresent these as implemented.
+**Phase 2:** `index.html` has the four-subject landing page and a Teach · Practice · Flashcards · Test menu. Only multiplication **Flashcards** and **Test** work today; everything else is clearly marked Coming Soon. Guided teaching, division activities and progress reports are **not yet** built. See `STATUS.md`.
+
+## Tests
+
+`npm test` (unit, Node 22+) and `npm run test:browser` (headless Chrome or Edge; set `CHROME_PATH` if needed). No dependencies to install.
 
 ## Planned subjects
 

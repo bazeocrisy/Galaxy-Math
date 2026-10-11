@@ -1,33 +1,58 @@
 # Galaxy Math — Development Status
 
-Updated: 2026-10-11
+Updated: 2026-10-11 (branch `feature/galaxy-math-foundation`, not merged, not published)
 
-## Verified from supplied prototype
+## Phase 1 — Baseline audit (done)
 
-- [x] Baseline Galaxy Flash Cards source preserved in `index.html`.
-- [x] Existing multiplication flashcards, timer options and test code identified.
-- [x] Product renamed in visible page header and title for project handoff.
-- [x] Product specifications and Claude Code instructions documented.
+Audited the single-file prototype (`index.html`). Findings:
+
+| # | Baseline issue | Result |
+|---|---|---|
+| 1 | `askCard()` called `tickDown()` on the next animation frame, so a 5-second card really gave ~4 seconds. | **Fixed.** First tick now comes from the 1-second interval. Browser test checks the ring shows 5 at start and 4 after ~1 s. |
+| 2 | `endPractice()` forced a 10-card quick check when flashcard time ran out. | **Fixed.** Time-out now shows the "All done!" report with an *optional* "Quick check" button. |
+| 3 | `endPractice()` overwrote the user's chosen test timer (`secs`) with the flashcard speed. | **Fixed.** Each test run now takes its own seconds value (`startTest(deck, seconds)`). |
+| 4 | Timer-choice and speed controls were `<span>`s (not keyboard reachable). | **Fixed.** Now `<button>`s with `aria-pressed`. |
+| 5 | Stored table list was trusted without validation. | **Fixed.** Values outside 1–12 are ignored; storage failures fall back to defaults. |
+| 6 | Galaxy background ended where content ended on tall phone screens. | **Fixed** (`min-height:100vh`). |
+| 7 | Only × facts exist; no division, Teach or Practice. | Still true — see "Not yet implemented". |
+| 8 | Test mode always uses all 12 facts per selected table (144 for "All"). | Open — Phase 6 (10/20/36 questions). |
+| 9 | Fredoka font loads from Google Fonts; offline it falls back to system fonts. | Open — consider self-hosting the font file. |
+
+The personal name from the original prototype does not appear anywhere in the page.
+
+## Phase 2 — Landing page and activity menus (done, awaiting owner review)
+
+- [x] Original rocket-and-planet SVG logo (`assets/galaxy-math-logo.svg`) and favicon (`assets/favicon.svg`); no hotlinked graphics.
+- [x] Subject registry (`js/registry.js`): Addition, Subtraction (Coming Soon), Multiplication, Division; which activities are ready.
+- [x] Four-card landing page. Addition/Subtraction are `aria-disabled`, dashed, labeled **Coming Soon**; tapping them shows a friendly message and does not navigate.
+- [x] Activity menu per open subject: **Teach · Practice · Flashcards · Test**.
+  - Multiplication: Flashcards and Test work; Teach and Practice show **Coming soon** and do nothing.
+  - Division: the menu opens, but all four activities are marked **Coming soon** and the subtitle says lessons are being built.
+- [x] Hash routes (`#/`, `#/multiplication`, `#/multiplication/flashcards`, `#/multiplication/test`). Links to locked subjects or unfinished activities redirect to the nearest safe screen. Browser Back works and stops any running session timers.
+- [x] Original galaxy theme, flashcard animation, vertical × cards, number pad and results preserved.
+- [x] Focus moves to the screen heading on navigation; visible focus ring; reduced-motion turns off star twinkle and card/ring animations.
+
+## Tests (all run 2026-10-11 on this branch)
+
+- `npm test` — 11/11 unit tests (registry, routing guards, local file references, no external scripts/analytics, self-contained SVGs).
+- `npm run test:browser` — 76/76 headless-Chrome checks: landing at 320, 375, 390, 768 and 1280 px (no horizontal overflow, text fits, touch-target size, logo loads, background fills screen); disabled-card behavior; menu contents and readable disabled labels; redirects; flashcards start/stop; no timers after Menu, Quit or browser Back; time-out shows report (no forced test); optional quick check; test countdown; correct answer graded; page works when localStorage throws; no page errors; no missing files.
+- Screenshots: `docs/screenshots/` (landing 390 px and 1280 px, Multiplication and Division menus).
+- Not tested: real phones/tablets, Safari/Firefox, screen readers (headless Chrome only).
 
 ## Not yet implemented
 
-- [ ] Four-operation landing screen (+ and − Coming Soon; × and ÷ active).
-- [ ] Galaxy Math brand SVG logo, favicon and polished home page.
-- [ ] Operation-specific Teach, Practice, Flashcards, Test menus.
-- [ ] Multiplication Teach and Practice lessons.
-- [ ] Division Teach and Practice lessons.
-- [ ] Division and mixed flashcards; optional end-of-flashcard test.
-- [ ] Independent test/results improvements.
-- [ ] Parent progress screen and local mastery.
-- [ ] Automated and cross-device regression tests.
-- [ ] Deployment or GitHub Pages launch.
+- [ ] Multiplication Teach and Practice lessons (Phase 3).
+- [ ] Division Teach and Practice lessons (Phase 4).
+- [ ] Division and mixed flashcards; family/answer-hold/session options (Phase 5).
+- [ ] Unified Test: 10/20/36 questions, timed or untimed, unanswered counted, results by family (Phase 6).
+- [ ] Parent progress screen and local mastery (Phase 7).
+- [ ] Full accessibility / cross-device regression pass (Phase 8).
+- [ ] Deployment or GitHub Pages launch (needs owner authorization).
 
-## Risks / baseline defects for Claude to audit
+## Notes for the owner
 
-1. First timed test tick occurs immediately in `askCard()`.
-2. Flashcard completion currently forces a quick check.
-3. Original prototype includes only × facts.
+- `CLAUDE.md` and `README.md` mention a `worksheets/` folder and a `LICENSE` file; neither exists in this repository.
 
 ## Next Claude action
 
-Run initial audit, propose screen map and test baseline, then implement Phase 2 on a feature branch. Record exactly what was tested. Do not merge/publish without authorization.
+Owner reviews Phase 1–2 (screenshots in `docs/screenshots/`). After approval, start Phase 3 (Multiplication Teach and Practice). Do not merge/publish without authorization.
