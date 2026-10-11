@@ -1,6 +1,7 @@
 // Publish an owner-approved build to the gh-pages testing site and verify it live.
 //   node scripts/publish-gh-pages.mjs [ref]        (default ref: origin/feature/galaxy-math-foundation)
 //   node scripts/publish-gh-pages.mjs --verify      (only verify the current live site against origin/gh-pages)
+//   add --skip-browser to stop after the byte-for-byte check; then run LIVE_URL=... npm run test:browser on its own
 // Steps: unit tests → merge <ref> into gh-pages (never force-push) → push → wait for the Pages build of that
 // commit → compare every app file on the public URL with the commit → run the browser suite on the public URL.
 // Needs a GitHub token from `git credential fill` (the same login git push uses). No dependencies.
@@ -13,8 +14,9 @@ import { fileURLToPath } from 'node:url';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const REPO = 'bazeocrisy/Galaxy-Math';
 const LIVE_URL = 'https://bazeocrisy.github.io/Galaxy-Math/';
-const APP_FILES = /^(index\.html|js\/.+|assets\/.+)$/;
+const APP_FILES = /^(index\.html|css\/.+|js\/.+|assets\/.+)$/;
 const verifyOnly = process.argv.includes('--verify');
+const skipBrowser = process.argv.includes('--skip-browser');
 const ref = process.argv.slice(2).find((a) => !a.startsWith('--')) || 'origin/feature/galaxy-math-foundation';
 
 const git = (...args) => execFileSync('git', args, { cwd: ROOT, encoding: 'utf8' }).trim();
@@ -85,5 +87,6 @@ for (let i = 0; ; i++) {
   await sleep(10000);
 }
 
-npm('run test:browser', { LIVE_URL });
+if (skipBrowser) console.log(`Browser suite skipped. Run it next: LIVE_URL=${LIVE_URL} npm run test:browser`);
+else npm('run test:browser', { LIVE_URL });
 console.log(`\nPublished and verified: ${LIVE_URL} serves gh-pages ${published}`);

@@ -152,3 +152,53 @@ test('mastery: 90%+ on a table in two separate full tests (5+ questions each); r
   assert.equal(M.masteryFor([t('test', 10, 10), t('test', 10, 10)], 3).mastered, false, 'other table');
   assert.equal(M.masteryFor(undefined, 7).passes, 0);
 });
+
+test('no "1 groups" style grammar anywhere, and no repeated addition of a single number', () => {
+  for (const type of M.PRACTICE_TYPES) for (const fam of M.FAMILIES) for (const other of [1, 2, 7]) {
+    for (let s = 0; s < 4; s++) {
+      if ((type === 'groups' || type === 'repeated') && !M.groupShape(fam, other)) continue;
+      if (type === 'repeated' && (fam === 1 || other === 1)) continue;
+      const q = M.makeQuestion(type, fam, other, seeded(s * 97 + fam * 13 + other));
+      const all = [q.prompt, M.hintFor(q).text, M.explainFor(q).text].join(' | ');
+      assert.doesNotMatch(all, /\b1 (groups|rows|times|planets|bags|boxes|rockets|dots)\b|There are 1\b|\b1 planets? each/, all);
+    }
+  }
+  const set = M.makePracticeSet({ families: [1], count: 30, rng: seeded(5) });
+  assert.ok(!set.some((q) => q.type === 'repeated'), '×1 facts skip repeated addition');
+  assert.deepEqual(M.groupShape(7, 1), [7, 1], '7 × 1 pictured as 7 groups of 1');
+});
+
+test('hints stop before the answer (factors 2–12, all types except missing factor)', () => {
+  for (const type of ['fact', 'groups', 'array', 'repeated', 'word']) for (let fam = 2; fam <= 12; fam++) for (let other = 2; other <= 12; other++) {
+    if ((type === 'groups' || type === 'repeated') && !M.groupShape(fam, other)) continue;
+    const q = M.makeQuestion(type, fam, other, seeded(fam * 50 + other));
+    const h = M.hintFor(q);
+    assert.ok(!h.text.split(/[^0-9]+/).includes(String(q.answer)) || q.answer === q.a || q.answer === q.b, `${type} ${q.a}×${q.b}: ${h.text}`);
+    if (h.visual && h.visual.kind === 'jumps') assert.equal(h.visual.labels, false, 'number-line hint hides the total');
+  }
+});
+
+test('test decks share questions evenly between the chosen tables', () => {
+  const quota = M.tableQuotas([2, 5, 7], 20, seeded(1));
+  assert.equal(Object.values(quota).reduce((s, n) => s + n, 0), 20);
+  assert.ok(Object.values(quota).every((n) => n === 6 || n === 7));
+  const set = M.makeTestSet({ families: [3, 4], count: 10, rng: seeded(3) });
+  const per = {};
+  for (const x of set) per[x.fam] = (per[x.fam] || 0) + 1;
+  assert.deepEqual(per, { 3: 5, 4: 5 }, 'two tables in a 10-question test: 5 each, so both can count toward mastery');
+  assert.equal(M.masteryTableLimit(10), 2);
+  assert.equal(M.masteryTableLimit(20), 4);
+  assert.equal(M.masteryTableLimit(36), 7);
+  for (let s = 0; s < 30; s++) {
+    const t = M.makeTestSet({ families: [6], count: 36, rng: seeded(s) });
+    for (let i = 1; i < t.length; i++) assert.notEqual(t[i].factKey, t[i - 1].factKey, `seed ${s}`);
+  }
+});
+
+test('practice-my-misses length: two questions per missed fact, 4 to 30', () => {
+  assert.equal(M.missPracticeCount(1), 4);
+  assert.equal(M.missPracticeCount(3), 6);
+  assert.equal(M.missPracticeCount(40), 30);
+  const one = M.makePracticeSet({ facts: [{ fam: 8, other: 7 }], count: M.missPracticeCount(1), rng: seeded(8) });
+  assert.equal(new Set(one.map((q) => q.key)).size, one.length, 'no identical question when the fact allows enough types');
+});

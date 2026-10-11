@@ -96,7 +96,7 @@ test('blocked storage: works in memory and reports not persistent', () => {
 });
 
 test('corrupt or foreign data is replaced by safe defaults', () => {
-  for (const bad of ['not json', '{"v":99,"mult":{}}', '[]', '{"v":1,"mult":{"lessons":"x","tests":"y","misses":{"bad":3,"7x8":-1}}}']) {
+  for (const bad of ['not json', '{"v":99,"mult":{}}', '[]', '{"v":1,"mult":{"lessons":"x","tests":"y","misses":{"bad":3,"7x8":-1}}}', '{"v":1,"mult":{"facts":{"bogus":{"correct":1,"total":2}}}}']) {
     const st = P.createStore(memoryStorage({ [P.KEY]: bad }));
     const sum = st.summary();
     assert.equal(sum.lessonsDone, 0, bad);

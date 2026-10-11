@@ -82,15 +82,19 @@ test('lesson answers are mathematically right', () => {
   }
   // Spot-check the strategy and word-problem answers explicitly.
   const s = L.getLesson('strategies');
-  assert.deepEqual(s.check.map((q) => q.answer), [6 * 8, 4 * 7, 11 * 4]);
+  assert.deepEqual(s.check.map((q) => q.answer), [6 * 8, 4 * 7, 9 * 6]);
   const w = L.getLesson('word-problems');
   assert.deepEqual([w.guided.answer, w.check[1].answer, w.check[2].answer], [6 * 4, 4 * 5, 9 * 4]);
 });
 
-test('extension content is labelled', () => {
-  const ext = L.LESSONS.flatMap((l) => l.check).filter((q) => /11|12 ×|× 12/.test(q.prompt));
-  assert.ok(ext.length >= 1);
-  assert.ok(ext.every((q) => q.extension === true && /^Extension/.test(q.prompt)));
+test('completing a lesson only needs core facts (no 11s or 12s in guided or check questions)', () => {
+  for (const l of L.LESSONS) for (const q of [l.guided, ...l.check]) assert.doesNotMatch(q.prompt, /1[12]/, `${l.id}: ${q.prompt}`);
+  assert.ok(L.getLesson('strategies').explain.text.join(' ').includes('Extension: **×11**'), 'extension strategies still taught');
+});
+
+test('question pictures never show the answer before the child answers', () => {
+  // Equation pictures label factor/product; number lines label the total. Neither may appear in a question.
+  for (const l of L.LESSONS) for (const q of [l.guided, ...l.check]) if (q.visual) assert.notEqual(q.visual.kind, 'equation', `${l.id}: ${q.prompt}`);
 });
 
 test('checkLessonAnswer', () => {

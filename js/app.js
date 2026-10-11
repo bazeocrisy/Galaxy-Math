@@ -8,6 +8,9 @@
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const rich = (s) => esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
   const viz = (spec) => (spec ? `<div class="viz-wrap">${V.render(spec)}</div>` : '');
+  /** A question's own picture: number lines drop their landing numbers so the total is not given away. */
+  const hideTotals = (spec) => !spec ? spec : spec.kind === 'jumps' ? { ...spec, labels: false }
+    : spec.kind === 'set' ? { ...spec, items: spec.items.map((it) => ({ ...it, visual: hideTotals(it.visual) })) } : spec;
   const fmt = (sec) => `${Math.floor(sec / 60)}:${String(Math.max(0, sec) % 60).padStart(2, '0')}`;
   const SUBJ = 'multiplication', MENU = '#/multiplication';
 
@@ -28,7 +31,8 @@
     onKey(e);
   });
   // Enter/Space on a focused button already clicks it; screens should not handle those keys again.
-  const onButton = (e) => e.target && e.target.closest && e.target.closest('button, a');
+  // Number-pad keys are the exception: Enter there means "submit", not "press that digit again".
+  const onButton = (e) => { const t = e.target && e.target.closest && e.target.closest('button, a'); return !!t && !t.closest('.numpad'); };
 
   /* ---------- settings (separate for each activity, so Flashcard timers never change Test timers) ---------- */
   const SKEY = 'galaxy-math.settings';
@@ -73,7 +77,9 @@
     firstShow = false;
   }
   function nav(h) { if (location.hash === h) route(); else location.hash = h; }
-  function stopAll() { T.clearAll(); onKey = null; fcState = null; testState = null; practiceState = null; lessonState = null; }
+  function stopAll() {
+    if (fcState) store.recordFlash(Math.round(Math.min(fcElapsed(), fcState.totalMs) / 1000), fcState.seen);
+    T.clearAll(); onKey = null; fcState = null; testState = null; practiceState = null; lessonState = null; }
   function route() {
     stopAll();
     const r = GM.resolveRoute(location.hash);
@@ -167,7 +173,7 @@
   function askQuestion(el, q, opts) {
     const tries = opts.tries || 1;
     el.innerHTML = `<div class="work">
-        <div class="stack"><p class="q-prompt${q.big ? ' big' : ''}" id="qPrompt">${rich(q.prompt)}</p>${viz(q.visual)}
+        <div class="stack"><p class="q-prompt${q.big ? ' big' : ''}" id="qPrompt">${rich(q.prompt)}</p>${viz(hideTotals(q.visual))}
           <div class="feedback-area" id="qHintBox"></div><div class="feedback" id="qFeedback" role="status" aria-live="polite"></div></div>
         <div class="answer-col">
           ${q.type === 'choice'
@@ -190,7 +196,7 @@
     const showHint = () => {
       if (hinted || done) return;
       hinted = true;
-      el.querySelector('#qHintBox').innerHTML = `<div class="feedback info"><strong>Hint:</strong> ${rich(q.hint)}${viz(q.hintVisual)}</div>`;
+      el.querySelector('#qHintBox').innerHTML = `<div class="feedback info"><strong>Hint:</strong> ${rich(q.hint)}${viz(hideTotals(q.hintVisual))}</div>`;
       const hb = el.querySelector('#qHint'); if (hb) hb.disabled = true;
     };
     if (opts.allowHint) el.querySelector('#qHint').addEventListener('click', showHint);
@@ -218,7 +224,8 @@
       }
       if (attempts < tries) {
         fb.className = 'feedback bad';
-        fb.innerHTML = `<strong>Not quite — try again.</strong> ${q.hint ? rich(q.hint) : ''}${viz(q.hintVisual && !hinted ? q.hintVisual : null)}`;
+        fb.innerHTML = `<strong>Not quite — try again.</strong> ${q.hint ? rich(q.hint) : ''}${viz(q.hintVisual && !hinted ? hideTotals(q.hintVisual) : null)}`;
+        const hb = el.querySelector('#qHint'); if (hb) hb.disabled = true;   // the hint is already on screen
         if (pad) pad.clear(); else { choice = null; el.querySelectorAll('[data-opt]').forEach((x) => x.setAttribute('aria-pressed', 'false')); }
         return;
       }
@@ -234,6 +241,17 @@
     };
     return { check, showHint };
   }
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      if (fcState && !fcState.paused) fcTogglePause();
+      if (testState && testState.timer && testState.ticker) { T.cancel(testState.ticker); testState.ticker = null; testState.hiddenAt = Date.now(); }
+    } else if (testState && testState.hiddenAt) {
+      const away = Date.now() - testState.hiddenAt;
+      testState.deadline += away; testState.shownAt += away; testState.hiddenAt = 0;
+      testState.ticker = T.every(testTick, 100);
+    }
+  });
 
   /* ---------- landing ---------- */
   GM.SUBJECTS.forEach((s) => {
@@ -382,7 +400,7 @@
     familyPicker($('psFam'), settings.practice.families, (f) => { settings.practice.families = f; saveSettings(); });
     seg($('psCount'), 'How many questions', [{ v: 10, label: '10' }, { v: 20, label: '20' }, { v: 30, label: '30' }], settings.practice.count, (v) => { settings.practice.count = v; saveSettings(); });
     $('psStart').onclick = () => startPractice({ families: settings.practice.families, count: settings.practice.count });
-    if ($('psMisses')) $('psMisses').onclick = () => startPractice({ facts: store.missedFacts().map(({ fam, other }) => ({ fam, other })), count: Math.min(30, Math.max(10, store.missedFacts().length)) });
+    if ($('psMisses')) $('psMisses').onclick = () => { const f = store.missedFacts().map(({ fam, other }) => ({ fam, other })); startPractice({ facts: f, count: M.missPracticeCount(f.length) }); };
     show('practiceSetup', crumbFor('Practice'));
   }
   /** Turn an engine question into the shape askQuestion() shows. */
@@ -426,7 +444,7 @@
          ${missed.length ? '<button class="btn btn-go btn-lg" id="pdAgain">Practice these again</button>' : ''}
          <button class="btn btn-primary" id="pdNew">New practice</button>
          <button class="btn btn-ghost" data-nav="${MENU}">⬅ Multiplication</button></div>`;
-    if ($('pdAgain')) $('pdAgain').onclick = () => startPractice({ facts: missed.map((r) => ({ fam: r.q.fam, other: r.q.other })), count: Math.max(missed.length, Math.min(10, missed.length * 2)) });
+    if ($('pdAgain')) $('pdAgain').onclick = () => startPractice({ facts: missed.map((r) => ({ fam: r.q.fam, other: r.q.other })), count: M.missPracticeCount(missed.length) });
     $('pdNew').onclick = () => nav(`${MENU}/practice`);
     show('practiceDone', crumbFor('Practice'));
   }
@@ -568,12 +586,21 @@
       `<div class="panel"><div class="setup-grid"><div id="tsFam"></div>
           <div class="stack"><div id="tsCount"></div><div id="tsTimer"></div>
             <p class="hint-text">No hints during a test. A question left blank counts as unanswered, and every question counts toward your score.</p>
+            <div class="feedback info" id="tsMastery" aria-live="polite"></div>
             <button class="btn btn-go btn-lg btn-block" id="tsStart">▶ Start test</button></div></div></div>`;
     const t = settings.test;
     familyPicker($('tsFam'), t.families, (v) => { t.families = v; saveSettings(); });
     seg($('tsCount'), 'Questions', [{ v: 10, label: '10' }, { v: 20, label: '20' }, { v: 36, label: '36' }], t.count, (v) => { t.count = v; saveSettings(); });
     seg($('tsTimer'), 'Time for each question', [{ v: 0, label: 'Untimed' }, { v: 2, label: '2 s' }, { v: 3, label: '3 s' }, { v: 5, label: '5 s' }, { v: 10, label: '10 s' }], t.timer, (v) => { t.timer = v; saveSettings(); });
     $('tsStart').onclick = () => startTest({ families: t.families, count: t.count, timer: t.timer, kind: 'test' });
+    const masteryNote = () => {
+      const limit = M.masteryTableLimit(t.count), n = t.families.length;
+      $('tsMastery').innerHTML = n <= limit
+        ? `<strong>Counts toward mastery:</strong> each table gets at least ${M.MASTERY_MIN_QUESTIONS} questions.`
+        : `<strong>Practice test:</strong> with ${n} tables and ${t.count} questions, each table gets fewer than ${M.MASTERY_MIN_QUESTIONS} questions, so this test will not count toward mastery. To earn mastery, pick up to ${limit} table${limit === 1 ? '' : 's'} for ${t.count} questions.`;
+    };
+    $('tsFam').addEventListener('click', masteryNote); $('tsCount').addEventListener('click', masteryNote);
+    masteryNote();
     show('testSetup', crumbFor('Test'));
   }
   function startTest({ families, facts, count, timer, kind }) {
@@ -583,7 +610,7 @@
     $('test').innerHTML = `<h2 class="sr-only" id="testTitle" tabindex="-1">${kind === 'retry' ? 'Retry missed facts' : 'Multiplication test'}</h2>
       <div class="assess"><div class="meta-row"><span id="tCount"></span>
           <span class="btn-row">${timer ? '<span class="timer-pill" id="tTimer" role="timer" aria-live="off"></span>' : '<span class="badge">Untimed</span>'}<button class="btn btn-danger" id="tQuit">Quit</button></span></div>
-        <div class="bar" role="progressbar" aria-valuemin="0" aria-label="Test progress"><span id="tBar"></span></div>
+        <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="${count}" aria-valuenow="0" aria-label="Test progress" id="tProg"><span id="tBar"></span></div>
         ${timer ? '<div class="timer-bar" aria-hidden="true"><span id="tTimeBar"></span></div>' : ''}
         <div class="assess-grid" style="margin-top:16px">
           <div class="problem" id="tProblem"><span id="tQ" aria-live="polite"></span><span class="answer" id="tAns" aria-label="Your answer"></span></div>
@@ -605,6 +632,7 @@
     const ts = testState, q = ts.qs[ts.i], n = ts.qs.length;
     $('tCount').textContent = `Question ${ts.i + 1} of ${n}`;
     $('tBar').style.width = `${(ts.i / n) * 100}%`;
+    $('tProg').setAttribute('aria-valuenow', String(ts.i));
     $('tQ').textContent = `${q.a} × ${q.b} =`;
     ts.pad.clear();
     ts.shownAt = Date.now();

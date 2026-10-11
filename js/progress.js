@@ -33,7 +33,7 @@
       families: Array.isArray(t.families) ? t.families.filter((f) => Number.isInteger(f) && f >= 1 && f <= 12) : [],
       byFamily: Object.fromEntries(Object.entries(isObj(t.byFamily) ? t.byFamily : {}).filter(([, v]) => isObj(v)).map(([k, v]) => [k, { correct: num(v.correct), total: num(v.total), ms: num(v.ms), timedCorrect: num(v.timedCorrect) }])),
       avgCorrectMs: Number.isFinite(t.avgCorrectMs) ? t.avgCorrectMs : null }));
-    out.facts = cleanCounts(m.facts);
+    out.facts = Object.fromEntries(Object.entries(cleanCounts(m.facts)).filter(([k]) => M.parseFactKey(k)));   // unknown keys would break summary()
     if (isObj(m.misses)) for (const [k, v] of Object.entries(m.misses)) if (M.parseFactKey(k) && num(v) > 0) out.misses[k] = num(v);
     if (isObj(m.flash)) for (const k of ['sessions', 'seconds', 'cards']) out.flash[k] = num(m.flash[k]);
     return d;

@@ -120,11 +120,11 @@
         title: 'Write an equation for 6 groups of 2.', visual: { kind: 'groups', groups: 6, size: 2 },
         steps: ['How many groups? **6**: that is the first factor.', 'How many in each group? **2**: that is the second factor.', 'Write **6 × 2 = 12**.', '12 is the **product**.']
       },
-      guided: { type: 'number', prompt: 'In 5 × 4 = 20, what is the product?', visual: { kind: 'equation', a: 5, b: 4, p: 20 }, answer: 20,
+      guided: { type: 'number', prompt: 'In 5 × 4 = 20, what is the product?', visual: { kind: 'array', rows: 5, cols: 4 }, answer: 20,
         hint: 'The product is the answer you get when you multiply.', explain: '5 and 4 are the factors. The product is the answer: 20.' },
       check: [
         { type: 'choice', prompt: 'In 3 × 9 = 27, which numbers are the factors?', options: ['3 and 9', '9 and 27', '3 and 27'], answer: '3 and 9',
-          explain: 'Factors are the numbers being multiplied: 3 and 9. 27 is the product.', visual: { kind: 'equation', a: 3, b: 9, p: 27 } },
+          explain: 'Factors are the numbers being multiplied: 3 and 9. 27 is the product.', explainVisual: { kind: 'equation', a: 3, b: 9, p: 27 } },
         { type: 'number', prompt: 'Find the missing factor: 6 × ? = 18', answer: 3,
           explain: '6 rows of 3 make 18, so the missing factor is 3.', visual: { kind: 'array', rows: 6, cols: 3 } },
         { type: 'number', prompt: 'What is the product of 7 and 5?', answer: 35,
@@ -200,8 +200,8 @@
           explain: '5 × 8 = 40, and one more 8 makes 48. 6 × 8 = 48.', visual: { kind: 'array', rows: 6, cols: 8, split: 5 } },
         { type: 'number', prompt: 'Find 4 × 7. Double 7 is 14. Double it again.', answer: 28,
           explain: 'Double 7 is 14, and double 14 is 28. 4 × 7 = 28.', visual: { kind: 'array', rows: 4, cols: 7, split: 2 } },
-        { type: 'number', prompt: 'Extension: find 11 × 4. You know 10 × 4 = 40. Add one more group of 4.', answer: 44, extension: true,
-          explain: '10 × 4 = 40, and one more 4 makes 44. 11 × 4 = 44.', visual: { kind: 'array', rows: 11, cols: 4, split: 10 } }
+        { type: 'number', prompt: 'Find 9 × 6. You know 10 × 6 = 60. Take away one group of 6.', answer: 54,
+          explain: '10 × 6 = 60, and one group of 6 less is 54. 9 × 6 = 54.', visual: { kind: 'array', rows: 10, cols: 6, fade: 9 } }
       ]
     },
     {

@@ -220,12 +220,15 @@ try {
   check('Arrow key → next card', (await q(`fcFront.querySelector('.vert').textContent`)) === '7×2');
   await b.js('history.back();'); await b.wait(300);
   check('browser Back leaves flashcards, timers stopped', (await visible('menu')) && (await timers()) === 0);
+  check('leaving flashcards early still saves the session time', (await q('window.__galaxy.store.summary().flash.sessions')) === 2);
   check('flashcard timer did not change Test timer', (await q('window.__galaxy.state().settings.test.timer')) === 5);
 
   // =============== TEST ===============
   await goto('#/multiplication/test');
   check('test setup: timer 5 s still selected', (await q(`document.querySelector('#tsTimer [aria-pressed=true]').dataset.v`)) === '5');
+  check('setup: 12 tables × 10 questions is labelled a practice test', /will not count toward mastery/.test(await text('#tsMastery')) && /up to 2 tables/.test(await text('#tsMastery')));
   await click('#tsFam [data-fam="6"]'); await click('#tsCount [data-v="10"]'); await click('#tsTimer [data-v="2"]');
+  check('setup: one table × 10 questions counts toward mastery', /Counts toward mastery/.test(await text('#tsMastery')));
   await click('#tsStart', 30);
   let ts = (await state()).test;
   check('test: 10 questions from the 6s', ts.qs.length === 10 && ts.qs.every((x) => x.fam === 6));
@@ -256,6 +259,15 @@ try {
   check('retry missed facts: just the 2 misses', ts.kind === 'retry' && ts.qs.length === 2);
   await goto('#/multiplication');
   check('quit retry → menu, no timers', (await visible('menu')) && (await timers()) === 0);
+  // a hidden tab freezes the question timer instead of letting questions expire unseen
+  await goto('#/multiplication/test'); await click('#tsStart', 30);
+  await b.js(`Object.defineProperty(document, 'hidden', { value: true, configurable: true }); document.dispatchEvent(new Event('visibilitychange'));`);
+  await b.wait(2600);
+  check('hidden tab: test timer frozen', /Question 1 of/.test(await text('#tCount')));
+  await b.js(`Object.defineProperty(document, 'hidden', { value: false, configurable: true }); document.dispatchEvent(new Event('visibilitychange'));`);
+  await b.wait(2500);
+  check('visible again: timer continues', /Question 2 of/.test(await text('#tCount')));
+  await goto('#/multiplication');
   // untimed test + skip, and 36-question option
   await goto('#/multiplication/test');
   await click('#tsTimer [data-v="0"]'); await click('#tsCount [data-v="36"]'); await click('#tsFam [data-quick="all"]');
@@ -265,6 +277,11 @@ try {
   check('untimed: no countdown, Skip offered', !(await exists('#tTimer')) && (await exists('#tSkip')));
   await click('#tSkip', 50);
   check('skip moves on', /Question 2 of 36/.test(await text('#tCount')));
+  ts = (await state()).test;
+  await b.js(`document.querySelector('#tPad [data-k="${String(ts.qs[1].answer)[0]}"]').focus();`);
+  for (const d of String(ts.qs[1].answer)) await b.key(d);
+  await enter();
+  check('Enter on a focused number-pad key submits (no extra digit)', /Question 3 of 36/.test(await text('#tCount')) && (await q('window.__galaxy.state().test.responses[1].given')) === String(ts.qs[1].answer));
   await click('#tQuit', 50);
   check('quit asks to confirm', /Tap again/.test(await text('#tQuit')) && (await visible('test')));
   await click('#tQuit', 200);
@@ -298,6 +315,31 @@ try {
   await click('#fsStart', 100);
   await click('.brand', 250);
   check('logo → home from flashcards; timers stopped', (await visible('landing')) && (await timers()) === 0);
+
+  // =============== every lesson can be completed through the real UI ===============
+  const lessons = await q('window.GalaxyMultLessons.LESSONS.map(l => ({ id: l.id, guided: l.guided, check: l.check, steps: l.example.steps.length }))');
+  async function answer(item) {
+    if (item.type === 'choice') { await click(`#lesson [data-opt=${J(item.answer)}]`, 40); await click('#qCheck'); }
+    else { await type(item.answer); await enter(); }
+  }
+  for (const l of lessons) {
+    await goto('#/multiplication/teach');
+    await click(`[data-lesson=${l.id}]`);
+    await click('#lessonNext'); await click('#lessonNext');
+    for (let i = 1; i < l.steps; i++) await click('#exMore', 40);
+    await click('#lessonNext');
+    const giveaways = await q(`[...document.querySelectorAll('#lessonQ .viz-jumps text')].map(e => e.textContent).filter(s => s === ${J(String(l.guided.answer))})`);
+    check(`lesson ${l.id}: question picture does not show the answer`, giveaways.length === 0, J(giveaways));
+    await answer(l.guided);
+    const guidedOk = /You got it!|Correct!/.test(await text('#qFeedback'));
+    await enter();
+    let checkOk = true;
+    for (const c of l.check) { await answer(c); checkOk = checkOk && /Correct!/.test(await text('#qFeedback')); await enter(); }
+    check(`lesson ${l.id}: guided + 3 checks answered correctly`, guidedOk && checkOk);
+    check(`lesson ${l.id}: completed`, /Lesson complete!/.test(await text('#lesson')) && /3 of 3/.test(await text('.big-score')));
+  }
+  check('all 10 lessons complete', (await q('window.__galaxy.store.summary().lessonsDone')) === 10);
+  check('milestone: all 10 lessons', await q(`window.__galaxy.store.summary().milestones.includes('Finished all 10 Teach lessons')`));
 
   // =============== MOBILE + TABLET: every multiplication screen ===============
   for (const [w, h] of [[390, 844], [768, 1024]]) {
