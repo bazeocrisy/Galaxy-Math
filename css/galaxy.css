@@ -661,3 +661,14 @@ table.data th { font-size: .88rem; color: var(--navy-2); }
 @media (max-width: 420px) { .act-head { grid-template-columns: auto minmax(0, 1fr); } .act-right .badge.type { display: none; } .act-right { grid-column: 1 / -1; justify-content: flex-start; } .act-right:not(:has(:not(.badge.type):not(.muted))) { display: none; } }
 /* V-26: Mixed is one tile like the others */
 .fc-setup .table-pick button.mixed { grid-column: auto; }
+
+/* Division flashcard face: one big horizontal division */
+.div-face { font-size: clamp(2.6rem, 10vw, 4.4rem); line-height: 1; white-space: nowrap; }
+.div-face b { font-weight: 700; margin: 0 .12em; }
+.viz-share, .viz-bracket { max-width: 100%; height: auto; }
+/* division pictures follow the same phone caps as arrays and groups, so Submit stays on screen */
+@media (max-width: 699px) { .qa-visual .viz-share { max-height: 20vh; } }
+@media (max-width: 699px) and (max-height: 700px) { .qa-visual .viz-share { max-height: 15vh; } }
+
+/* Progress: keep short statuses on one line where there is room (phones wrap them so nothing is cut off). */
+@media (min-width: 480px) { #pgTypes td:last-child { white-space: nowrap; } }

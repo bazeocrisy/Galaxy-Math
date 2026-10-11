@@ -1,25 +1,31 @@
-/* Galaxy Math local progress (multiplication). Saved in localStorage under one versioned key; if storage is
-   blocked or broken, everything keeps working in memory for the visit and `persistent` is false.
+/* Galaxy Math local progress. Saved in localStorage under one versioned key; if storage is blocked or broken,
+   everything keeps working in memory for the visit and `persistent` is false.
    No names, accounts or network: only lesson/practice/lab/test numbers and missed questions. window.GalaxyProgress / Node.
-   v2 adds results by question type, Math Thinking Lab sessions and recently missed questions; v1 data is upgraded. */
+   v2 added results by question type, Lab sessions and missed questions. v3 keeps each subject separately
+   ({ mult, div }); v1/v2 data (multiplication only) is upgraded and kept. createStore() returns the multiplication
+   view; store.forSubject('div') returns the same API for division. */
 (function (root) {
   'use strict';
 
   const KEY = 'galaxy-math.progress';
-  const VERSION = 2;
+  const VERSION = 3;
   const MAX_TESTS = 60, MAX_LAB = 60, MAX_MISSED_QS = 40;
   const node = typeof module === 'object' && module.exports;
-  const M = node ? require('./mult-math.js') : root.GalaxyMult;
-  const B = node ? require('./mult-bank.js') : root.GalaxyBank;
+  /** Each subject's fact engine (M) and question bank (B). Looked up when used, so script order in the page is flexible. */
+  const SUBJECT_KITS = {
+    mult: () => (node ? { M: require('./mult-math.js'), B: require('./mult-bank.js') } : { M: root.GalaxyMult, B: root.GalaxyBank }),
+    div: () => (node ? { M: require('./div-math.js'), B: require('./div-bank.js') } : { M: root.GalaxyDiv, B: root.GalaxyDivBank })
+  };
+  const SUBJECT_KEYS = Object.keys(SUBJECT_KITS);
 
   const isObj = (v) => v && typeof v === 'object' && !Array.isArray(v);
   const num = (v) => (Number.isFinite(v) && v >= 0 ? v : 0);
   const pair = () => ({ correct: 0, total: 0 });
-  function blank() {
-    return { v: VERSION, mult: { lessons: {}, practice: { sessions: 0, questions: 0, firstTry: 0, hints: 0, byFamily: {} },
-      tests: [], facts: {}, misses: {}, flash: { sessions: 0, seconds: 0, cards: 0 },
-      types: {}, lab: [], missedQs: [] } };
+  function blankSubject() {
+    return { lessons: {}, practice: { sessions: 0, questions: 0, firstTry: 0, hints: 0, byFamily: {} },
+      tests: [], facts: {}, misses: {}, flash: { sessions: 0, seconds: 0, cards: 0 }, types: {}, lab: [], missedQs: [] };
   }
+  function blank() { return { v: VERSION, mult: blankSubject(), div: blankSubject() }; }
   function cleanCounts(obj) {
     const out = {};
     if (isObj(obj)) for (const [k, v] of Object.entries(obj)) if (isObj(v)) out[k] = { correct: num(v.correct), total: num(v.total) };
@@ -27,11 +33,17 @@
   }
   const validFact = (fam, other) => Number.isInteger(fam) && Number.isInteger(other) && fam >= 1 && fam <= 12 && other >= 1 && other <= 12;
 
-  /** Accept only data we understand (v1 or v2); anything else is replaced by safe defaults. */
+  /** Accept only data we understand (v1, v2 or v3); anything else is replaced by safe defaults.
+      v1/v2 hold multiplication only; it is kept as the multiplication record and division starts empty. */
   function normalize(raw) {
     const d = blank();
-    if (!isObj(raw) || (raw.v !== 1 && raw.v !== VERSION) || !isObj(raw.mult)) return d;
-    const m = raw.mult, out = d.mult;
+    if (!isObj(raw) || ![1, 2, VERSION].includes(raw.v)) return d;
+    for (const key of SUBJECT_KEYS) if (isObj(raw[key]) && (raw.v === VERSION || key === 'mult')) d[key] = normalizeSubject(raw[key], key);
+    return d;
+  }
+  function normalizeSubject(m, key) {
+    const { M, B } = SUBJECT_KITS[key]();
+    const out = blankSubject();
     if (isObj(m.lessons)) for (const [id, l] of Object.entries(m.lessons)) if (isObj(l)) out.lessons[id] = { completed: l.completed === true, best: num(l.best), attempts: num(l.attempts), completedAt: typeof l.completedAt === 'string' ? l.completedAt : null };
     if (isObj(m.practice)) { for (const k of ['sessions', 'questions', 'firstTry', 'hints']) out.practice[k] = num(m.practice[k]); out.practice.byFamily = cleanCounts(m.practice.byFamily); }
     if (Array.isArray(m.tests)) out.tests = m.tests.filter(isObj).slice(-MAX_TESTS).map((t) => ({
@@ -52,7 +64,7 @@
       incorrect: num(s.incorrect), unanswered: num(s.unanswered), percent: num(s.percent),
       byType: Object.fromEntries(Object.entries(isObj(s.byType) ? s.byType : {}).filter(([k, v]) => B.TYPE[k] && isObj(v)).map(([k, v]) => [k, { correct: num(v.correct), total: num(v.total) }])) }));
     if (Array.isArray(m.missedQs)) out.missedQs = m.missedQs.filter((q) => isObj(q) && B.TYPE[q.type] && validFact(q.fam, q.other)).slice(0, MAX_MISSED_QS).map((q) => ({ type: q.type, fam: q.fam, other: q.other }));
-    return d;
+    return out;
   }
 
   function createStore(storage) {
@@ -63,7 +75,20 @@
       if (!persistent) return false;
       try { storage.setItem(KEY, JSON.stringify(data)); return true; } catch (e) { persistent = false; return false; }
     }
-    const mult = () => data.mult;
+    const views = {};
+    const forSubject = (key) => {
+      if (!SUBJECT_KITS[key]) throw new Error(`unknown subject ${key}`);
+      return (views[key] ||= subjectApi(key));
+    };
+    const multView = forSubject('mult');
+    multView.forSubject = forSubject;
+    return multView;
+
+    /** The progress API for one subject (all records live in data[key]). */
+    function subjectApi(key) {
+    const { M, B } = SUBJECT_KITS[key]();
+    const mult = () => data[key];
+    const famName = key === 'div' ? (n) => `dividing by ${n}` : (n) => `the ${n}s`;
     function countFact(fam, other, ok) {
       const k = M.factKey(fam, other), f = (mult().facts[k] ||= pair());
       f.total++; if (ok) f.correct++;
@@ -161,13 +186,15 @@
         if (m.lab.length >= 1) milestones.push('Completed a first Math Thinking Lab challenge');
         if (m.lab.some((s) => s.total >= 50)) milestones.push('Finished a 50-problem Big Challenge');
         for (const t of types) if (t.status.id === 'strong') milestones.push(`Strong at ${t.name}`);
-        for (const f of families) if (f.mastered) milestones.push(`Mastered the ${f.fam}s${f.extension ? ' (extension)' : ''}`);
-        if (coreMastered === 10) milestones.push('Mastered all core tables 1–10');
+        for (const f of families) if (f.mastered) milestones.push(`Mastered ${famName(f.fam)}${f.extension ? ' (extension)' : ''}`);
+        if (coreMastered === 10) milestones.push(key === 'div' ? 'Mastered all core division facts (÷1 to ÷10)' : 'Mastered all core tables 1–10');
         return { lessonsDone, lessonsTotal, lessons: m.lessons, practice: m.practice, tests: m.tests, testsTaken: tests.length, families, coreMastered, types,
           lab: m.lab, labSessions: m.lab.length, misses: this.missedFacts(), missedQuestions: m.missedQs.slice(), flash: m.flash, milestones };
       },
-      reset() { data = blank(); save(); }
+      /** Erase this subject's progress only (the other subject is kept). */
+      reset() { data[key] = blankSubject(); save(); }
     };
+    }
   }
 
   function browserStorage() { try { return root.localStorage || null; } catch (e) { return null; } }
