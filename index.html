@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Galaxy Math — Flashcard Prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --sun:#FFD23F; --coral:#FF5C8A; --sky:#4CC9F0; --grass:#3DDC97; --grape:#B266FF;
+  --ink:#F3F0FF; --paper:#070B1F; --card:#1B1F4B; --shadow:rgba(0,0,0,.55); --glow:rgba(178,102,255,.55);
+  box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:inherit}
+body{margin:0;font-family:"Fredoka","Baloo 2","Nunito","Segoe UI Rounded",system-ui,sans-serif;font-weight:500;background:var(--paper);color:var(--ink);min-height:100%;position:relative;overflow-x:hidden;
+  background-image:radial-gradient(ellipse at 20% 15%,rgba(178,102,255,.45) 0,transparent 45%),radial-gradient(ellipse at 85% 30%,rgba(76,201,240,.35) 0,transparent 40%),radial-gradient(ellipse at 60% 90%,rgba(255,92,138,.3) 0,transparent 45%),linear-gradient(180deg,#070B1F 0%,#12163A 60%,#070B1F 100%);}
+body::before,body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;background-repeat:repeat;}
+body::before{background-image:radial-gradient(1.5px 1.5px at 20px 30px,#fff 50%,transparent 51%),radial-gradient(1px 1px at 90px 120px,#fff 50%,transparent 51%),radial-gradient(2px 2px at 160px 60px,#cfe8ff 50%,transparent 51%),radial-gradient(1px 1px at 230px 170px,#fff 50%,transparent 51%),radial-gradient(1.5px 1.5px at 300px 40px,#ffe9a8 50%,transparent 51%),radial-gradient(1px 1px at 350px 140px,#fff 50%,transparent 51%);background-size:380px 200px;opacity:.9;animation:twinkle 4s ease-in-out infinite alternate}
+body::after{background-image:radial-gradient(1px 1px at 50px 90px,#fff 50%,transparent 51%),radial-gradient(2px 2px at 140px 20px,#b8f0ff 50%,transparent 51%),radial-gradient(1px 1px at 260px 110px,#fff 50%,transparent 51%),radial-gradient(1.5px 1.5px at 330px 180px,#ffd6f0 50%,transparent 51%);background-size:420px 230px;opacity:.6;animation:twinkle 6s ease-in-out infinite alternate-reverse}
+@keyframes twinkle{from{opacity:.35}to{opacity:1}}
+.wrap{position:relative;z-index:1;max-width:760px;margin:0 auto;padding:20px 16px 40px;text-align:center}
+h1{font-size:clamp(1.6rem,6vw,2.4rem);margin:8px 0 2px;line-height:1.1;text-shadow:0 0 18px var(--glow),0 0 40px rgba(76,201,240,.4)}
+h1 span{display:block;font-size:.55em;color:var(--sun)}
+.sub{margin:0 0 18px;opacity:.8}
+.screen{display:none}.screen.on{display:block}
+button{font:inherit;font-weight:700;cursor:pointer;border:0;border-radius:18px;color:var(--ink);transition:transform .12s}
+button:active{transform:scale(.96)}
+button:focus-visible{outline:4px solid var(--grape);outline-offset:3px}
+.big{font-size:1.5rem;padding:18px 28px;width:100%;margin:8px 0;box-shadow:0 6px 0 var(--shadow)}
+.study{background:linear-gradient(135deg,#4CC9F0,#B266FF);color:#fff} .test{background:linear-gradient(135deg,#FFD23F,#FF5C8A);color:#1B1F4B} .home{background:linear-gradient(135deg,#3DDC97,#4CC9F0);color:#1B1F4B}
+.big{box-shadow:0 6px 0 var(--shadow),0 0 24px var(--glow)}
+.small{background:var(--card);padding:10px 16px;font-size:1rem;box-shadow:0 4px 0 var(--shadow)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:10px 0 20px}
+.chip{width:52px;height:52px;border-radius:50%;background:var(--card);font-size:1.3rem;box-shadow:0 4px 0 var(--shadow)}
+.chip.sel{background:var(--grape);color:#fff;box-shadow:0 4px 0 var(--shadow),0 0 16px var(--glow)}
+.chip.all{width:auto;padding:0 18px;border-radius:26px}
+.row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:14px}
+.row .small{flex:1;max-width:200px}
+fieldset{border:0;padding:0;margin:14px 0}
+legend{font-size:1.1rem;margin-bottom:6px}
+.opt{display:inline-block;background:var(--card);padding:10px 20px;border-radius:14px;margin:4px;font-size:1.1rem;box-shadow:0 4px 0 var(--shadow);cursor:pointer}
+.opt.sel{background:var(--grape);color:#fff;box-shadow:0 4px 0 var(--shadow),0 0 16px var(--glow)}
+/* card */
+.stage{perspective:1000px;margin:14px auto}
+.card{position:relative;width:100%;max-width:640px;aspect-ratio:5/4;margin:0 auto;transform-style:preserve-3d;transition:transform .25s;cursor:pointer;background:none;border-radius:28px;padding:0;box-shadow:none}
+.card.flip{transform:rotateY(180deg)}
+.face{position:absolute;inset:0;border-radius:28px;display:grid;place-items:center;backface-visibility:hidden;font-size:clamp(4rem,20vw,9rem);font-weight:700;box-shadow:0 10px 0 var(--shadow),0 0 30px var(--glow);border:6px solid rgba(255,255,255,.12);-webkit-backface-visibility:hidden}
+.front{background:radial-gradient(circle at 25% 20%,rgba(255,255,255,.18) 0,transparent 30%),linear-gradient(135deg,#2B1B6B 0%,#5B2ABF 45%,#1B4FBF 100%);color:#7FF4FF;text-shadow:0 0 18px rgba(127,244,255,.7);font-size:clamp(3.4rem,16vw,7rem)}
+.back{background:radial-gradient(circle at 75% 25%,rgba(255,255,255,.2) 0,transparent 30%),linear-gradient(135deg,#0E7C86 0%,#B266FF 55%,#FF5C8A 100%);color:#FFE66D;text-shadow:0 0 18px rgba(255,230,109,.7);transform:rotateY(180deg)}
+.vert{display:inline-block;text-align:right;line-height:1.05}
+.vert .op{border-bottom:6px solid currentColor;padding-bottom:4px;padding-right:2px}
+.vert .op b{font-weight:700;margin-right:.35em}
+.hint{margin:6px 0 0;opacity:.7}
+.bar{height:14px;background:rgba(255,255,255,.12);border-radius:8px;overflow:hidden;margin:4px 0 8px}
+.fill{height:100%;width:100%;background:linear-gradient(90deg,#3DDC97,#4CC9F0,#B266FF);border-radius:8px;transition:width 1s linear}
+.more{margin-top:26px;opacity:.75}.more summary{cursor:pointer;font-size:1rem;padding:8px}
+.doneTitle{font-size:clamp(2rem,9vw,3.4rem);margin:4px 0;text-shadow:0 0 24px var(--glow)}
+.report{background:var(--card);border-radius:18px;padding:18px;margin:14px 0;font-size:1.35rem;line-height:1.8}
+.report b{color:var(--sun)}
+.paused .card{opacity:.4}
+.count{font-size:1.1rem;margin-top:6px}
+/* timer ring */
+.ring{position:absolute;top:16px;right:16px;width:72px;height:72px}
+.ring circle{fill:none;stroke-width:8;stroke:rgba(255,255,255,.35)}
+.ring .arc{stroke:#fff;stroke-linecap:round;transform:rotate(-90deg);transform-origin:50% 50%;transition:stroke-dashoffset .95s linear}
+.ring text{fill:#fff;font-size:22px;font-weight:700;font-family:inherit}
+.ans{display:block;width:3.2em;margin:6px auto 0;font:inherit;font-size:.75em;font-weight:700;text-align:right;background:rgba(255,255,255,.2);color:#7FF4FF;border:0;border-bottom:6px solid #7FF4FF;border-radius:10px 10px 0 0;padding:0 .15em;outline:none}
+.ans:focus{background:rgba(255,255,255,.4)}
+.back.ok{background:var(--grass);color:#fff}.back.bad{background:var(--coral);color:#fff}
+.pad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-width:320px;margin:14px auto 0}
+.pad button{font-size:1.6rem;padding:14px 0;background:var(--card);box-shadow:0 5px 0 var(--shadow);border-radius:16px}
+.pad .del{background:var(--coral);color:#fff}.pad .go{background:var(--grass);color:#1B1F4B}
+.pad.off{opacity:.35;pointer-events:none}
+.grade{display:none;gap:12px;justify-content:center;margin-top:16px}
+.grade.on{display:flex}
+.got{background:var(--grass);color:#1B1F4B;font-size:1.3rem;padding:16px 22px;flex:1;max-width:200px;box-shadow:0 6px 0 var(--shadow)}
+.miss{background:var(--coral);color:#fff;font-size:1.3rem;padding:16px 22px;flex:1;max-width:200px;box-shadow:0 6px 0 var(--shadow)}
+.score{font-size:clamp(3rem,18vw,5.5rem);font-weight:700;color:var(--sun);text-shadow:0 0 24px rgba(255,210,63,.6);margin:10px 0 0;line-height:1}
+.stars{font-size:2.4rem;letter-spacing:4px}
+.missed{background:var(--card);border-radius:18px;padding:14px;margin:16px 0;font-size:1.2rem;line-height:1.7}
+@media (prefers-reduced-motion: reduce){.card{transition:none}.ring .arc{transition:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1 id="title">🚀 Galaxy Math <span>Flashcard Prototype</span></h1>
+
+  <!-- HOME -->
+  <section class="screen on" id="home">
+    <p class="sub">Pick a table and how long. Then press Start.</p>
+    <div class="chips" id="chips"></div>
+    <fieldset id="minSet">
+      <legend>How long</legend>
+      <span class="opt" data-m="3">3 min</span>
+      <span class="opt sel" data-m="5">5 min</span>
+      <span class="opt" data-m="10">10 min</span>
+    </fieldset>
+    <button class="big study" id="goStudy">▶ Start practice</button>
+    <details class="more"><summary>Test only (no practice)</summary>
+      <fieldset id="timerSet">
+        <legend>Test timer</legend>
+        <span class="opt" data-t="2">2 seconds</span>
+        <span class="opt" data-t="3">3 seconds</span>
+        <span class="opt sel" data-t="5">5 seconds</span>
+        <span class="opt" data-t="10">10 seconds</span>
+      </fieldset>
+      <button class="big test" id="goTest">Test mode</button>
+    </details>
+  </section>
+
+  <!-- STUDY -->
+  <section class="screen" id="study">
+    <div class="bar"><div class="fill" id="fill"></div></div>
+    <p class="count" id="studyCount"></p>
+    <div class="stage">
+      <button class="card" id="studyCard" aria-label="Flash card, tap to flip">
+        <div class="face front" id="sFront"></div>
+        <div class="face back" id="sBack"></div>
+      </button>
+    </div>
+    <p class="hint" id="sHint"></p>
+    <div class="row" id="manualRow">
+      <button class="small" id="prev">Back</button>
+      <button class="small" id="next">Next</button>
+    </div>
+    <fieldset id="liveSpeed"><legend>Speed</legend><span class="opt" data-s="0">Tap</span><span class="opt" data-s="2">2 sec</span><span class="opt" data-s="3">3 sec</span><span class="opt" data-s="5">5 sec</span></fieldset>
+    <div class="row"><button class="small" id="pause">⏸ Pause</button><button class="small" id="studyHome">🏠 Home</button></div>
+  </section>
+
+  <!-- TEST -->
+  <section class="screen" id="test">
+    <p class="count" id="testCount"></p>
+    <div class="stage">
+      <div class="card" id="testCard">
+        <div class="face front" id="tFront">
+          <svg class="ring" viewBox="0 0 56 56"><circle cx="28" cy="28" r="22"/><circle class="arc" id="arc" cx="28" cy="28" r="22"/><text x="28" y="36" text-anchor="middle" id="tick"></text></svg>
+          <div><span id="tQ"></span><input id="ans" class="ans" type="text" readonly aria-label="Your answer"></div>
+        </div>
+        <div class="face back" id="tBack"></div>
+      </div>
+    </div>
+    <p class="hint" id="tHint">Say the answer before time runs out!</p>
+    <div class="pad" id="pad"></div>
+    <div class="grade" id="grade">
+      <button class="got" id="nextQ">Next card</button>
+    </div>
+    <div class="row"><button class="small" id="testQuit">Quit</button></div>
+  </section>
+
+  <!-- RESULTS -->
+  <section class="screen" id="results">
+    <p class="stars" id="stars"></p>
+    <p class="score" id="scoreNum"></p>
+    <p class="sub" id="scoreMsg"></p>
+    <div class="missed" id="missedBox"></div>
+    <button class="big test" id="retryMissed">Practice the ones I missed</button>
+    <button class="big study" id="testAgain">Test again</button>
+    <button class="big home" id="resHome">Home</button>
+  </section>
+
+  <!-- DONE (after practice + check) -->
+  <section class="screen" id="done">
+    <p class="stars">🚀⭐🚀</p>
+    <h2 class="doneTitle">All done!</h2>
+    <div class="report" id="report"></div>
+    <p class="sub">Show this to a grown-up.</p>
+    <button class="big home" id="doneHome">Home</button>
+  </section>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const screens=['home','study','test','results','done'];
+function show(s){screens.forEach(x=>$(x).classList.toggle('on',x===s));}
+
+/* ---- table selection ---- */
+let selected=new Set([1,2,3,4,5,6,7,8,9,10,11,12]);
+const chips=$('chips');
+for(let n=1;n<=12;n++){const b=document.createElement('button');b.className='chip';b.textContent=n;b.dataset.n=n;
+  b.onclick=()=>{if(selected.size===12){selected=new Set([n]);}else{selected.has(n)?selected.delete(n):selected.add(n);if(!selected.size){selected=new Set([1,2,3,4,5,6,7,8,9,10,11,12]);}}render();};chips.appendChild(b);}
+const all=document.createElement('button');all.className='chip all sel';all.textContent='All';
+all.onclick=()=>{selected=new Set([1,2,3,4,5,6,7,8,9,10,11,12]);render();};chips.appendChild(all);
+function render(){const isAll=selected.size===12;[...chips.children].forEach(c=>{if(c.dataset.n)c.classList.toggle('sel',!isAll&&selected.has(+c.dataset.n));});all.classList.toggle('sel',isAll);}
+try{const s=localStorage.getItem('fc-tables');if(s){selected=new Set(JSON.parse(s));}}catch(e){}
+render();
+function saveSel(){try{localStorage.setItem('fc-tables',JSON.stringify([...selected]));}catch(e){}}
+
+/* ---- timer choice ---- */
+let secs=5;
+$('timerSet').querySelectorAll('.opt').forEach(o=>o.onclick=()=>{secs=+o.dataset.t;$('timerSet').querySelectorAll('.opt').forEach(x=>x.classList.toggle('sel',x===o));});
+
+function vert(a,b){return `<div class="vert"><div>${a}</div><div class="op"><b>×</b>${b}</div></div>`;}
+function buildDeck(){const d=[];selected.forEach(a=>{for(let b=1;b<=12;b++)d.push([a,b]);});return d;}
+function shuffleArr(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+
+/* ---- practice session ---- */
+let speed=3,minutes=5;
+function setSpeed(v){speed=v;['liveSpeed'].forEach(id=>$(id).querySelectorAll('.opt').forEach(x=>x.classList.toggle('sel',+x.dataset.s===speed)));
+  try{localStorage.setItem('fc-speed',speed);}catch(e){}}
+$('liveSpeed').querySelectorAll('.opt').forEach(o=>o.onclick=()=>{setSpeed(+o.dataset.s);
+  if($('study').classList.contains('on')){$('manualRow').style.display=speed?'none':'flex';$('sHint').textContent=speed?'Watch the card. It flips by itself.':'Tap the card to flip it, then Next.';$('studyCard').classList.remove('flip');autoStep();}});
+$('minSet').querySelectorAll('.opt').forEach(o=>o.onclick=()=>{minutes=+o.dataset.m;$('minSet').querySelectorAll('.opt').forEach(x=>x.classList.toggle('sel',x===o));});
+try{const sp=localStorage.getItem('fc-speed');if(sp!==null){setSpeed(+sp);}
+    const mn=localStorage.getItem('fc-min');if(mn){minutes=+mn;$('minSet').querySelectorAll('.opt').forEach(x=>x.classList.toggle('sel',+x.dataset.m===minutes));}}catch(e){}
+
+let deck=[],idx=0,autoT=null,clock=null,secsLeft=0,total=0,cards=0,paused=false,afterPractice=false;
+$('goStudy').onclick=()=>{saveSel();try{localStorage.setItem('fc-speed',speed);localStorage.setItem('fc-min',minutes);}catch(e){}
+  deck=shuffleArr(buildDeck());idx=0;cards=0;paused=false;total=secsLeft=minutes*60;
+  $('fill').style.transition='none';$('fill').style.width='100%';$('study').classList.remove('paused');$('pause').textContent='⏸ Pause';
+  $('manualRow').style.display=speed?'none':'flex';
+  $('sHint').textContent=speed?'Watch the card. It flips by itself.':'Tap the card to flip it, then Next.';
+  showStudy();show('study');
+  requestAnimationFrame(()=>{$('fill').style.transition='width 1s linear';});
+  clearInterval(clock);clock=setInterval(tickClock,1000);autoStep();};
+function fmt(n){return `${Math.floor(n/60)}:${String(n%60).padStart(2,'0')}`;}
+function tickClock(){if(paused)return;secsLeft--;$('fill').style.width=(secsLeft/total*100)+'%';$('studyCount').textContent=`${fmt(secsLeft)} left · ${cards} cards`;
+  if(secsLeft<=0){endPractice();}}
+function endPractice(){clearInterval(clock);stopAuto();
+  // quick check: 10 cards from the same tables, test timer = practice speed (min 3s)
+  afterPractice=true;secs=Math.max(3,speed||5);startTest(shuffleArr(buildDeck()).slice(0,10));}
+function showStudy(){const [a,b]=deck[idx];$('studyCard').classList.remove('flip');$('sFront').innerHTML=vert(a,b);$('sBack').textContent=a*b;$('studyCount').textContent=`${fmt(secsLeft)} left · ${cards} cards`;}
+function nextCard(){cards++;idx++;if(idx>=deck.length){idx=0;shuffleArr(deck);}showStudy();}
+$('studyCard').onclick=()=>{if(!speed)$('studyCard').classList.toggle('flip');};
+$('next').onclick=()=>{nextCard();};
+$('prev').onclick=()=>{idx=(idx-1+deck.length)%deck.length;showStudy();};
+$('studyHome').onclick=()=>{clearInterval(clock);stopAuto();show('home');};
+$('pause').onclick=()=>{paused=!paused;$('study').classList.toggle('paused',paused);$('pause').textContent=paused?'▶ Resume':'⏸ Pause';
+  if(paused)stopAuto();else autoStep();};
+function stopAuto(){clearTimeout(autoT);autoT=null;}
+function autoStep(){stopAuto();if(!speed||paused)return;
+  autoT=setTimeout(()=>{$('studyCard').classList.add('flip');
+    autoT=setTimeout(()=>{nextCard();autoStep();},Math.max(1000,speed*500));},speed*1000);}
+
+/* ---- test mode ---- */
+let tDeck=[],tIdx=0,right=0,missed=[],timer=null,left=0;
+const CIRC=2*Math.PI*22;$('arc').style.strokeDasharray=CIRC;
+$('goTest').onclick=()=>{saveSel();startTest(shuffleArr(buildDeck()));};
+function startTest(d){tDeck=d;tIdx=0;right=0;missed=[];show('test');askCard();}
+function askCard(){clearInterval(timer);const [a,b]=tDeck[tIdx];const card=$('testCard');card.classList.remove('flip');$('tQ').innerHTML=vert(a,b);const inp=$('ans');inp.value='';inp.disabled=false;$('tBack').className='face back';pad.classList.remove('off');$('tBack').textContent=a*b;
+  $('testCount').textContent=(afterPractice?'Quick check · ':'')+`Card ${tIdx+1} of ${tDeck.length}`;$('grade').classList.remove('on');$('tHint').textContent='Tap the numbers, then tap ✓.';
+  left=secs;$('tick').textContent=left;$('arc').style.transition='none';$('arc').style.strokeDashoffset=0;
+  requestAnimationFrame(()=>{$('arc').style.transition='stroke-dashoffset .95s linear';tickDown();});
+  timer=setInterval(tickDown,1000);}
+function tickDown(){left--;$('arc').style.strokeDashoffset=CIRC*(1-left/secs);if(left<=0){clearInterval(timer);$('tick').textContent='';reveal();}else{$('tick').textContent=left;}}
+function reveal(){clearInterval(timer);const inp=$('ans');inp.disabled=true;pad.classList.add('off');const [a,b]=tDeck[tIdx];const ok=parseInt(inp.value,10)===a*b;
+  $('tBack').classList.add(ok?'ok':'bad');$('tBack').textContent=a*b;
+  $('tHint').textContent=ok?'Correct!':(inp.value===''?`Time's up! ${a} × ${b} = ${a*b}`:`Not quite. ${a} × ${b} = ${a*b}`);
+  if(ok)right++;else missed.push(tDeck[tIdx]);
+  $('testCard').classList.add('flip');$('grade').classList.add('on');setTimeout(()=>$('nextQ').focus(),50);}
+function advance(){tIdx++;if(tIdx<tDeck.length)askCard();else finish();}
+
+const pad=$('pad');
+[1,2,3,4,5,6,7,8,9,'⌫',0,'✓'].forEach(k=>{const b=document.createElement('button');b.textContent=k;
+  if(k==='⌫'){b.className='del';b.setAttribute('aria-label','Delete');b.onclick=()=>typeKey('Backspace');}
+  else if(k==='✓'){b.className='go';b.setAttribute('aria-label','Check answer');b.onclick=()=>typeKey('Enter');}
+  else b.onclick=()=>typeKey(String(k));
+  pad.appendChild(b);});
+function typeKey(k){const inp=$('ans');if(inp.disabled)return;
+  if(k==='Backspace')inp.value=inp.value.slice(0,-1);
+  else if(k==='Enter'){if(inp.value!=='')reveal();}
+  else if(/^[0-9]$/.test(k)&&inp.value.length<3)inp.value+=k;}
+document.addEventListener('keydown',e=>{if(!$('test').classList.contains('on')||$('grade').classList.contains('on'))return;
+  if(e.key==='Backspace'||e.key==='Enter'||/^[0-9]$/.test(e.key)){e.preventDefault();e.stopPropagation();typeKey(e.key);}},true);
+$('nextQ').onclick=advance;
+document.addEventListener('keydown',e=>{if($('test').classList.contains('on')&&e.key==='Enter'&&$('grade').classList.contains('on')){e.preventDefault();advance();}});
+$('testQuit').onclick=()=>{clearInterval(timer);show('home');};
+function finish(){const n=tDeck.length,pct=right/n;
+  if(afterPractice){afterPractice=false;const tbl=selected.size===12?'all tables':[...selected].sort((a,b)=>a-b).map(x=>x+'s').join(', ');
+    $('report').innerHTML=`Practiced <b>${tbl}</b> for <b>${minutes} minutes</b><br>Saw <b>${cards}</b> cards<br>Quick check: <b>${right} / ${n}</b> ${pct===1?'⭐⭐⭐':pct>=.8?'⭐⭐':'⭐'}`+
+      (missed.length?`<br><small>Missed: ${missed.map(([a,b])=>`${a}×${b}`).join(', ')}</small>`:'');
+    show('done');return;}
+  show('results');
+  $('scoreNum').textContent=`${right} / ${n}`;
+  $('stars').textContent=pct===1?'⭐⭐⭐':pct>=.8?'⭐⭐':pct>=.5?'⭐':'💪';
+  $('scoreMsg').textContent=pct===1?'Perfect score! You know these!':pct>=.8?'Great job! Almost there.':pct>=.5?'Good work. Keep practicing!':'Keep going — every try makes you stronger.';
+  const box=$('missedBox');
+  if(missed.length){box.style.display='block';box.innerHTML='<strong>Ones to practice:</strong><br>'+missed.map(([a,b])=>`${a} × ${b} = ${a*b}`).join('<br>');$('retryMissed').style.display='block';}
+  else{box.style.display='none';$('retryMissed').style.display='none';}}
+$('retryMissed').onclick=()=>startTest(shuffleArr([...missed]));
+$('testAgain').onclick=()=>startTest(shuffleArr(buildDeck()));
+$('resHome').onclick=()=>show('home');
+$('doneHome').onclick=()=>show('home');
+
+/* keyboard: space flips in study, arrows move */
+document.addEventListener('keydown',e=>{if(!$('study').classList.contains('on'))return;
+  if(e.key===' '&&!speed){e.preventDefault();$('studyCard').classList.toggle('flip');}
+  if(e.key==='ArrowRight')$('next').click();if(e.key==='ArrowLeft')$('prev').click();});
+</script>
+</body>
+</html>
