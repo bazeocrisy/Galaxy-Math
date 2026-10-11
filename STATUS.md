@@ -105,9 +105,15 @@ A separate reviewer read all the source code. Findings and outcomes:
 - Screenshots are in `docs/screenshots/`: landing (390/1280), menu, lesson steps, practice feedback and review, flashcard front/back, test, test setup, test results, progress, and phone views of practice, flashcards, test and a lesson.
 - Not tested: real phones/tablets, Safari, Firefox, screen readers (headless Chrome only).
 
-## Deployment
+## Deployment — live testing site (verified 2026-10-11)
 
-Pending at the time of this commit. The build is published to `gh-pages` with `npm run publish:pages`, and the live results are recorded in the next commit.
+- **URL:** https://bazeocrisy.github.io/Galaxy-Math/
+- **Published:** feature commit `c871fe8` was merged into `gh-pages` as `86af248` with `npm run publish:pages` (no force-push). `gh-pages` differs from `c871fe8` only by the empty `.nojekyll`. `main` was not touched.
+- **Pages build:** `built` for `86af248` at 11:28 UTC.
+- **Live files:** all 10 app files (`index.html`, `css/galaxy.css`, 6 scripts, logo, favicon) match the commit byte-for-byte.
+- **Live browser suite** (`LIVE_URL=https://bazeocrisy.github.io/Galaxy-Math/ npm run test:browser`): **207/207 pass** on the public URL. These are the same 206 checks as localhost plus "no failed requests". I reviewed the live landing, lesson-complete and phone test screenshots by eye.
+- This was the first real run of the publish script's merge-and-push step. It worked as documented.
+- This STATUS update is a docs-only commit on the feature branch and was not re-published, so the live site stays on the verified build.
 
 ## Known limitations
 
