@@ -8,7 +8,8 @@
   const plural = (n, w) => `${n} ${n === 1 ? w : w + 's'}`;
 
   function svg(w, h, label, body, cls = '') {
-    return `<svg class="viz ${cls}" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" role="img" aria-label="${esc(label)}">${body}</svg>`;
+    // --w lets the layout enlarge a picture in proportion to its natural size (small pictures never balloon).
+    return `<svg class="viz ${cls}" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" style="--w:${w}px" role="img" aria-label="${esc(label)}">${body}</svg>`;
   }
 
   /** Dots arranged in a small grid inside one circle; sizes[i] dots in group i. */

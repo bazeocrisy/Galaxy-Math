@@ -89,11 +89,12 @@ try {
 
   // =============== TEACH ===============
   await click('#modes [data-activity=teach]', 200);
-  check('teach list: 13 lessons', (await q(`document.querySelectorAll('[data-lesson]').length`)) === 13);
+  check('teach: 13 lessons in 3 units, plus one Up next card', (await q(`document.querySelectorAll('.lesson-row').length`)) === 13 && (await q(`document.querySelectorAll('.unit').length`)) === 3 && (await exists('#upNextStart')));
+  check('teach: only the current unit is open', (await q(`document.querySelectorAll('.unit[open]').length`)) === 1);
   await click('[data-lesson=arrays]');
   await click('#lessonNext');
   await goto('#/multiplication/teach');
-  check('opening a lesson does not complete it', /Not started/.test(await text('[data-lesson=arrays]')));
+  check('opening a lesson does not complete it', (await q('!window.__galaxy.store.summary().lessons.arrays')) && !(await exists('.lesson-row[data-lesson=arrays] .lp-done')));
   await click('[data-lesson=equal-groups]');
   check('step 1 Goal + key words', /Step 1 of 7 · Goal/.test(await text('#stepLabel')) && /equal groups/.test(await text('.words')));
   await click('#lessonNext');
@@ -254,8 +255,7 @@ try {
   await goto('#/multiplication/settings');
   await setSetting('#stReveal [data-v="2"]'); await setSetting('#stHold [data-v="1"]'); await setSetting('#stOrder [data-v="order"]'); await setSetting('#stMin [data-v="3"]');
   await goto('#/multiplication/flashcards');
-  await click('#fsPick [data-table="7"]');
-  await click('#fsStart', 50);
+  await click('#fsPick [data-table="7"]', 50);   // tapping a table starts
   const t0 = Date.now();
   check('flashcards: vertical 7 × 1 first (in order)', (await q(`fcFront.querySelector('.vert').textContent`)) === '7×1');
   check('flashcards: fits on desktop', await fitsY());
@@ -280,7 +280,7 @@ try {
   await goto('#/multiplication/settings');
   await setSetting('#stReveal [data-v="0"]');
   await goto('#/multiplication/flashcards');
-  await click('#fsStart', 50);
+  await click('#fsPick [data-table="7"]', 50);
   await b.wait(2300);
   check('tap mode: no automatic flip, Next offered', !(await q(`fcCard.classList.contains('flip')`)) && (await exists('#fcNext')));
   await b.key(' '); await b.wait(80);
@@ -370,6 +370,9 @@ try {
   await b.reload();
   await goto('#/multiplication/progress');
   check('progress after reload', await visible('progress'));
+  await goto('#/multiplication/teach');
+  check('teach list remembers completed lessons after reload', await exists('.lesson-row[data-lesson=equal-groups] .lp-done'));
+  await goto('#/multiplication/progress');
   check('progress: lessons kept', /^\d+\/13$/.test(await text('#pgLessons')) && (await text('#pgLessons')) !== '0/13');
   check('progress: tests kept', (await text('#pgTests')) === '3', await text('#pgTests'));
   check('progress: lab challenges kept', (await text('#pgLab')) === '3');
@@ -387,7 +390,7 @@ try {
   await shot('settings-1280');
 
   // =============== RETURN HOME ===============
-  await goto('#/multiplication/flashcards'); await click('#fsStart', 100);
+  await goto('#/multiplication/flashcards'); await click('#fsPick [data-table="7"]', 100);
   await click('.brand', 250);
   check('logo → home from flashcards; timers stopped', (await visible('landing')) && (await timers()) === 0);
 
@@ -457,7 +460,7 @@ try {
     check(`${w}: long word problem: no overflow`, await noOverflowX());
     if (w >= 375) check(`${w}: long word problem: Submit visible`, await submitOnScreen());
     if (w === 320) await shot('practice-long-320');
-    await goto('#/multiplication/flashcards'); await click('#fsStart', 150);
+    await goto('#/multiplication/flashcards'); await click('#fsPick [data-table="7"]', 150);
     check(`${w}: flashcards no overflow; card fits`, (await noOverflowX()) && (await q(`fcCard.getBoundingClientRect().width <= innerWidth - 24`)));
     if (w === 390) await shot('flashcards-390');
     await goto('#/multiplication/test'); await click('#tsStart', 150);
@@ -468,7 +471,7 @@ try {
     check(`${w}: lesson picture no overflow`, await noOverflowX());
     if (w === 390) await shot('lesson-390');
     if ([1280, 1366].includes(w)) {
-      for (const [h2, start] of [['#/multiplication/practice', '#psStart'], ['#/multiplication/flashcards', '#fsStart'], ['#/multiplication/test', '#tsStart']]) {
+      for (const [h2, start] of [['#/multiplication/practice', '#psStart'], ['#/multiplication/flashcards', '#fsPick [data-table="7"]'], ['#/multiplication/test', '#tsStart']]) {
         await goto(h2); await click(start, 150);
         check(`${w}×${h}: ${h2.split('/').pop()} fits without scrolling`, await fitsY());
       }

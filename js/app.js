@@ -102,6 +102,12 @@
     if (n) { e.preventDefault(); nav(n.dataset.nav); }
   });
   const crumbFor = (activity) => `× Multiplication · ${activity}`;
+  /** Header row inside an activity workspace: Exit · title + count · extra, then a progress bar. */
+  const actHead = ({ id, title, count = '', right = '', exit, now = 0, max = 1, label, barId = '', spanId = '' }) =>
+    `<div class="act-head">${exit}<div class="act-title"><h2 id="${id}" tabindex="-1">${title}</h2>${count}</div><div class="act-right">${right}</div></div>
+     <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="${max}" aria-valuenow="${now}" aria-label="${label}"${barId ? ` id="${barId}"` : ''}><span${spanId ? ` id="${spanId}"` : ''} style="width:${(now / max) * 100}%"></span></div>`;
+  /** Arithmetic text that only wraps after a "+" (never leaves "+ 6" or "= ?" alone at the start of a line). */
+  const exprHtml = (s) => rich(s.replace(/ ([+=×]) /g, '\u00A0$1 '));
   const screenHead = (id, title, back = MENU, backLabel = '⬅ Multiplication') =>
     `<div class="screen-head"><h2 id="${id}" tabindex="-1">${title}</h2><button class="btn btn-ghost" data-nav="${back}">${backLabel}</button></div>`;
 
@@ -183,20 +189,21 @@
       opts: { tries, allowHint, allowSkip, revealType, onDone({ firstTry, hinted, given, skipped }), nextLabel, onNext } */
   function askQuestion(el, q, opts) {
     const tries = opts.tries || 1, hints = q.hints || [];
-    el.innerHTML = `<div class="qa">
-        <div class="qa-q"><p class="q-prompt${q.big ? ' big' : ''}" id="qPrompt">${rich(q.prompt)}</p>${q.sub && !(opts.hideHintSub && q.subIsHint) ? `<p class="q-sub">${esc(q.sub)}</p>` : ''}</div>
+    el.innerHTML = `<div class="qa${q.visual ? '' : ' no-visual'}${q.format === 'choice' ? ' is-choice' : ''}">
+        <div class="qa-q"><p class="q-prompt${q.big ? ' big' : ''}${q.big && q.prompt.length > 22 ? ' long' : ''}" id="qPrompt">${exprHtml(q.prompt)}</p>${q.sub && !(opts.hideHintSub && q.subIsHint) ? `<p class="q-sub">${esc(q.sub)}</p>` : ''}</div>
         <div class="qa-visual">${viz(hideTotals(q.visual))}</div>
-        <div class="qa-answer">
+        <div class="qa-feedback"><div id="qHintBox"></div><div class="feedback" id="qFeedback" role="status" aria-live="polite"></div></div>
+        <div class="qa-dock">
           ${q.format === 'choice'
             ? `<div class="choices" role="group" aria-labelledby="qPrompt">${q.options.map((o) => `<button type="button" data-opt="${esc(o)}" aria-pressed="false">${esc(o)}</button>`).join('')}</div>`
             : '<div class="answer" id="qAnswer" role="textbox" aria-readonly="true" aria-label="Your answer (use the number keys)"></div><p class="q-status" id="qStatus" aria-hidden="true"></p><div class="numpad" id="qPad"></div>'}
-          <div class="btn-row center" id="qButtons">
+          <div class="dock-actions" id="qButtons">
             ${opts.allowHint && hints.length ? '<button type="button" class="btn btn-secondary" id="qHint">💡 Hint</button>' : ''}
             ${opts.allowSkip ? '<button type="button" class="btn btn-secondary" id="qSkip">Skip</button>' : ''}
             <button type="button" class="btn btn-primary btn-lg" id="qCheck">${opts.checkLabel || 'Check'}</button>
           </div>
+          <div class="dock-actions" id="qNextRow"></div>
         </div>
-        <div class="qa-feedback"><div id="qHintBox"></div><div class="feedback" id="qFeedback" role="status" aria-live="polite"></div><div class="btn-row center" id="qNextRow"></div></div>
       </div>`;
     let attempts = 0, hintLevel = 0, done = false, choice = null, firstTry = null;
     const fb = el.querySelector('#qFeedback');
@@ -231,6 +238,7 @@
       if (pad) pad.disable(true);
       el.querySelectorAll('[data-opt]').forEach((b) => { b.disabled = true; if (b.dataset.opt === String(q.answer)) b.classList.add('right'); else if (b.dataset.opt === given) b.classList.add('wrong'); });
       const qb = el.querySelector('#qButtons'); if (qb) qb.remove();
+      el.querySelector('.qa').classList.add('done');   // the pad folds away; feedback sits next to Next
       const row = el.querySelector('#qNextRow');
       row.innerHTML = `<button type="button" class="btn btn-go btn-lg" id="qNext">${opts.nextLabel || 'Next →'}</button>`;
       row.querySelector('#qNext').addEventListener('click', () => opts.onNext());
@@ -239,7 +247,8 @@
         const n = el.querySelector('#qNext'); if (!n) return;
         n.focus({ preventScroll: true });
         const r = n.getBoundingClientRect();
-        if (r.bottom > window.innerHeight || r.top < 0) el.querySelector('.qa-feedback').scrollIntoView({ block: 'end', behavior: 'auto' });
+        const fbBox = el.querySelector('.qa-feedback').getBoundingClientRect();
+        if (r.bottom > window.innerHeight || r.top < 0 || fbBox.top > window.innerHeight - 60) el.querySelector('.qa-feedback').scrollIntoView({ block: 'start', behavior: 'auto' });
       }, 30);
     }
     function check() {
@@ -332,17 +341,31 @@
      TEACH — Show me how
      ===================================================================================== */
   let lessonState = null;
+  const UNITS = [
+    { name: 'What multiplication means', ids: ['equal-groups', 'repeated-addition', 'rows-columns', 'arrays'] },
+    { name: 'Facts and equations', ids: ['equations', 'missing-factors', 'commutative', 'fact-families', 'strategies'] },
+    { name: 'Use it and check it', ids: ['word-problems', 'connecting', 'check-the-work', 'times-as-many'] }
+  ];
   function renderTeach() {
     const sum = store.summary({ lessonsTotal: L.LESSONS.length });
+    const st = (id) => sum.lessons[id];
+    const done = (id) => !!(st(id) && st(id).completed);
+    const next = L.LESSONS.find((l) => !done(l.id)) || null;
+    const num = (id) => L.LESSONS.findIndex((l) => l.id === id) + 1;
+    const status = (id) => (done(id) ? '<span class="lp-done" title="Completed" aria-label="completed">✓</span>' : st(id) ? `<span class="lp-tried">best ${st(id).best} of 3</span>` : '');
     $('teach').innerHTML = screenHead('teachTitle', '💡 Teach <span class="h-sub">Show me how</span>') +
-      `<div class="panel"><div class="panel-head"><p class="lede">Short lessons about what multiplication <b>means</b>. Finish a lesson by getting ${L.PASS} of the 3 check questions right.</p>
-        <span class="badge done">${sum.lessonsDone} of ${L.LESSONS.length} done</span></div>
-        <div class="lessons">${L.LESSONS.map((l, i) => {
-          const st = sum.lessons[l.id];
-          const badge = st && st.completed ? '<span class="badge done">✓ Completed</span>' : st ? `<span class="badge">Best: ${st.best} of 3</span>` : '<span class="badge">Not started</span>';
-          return `<button class="lesson-card${st && st.completed ? ' done' : ''}" data-lesson="${l.id}"><span class="num">Lesson ${i + 1}</span><span class="t">${esc(l.title)}</span>${badge}</button>`;
+      `<div class="teach-layout">
+        ${next ? `<div class="panel up-next"><p class="step-label">Up next · Lesson ${num(next.id)} of ${L.LESSONS.length}</p><h3 class="up-title">${esc(next.title)}</h3>
+            <p class="lede">${esc(next.objective)}</p><button class="btn btn-go btn-lg" id="upNextStart" data-start="${next.id}">▶ Start this lesson</button>
+            <p class="muted">${sum.lessonsDone} of ${L.LESSONS.length} lessons done</p></div>`
+          : '<div class="panel up-next"><h3 class="up-title">All lessons done! ⭐</h3><p class="lede">Pick any lesson to look at it again.</p></div>'}
+        <div class="panel lesson-path"><h3>All lessons</h3>${UNITS.map((u, ui) => {
+          const open = next ? u.ids.includes(next.id) : ui === 0, n = u.ids.filter(done).length;
+          return `<details class="unit"${open ? ' open' : ''}><summary><span class="unit-name">${ui + 1}. ${u.name}</span><span class="badge${n === u.ids.length ? ' done' : ''}">${n} of ${u.ids.length}</span></summary>
+            <ol class="lp-list">${u.ids.map((id) => `<li><button class="lesson-row${next && id === next.id ? ' next' : ''}${done(id) ? ' is-done' : ''}" data-lesson="${id}"><span class="lp-num">${num(id)}</span><span class="lp-title">${esc(lessonTitle(id))}</span>${status(id)}</button></li>`).join('')}</ol></details>`;
         }).join('')}</div></div>`;
     $('teach').querySelectorAll('[data-lesson]').forEach((b) => b.addEventListener('click', () => startLesson(b.dataset.lesson)));
+    if ($('upNextStart')) $('upNextStart').onclick = () => startLesson($('upNextStart').dataset.start);
     show('teach', crumbFor('Teach'));
   }
   function startLesson(id) {
@@ -354,7 +377,7 @@
   function renderLesson(first) {
     const st = lessonState, l = st.lesson;
     onKey = null;
-    const stepsBar = L.STEPS.map((_, i) => `<span class="${i < st.step ? 'done' : i === st.step ? 'on' : ''}"></span>`).join('');
+    const stepsBar = L.STEPS.map((name, i) => `<li class="${i < st.step ? 'done' : i === st.step ? 'on' : ''}"><span>${name}</span></li>`).join('');
     let body = '', nextOk = true;
     const nextLabel = `Next: ${L.STEPS[st.step + 1] || ''} →`;
     if (st.step === 0) {
@@ -391,7 +414,7 @@
         <button class="btn btn-secondary" id="lessonBack" ${st.step === 0 ? 'disabled' : ''}>← Back</button>
         ${st.step === 4 ? '' : `<button class="btn btn-primary btn-lg" id="lessonNext" ${nextOk ? '' : 'disabled'}>${nextLabel}</button>`}</div>`;
     $('lesson').innerHTML = screenHead('lessonTitle', `Lesson ${st.idx + 1}: ${esc(l.title)}`, `${MENU}/teach`, '⬅ All lessons') +
-      `<div class="panel ${st.step === 0 ? 'cream' : ''}"><div class="steps" aria-hidden="true">${stepsBar}</div>
+      `<div class="panel lesson-panel ${st.step === 0 ? 'cream' : ''}"><ol class="stepper" aria-hidden="true">${stepsBar}</ol>
         <p class="step-label" id="stepLabel">Step ${st.step + 1} of ${L.STEPS.length} · ${L.STEPS[st.step]}</p>
         <div class="stack lesson-body">${body}</div>${nav2}</div>`;
     const go = (d) => { st.step += d; renderLesson(); };
@@ -449,9 +472,9 @@
   }
   function renderPracticeQ(first) {
     const ps = practiceState, q = ps.qs[ps.i], n = ps.qs.length, last = ps.i === n - 1;
-    $('practice').innerHTML = screenHead('practiceTitle', `✏️ Practice${ps.fromMisses ? ': my misses' : ''}`, MENU, '✕ Exit') +
-      `<div class="panel q-panel"><div class="meta-row"><span id="pCount">Question ${ps.i + 1} of ${n}</span><span class="badge type">${esc(q.typeName)}${q.extension ? ' · extension' : ''}</span></div>
-        <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="${n}" aria-valuenow="${ps.i}" aria-label="Practice progress"><span style="width:${(ps.i / n) * 100}%"></span></div>
+    $('practice').innerHTML = `<div class="panel workspace">${actHead({ id: 'practiceTitle', title: `✏️ Practice${ps.fromMisses ? ': my misses' : ''}`,
+        count: `<span class="act-count" id="pCount">Question ${ps.i + 1} of ${n}</span>`, right: `<span class="badge type">${esc(q.typeName)}${q.extension ? ' · extension' : ''}</span>`,
+        exit: `<button class="btn btn-ghost-light" data-nav="${MENU}">✕ Exit</button>`, now: ps.i, max: n, label: 'Practice progress' })}
         <div id="pQ" class="q-host"></div></div>`;
     askQuestion($('pQ'), q, { tries: q.format === 'choice' ? 1 : 3, allowHint: true, nextLabel: last ? 'See my results →' : 'Next question →',
       onDone: (r) => { ps.results.push({ q, firstTry: r.firstTry, hinted: r.hinted }); store.recordPracticeAnswer(q, r.firstTry, r.hinted); },
@@ -508,11 +531,11 @@
   }
   function renderLabQ(first) {
     const ls = labState, q = ls.qs[ls.i], n = ls.qs.length, last = ls.i === n - 1;
-    $('lab').innerHTML = `<div class="screen-head"><h2 id="labTitle" tabindex="-1">🧪 Math Thinking Lab</h2><button class="btn btn-ghost" id="labExit">✕ Exit</button></div>
-        <div class="feedback info" id="labLeave" hidden><strong>Leave the challenge?</strong> Problems you have answered can still count.
-          <div class="btn-row" style="margin-top:8px"><button class="btn btn-primary" id="labFinishNow">Finish now and see my report</button><button class="btn btn-secondary" id="labStay">Keep going</button><button class="btn btn-danger" data-nav="${MENU}" id="labQuit">Leave without saving</button></div></div>` +
-      `<div class="panel q-panel"><div class="meta-row"><span id="lCount">Problem ${ls.i + 1} of ${n}</span><span class="muted" id="lScore">${ls.answers.filter((a) => a.correct).length} right so far</span></div>
-        <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="${n}" aria-valuenow="${ls.i}" aria-label="Challenge progress"><span style="width:${(ls.i / n) * 100}%"></span></div>
+    $('lab').innerHTML = `<div class="panel workspace">${actHead({ id: 'labTitle', title: '🧪 Math Thinking Lab', count: `<span class="act-count" id="lCount">Problem ${ls.i + 1} of ${n}</span>`,
+        right: `<span class="muted" id="lScore">${ls.answers.filter((x) => x.correct).length} right so far</span>`, exit: '<button class="btn btn-ghost-light" id="labExit">✕ Exit</button>',
+        now: ls.i, max: n, label: 'Challenge progress' })}
+        <div class="feedback info lab-leave" id="labLeave" hidden><strong>Leave the challenge?</strong> Problems you have answered can still count.
+          <div class="btn-row" style="margin-top:8px"><button class="btn btn-primary" id="labFinishNow">Finish now and see my report</button><button class="btn btn-secondary" id="labStay">Keep going</button><button class="btn btn-danger" data-nav="${MENU}" id="labQuit">Leave without saving</button></div></div>
         <div id="lQ" class="q-host"></div></div>`;
     // Lab: no hints and no strategy label before answering; the type is named in the feedback afterwards.
     askQuestion($('lQ'), q, { tries: 1, allowHint: false, allowSkip: true, revealType: true, hideHintSub: true, checkLabel: 'Submit', nextLabel: last ? 'See my report →' : 'Next problem →',
@@ -565,16 +588,13 @@
   function renderFcSetup() {
     const tables = settings.extension ? ALL : CORE, f = settings.fc;
     $('fcSetup').innerHTML = screenHead('fcSetupTitle', '🃏 Flashcards <span class="h-sub">Help me remember</span>') +
-      `<div class="panel start-panel"><h3>Pick a times table</h3>
-        <div class="table-pick" id="fsPick">${tables.map((n) => `<button type="button" data-table="${n}" aria-label="${n}s table">${n}s</button>`).join('')}<button type="button" data-table="0" class="mixed">Mixed</button></div>
-        <button class="btn btn-go btn-lg btn-block" id="fsStart">▶ Start flashcards</button>
-        <p class="muted center">${f.reveal ? `The answer shows after ${f.reveal} seconds. Tap the card to see it sooner.` : 'Tap the card to see the answer.'}</p></div>
+      `<div class="panel start-panel fc-setup"><h3 class="center">Which times table?</h3><p class="muted center">Tap one to start.</p>
+        <div class="table-pick" id="fsPick">${tables.map((n) => `<button type="button" data-table="${n}" aria-label="Start the ${n}s">${n}s</button>`).join('')}<button type="button" data-table="0" class="mixed" aria-label="Start mixed tables">🔀 Mixed</button></div>
+        <p class="muted center">${f.reveal ? `Each answer shows after ${f.reveal} seconds. Tap the card to see it sooner.` : 'Tap the card to see each answer.'}</p></div>
        <p class="grownup-note">Grown-ups: timing and session length are in <a href="#/multiplication/settings" data-nav="#/multiplication/settings">Parent Settings</a>.</p>`;
     if (!tables.includes(f.table)) f.table = 0;
-    const sync = () => $('fsPick').querySelectorAll('[data-table]').forEach((b) => b.setAttribute('aria-pressed', String(+b.dataset.table === f.table)));
-    $('fsPick').addEventListener('click', (e) => { const b = e.target.closest('[data-table]'); if (!b) return; f.table = +b.dataset.table; saveSettings(); sync(); });
-    sync();
-    $('fsStart').onclick = startFlashcards;
+    $('fsPick').querySelectorAll('[data-table]').forEach((b) => b.classList.toggle('last', +b.dataset.table === f.table));
+    $('fsPick').addEventListener('click', (e) => { const b = e.target.closest('[data-table]'); if (!b) return; f.table = +b.dataset.table; saveSettings(); startFlashcards(); });
     show('fcSetup', crumbFor('Flashcards'));
   }
   function startFlashcards() {
@@ -583,17 +603,16 @@
     fcState = { deck: f.order === 'shuffle' ? M.shuffle(facts.slice()) : facts, idx: 0, seen: 1, reveal: f.reveal, hold: f.hold, totalMs: f.minutes * 60000,
       activeMs: 0, resumedAt: Date.now(), paused: false, flipped: false, phase: null, families: fams };
     const tap = f.reveal === 0;
-    $('fc').innerHTML = screenHead('fcTitle', `🃏 ${f.table ? `${f.table}s` : 'Mixed'} flashcards`, MENU, '✕ Exit') +
-      `<div class="fc-wrap"><div class="meta-row on-dark"><span id="fcClock"></span><span id="fcSeen"></span></div>
-        <div class="bar dark"><span id="fcBar" style="width:100%"></span></div>
+    $('fc').innerHTML = `<div class="panel workspace fc-space">${actHead({ id: 'fcTitle', title: `🃏 ${f.table ? `${f.table}s` : 'Mixed'} flashcards`, count: '<span class="act-count" id="fcSeen"></span>',
+        right: '<span class="timer-pill" id="fcClock"></span>', exit: `<button class="btn btn-ghost-light" data-nav="${MENU}">✕ Exit</button>`, now: 1, max: 1, label: 'Time left', spanId: 'fcBar' })}
         <div class="fc-stage"><button class="fc" id="fcCard" aria-label="Flash card. Tap to see the answer."><div class="fc-face fc-front" id="fcFront"></div><div class="fc-face fc-back" id="fcBack"></div></button></div>
-        <p class="fc-status on-dark" id="fcStatus" aria-live="polite"></p>
-        <div class="fc-simple">
-          <button class="btn btn-primary btn-lg" id="fcFlip">Show answer</button>
-          ${tap ? '<button class="btn btn-secondary btn-lg" id="fcNext">Next card →</button>' : ''}
+        <p class="fc-status" id="fcStatus" aria-live="polite"></p>
+        <div class="fc-controls-row">
+          <button class="btn btn-primary btn-lg" id="fcFlip">👀 Show answer</button>
+          ${tap ? '<button class="btn btn-secondary btn-lg" id="fcNext">Next card ➜</button>' : ''}
           <button class="btn btn-secondary btn-lg" id="fcPause">⏸ Pause</button>
-        </div>
-        <div class="btn-row center" style="margin-top:10px"><button class="btn btn-ghost" id="fcEnd">I'm done</button></div></div>`;
+          <button class="btn btn-secondary btn-lg" id="fcEnd">✓ I'm done</button>
+        </div></div>`;
     $('fcCard').onclick = () => fcFlip();
     $('fcFlip').onclick = () => fcFlip();
     if ($('fcNext')) $('fcNext').onclick = () => fcMove(1);
@@ -632,7 +651,7 @@
     $('fcBack').innerHTML = `<div><span class="fc-ans">${fam * other}</span><span class="fc-eq">${fam} × ${other} = ${fam * other}</span></div>`;
     $('fcCard').setAttribute('aria-label', `Flash card: ${fam} times ${other}. Tap to see the answer.`);
     $('fcStatus').textContent = fcStatusText();
-    $('fcFlip').textContent = 'Show answer';
+    $('fcFlip').textContent = '👀 Show answer';
     fcSchedule();
   }
   /** Auto mode: flip after `reveal` seconds, then hold the answer for `hold` seconds, then the next card. */
@@ -648,7 +667,7 @@
     $('fcCard').classList.toggle('flip', on);
     const { fam, other } = s.deck[s.idx];
     $('fcCard').setAttribute('aria-label', on ? `Answer: ${fam} times ${other} equals ${fam * other}` : `Flash card: ${fam} times ${other}. Tap to see the answer.`);
-    $('fcFlip').textContent = on ? 'Hide answer' : 'Show answer';
+    $('fcFlip').textContent = on ? '🙈 Hide answer' : '👀 Show answer';
   }
   function fcFlip() { const s = fcState; if (!s || s.paused) return; fcSetFlip(!s.flipped); fcSchedule(); }
   function fcMove(d) {
@@ -714,15 +733,14 @@
     testState = { qs: M.makeTestSet({ families, facts, count, maxFactor: settings.extension ? 12 : M.CORE_MAX }), i: 0, responses: [], timer, kind,
       families: families || [...new Set(facts.map((f) => f.fam))].sort((a, b) => a - b),
       deadline: 0, shownAt: 0, ticker: null, quitArmed: false, settings: { families, facts, count, timer, kind } };
-    $('test').innerHTML = `<h2 class="sr-only" id="testTitle" tabindex="-1">${kind === 'retry' ? 'Retry missed facts' : 'Multiplication test'}</h2>
-      <div class="assess"><div class="meta-row"><span id="tCount"></span>
-          <span class="btn-row">${timer ? '<span class="timer-pill" id="tTimer" role="timer" aria-live="off"></span>' : '<span class="badge">No timer</span>'}<button class="btn btn-danger" id="tQuit">Quit</button></span></div>
-        <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="${count}" aria-valuenow="0" aria-label="Test progress" id="tProg"><span id="tBar"></span></div>
+    $('test').innerHTML = `<div class="panel workspace test-sheet">${actHead({ id: 'testTitle', title: kind === 'retry' ? '⏱️ Retry missed facts' : '⏱️ Test',
+        count: '<span class="act-count" id="tCount"></span>', right: timer ? '<span class="timer-pill" id="tTimer" role="timer" aria-live="off"></span>' : '<span class="badge">No timer</span>',
+        exit: '<button class="btn btn-danger btn-sm" id="tQuit">Quit</button>', now: 0, max: count, label: 'Test progress', barId: 'tProg', spanId: 'tBar' })}
         ${timer ? '<div class="timer-bar" aria-hidden="true"><span id="tTimeBar"></span></div>' : ''}
-        <div class="assess-grid" style="margin-top:16px">
-          <div class="problem" id="tProblem"><span id="tQ" aria-live="polite"></span><span class="answer" id="tAns" role="textbox" aria-readonly="true" aria-label="Your answer (use the number keys)"></span></div>
-          <div class="stack"><div class="numpad" id="tPad"></div>
-            <div class="btn-row center"><button class="btn btn-primary btn-lg" id="tSubmit">Submit</button>${timer ? '' : '<button class="btn btn-secondary" id="tSkip">Skip</button>'}</div>
+        <div class="qa no-visual test-qa">
+          <div class="qa-q"><p class="q-prompt big" id="tQ" aria-live="polite"></p></div>
+          <div class="qa-dock"><div class="answer" id="tAns" role="textbox" aria-readonly="true" aria-label="Your answer (use the number keys)"></div><div class="numpad" id="tPad"></div>
+            <div class="dock-actions">${timer ? '' : '<button class="btn btn-secondary" id="tSkip">Skip</button>'}<button class="btn btn-primary btn-lg" id="tSubmit">Submit</button></div>
             <p class="hint-text center" id="tMsg">Type with the keys or your keyboard. Enter submits.</p></div>
         </div></div>`;
     testState.pad = numPad($('tPad'), $('tAns'));
@@ -740,7 +758,7 @@
     $('tCount').textContent = `Question ${ts.i + 1} of ${n}`;
     $('tBar').style.width = `${(ts.i / n) * 100}%`;
     $('tProg').setAttribute('aria-valuenow', String(ts.i));
-    $('tQ').textContent = `${q.a} × ${q.b} =`;
+    $('tQ').textContent = `${q.a} × ${q.b} = ?`;
     ts.pad.clear();
     ts.shownAt = Date.now();
     onKey = (e) => {
@@ -820,15 +838,22 @@
      ===================================================================================== */
   function renderSettings() {
     $('settings').innerHTML = screenHead('settingsTitle', '⚙️ Parent Settings') +
-      `<div class="feedback info" style="margin-bottom:12px">For grown-ups. Settings are saved on this device and are <b>not locked</b>, so a child could change them. Changes apply right away.</div>
-       <div class="panel settings-section"><h3>Times tables for Practice and the Lab</h3><div class="setup-grid"><div id="stTables"></div>
-         <div class="stack"><div id="stExt"></div><p class="hint-text">Third-grade fluency is facts with factors up to 10 (products within 100). Turning the extension on adds the 11s and 12s and facts like 3 × 12.</p></div></div></div>
-       <div class="panel settings-section"><h3>Practice</h3><div id="stPracCount"></div></div>
-       <div class="panel settings-section"><h3>Kinds of problems (Practice and the Lab)</h3><div id="stLabTypes"></div>
-         <p class="hint-text">“As they learn them”: Practice uses the nine core kinds, and the challenge kinds (check the work, times as many, equal products) once their Teach lesson is finished. The Lab starts with facts, equal groups, arrays, repeated addition, switch the order and match the equation, and adds a kind when its lesson is finished or after 3 right answers of that kind in Practice.</p></div>
-       <div class="panel settings-section"><h3>Flashcards</h3><div class="setup-grid"><div class="stack"><div id="stReveal"></div><div id="stHold"></div></div><div class="stack"><div id="stMin"></div><div id="stOrder"></div></div></div></div>
-       <div class="panel settings-section"><h3>Test</h3><div class="setup-grid"><div class="stack"><div id="stTestMode"></div><div id="stTestTables"></div></div><div class="stack"><div id="stTestCount"></div><div id="stTimer"></div>
-         <div class="feedback info" id="stMastery" aria-live="polite"></div></div></div></div>
+      `<p class="settings-note">For grown-ups. Settings are saved on this device as soon as you tap them. They are <b>not locked</b>, so a child could change them.</p>
+       <div class="settings-grid">
+        <section class="panel settings-card"><h3>📚 Times tables</h3><p class="set-help">Used by Practice and the Math Thinking Lab.</p>
+          <div class="set-row" id="stTables"></div>
+          <div class="set-row"><div id="stExt"></div><p class="set-help">The third-grade goal is every fact up to 10 × 10. The extension adds the 11s and 12s.</p></div></section>
+        <section class="panel settings-card"><h3>✏️ Practice and 🧪 Lab</h3>
+          <div class="set-row" id="stPracCount"></div>
+          <div class="set-row"><div id="stLabTypes"></div>
+            <p class="set-help"><b>As they learn them:</b> Practice uses the nine core kinds. Challenge kinds (check the work, times as many, equal products) join after their lesson.</p>
+            <p class="set-help">The Lab starts with six kinds and adds one when its lesson is finished, or after 3 right answers of that kind in Practice.</p></div></section>
+        <section class="panel settings-card"><h3>🃏 Flashcards</h3>
+          <div class="set-row" id="stReveal"></div><div class="set-row" id="stHold"></div><div class="set-row" id="stMin"></div><div class="set-row" id="stOrder"></div></section>
+        <section class="panel settings-card"><h3>⏱️ Test</h3>
+          <div class="set-row" id="stTestMode"></div><div class="set-row" id="stTestTables"></div><div class="set-row" id="stTestCount"></div><div class="set-row" id="stTimer"></div>
+          <div class="feedback info" id="stMastery" aria-live="polite"></div></section>
+       </div>
        <div class="btn-row between" style="margin-top:16px"><button class="btn btn-ghost" data-nav="${MENU}">⬅ Multiplication</button><button class="btn btn-ghost" data-nav="${MENU}/progress">📊 Progress</button></div>`;
     const S = settings, save = () => saveSettings();
     familyPicker($('stTables'), 'Tables', S.tables, (v) => { S.tables = v; save(); }, () => S.extension);
@@ -903,6 +928,9 @@
   }
 
   // Read-only view of the running activity for the browser tests.
+  // Review/test hooks: show specific generated questions (used by tests/review-shots.mjs for layout screenshots).
+  window.__galaxy.startLabWith = (qs) => { stopAll(); labState = { qs, i: 0, answers: [] }; renderLabQ(true); };
+  window.__galaxy.startPracticeWith = (qs) => { stopAll(); practiceState = { qs, i: 0, results: [], fromMisses: false }; renderPracticeQ(true); };
   window.__galaxy.state = () => ({ lesson: lessonState, practice: practiceState, lab: labState, test: testState && { ...testState, pad: undefined }, fc: fcState, settings });
 
   route();

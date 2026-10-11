@@ -97,7 +97,8 @@ export async function startBrowser() {
     },
     async shot(file, full = true) {
       const m = await b.js('return { w: document.documentElement.clientWidth, h: document.documentElement.scrollHeight };');
-      const r = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: full, clip: full ? { x: 0, y: 0, width: m.w, height: Math.min(m.h, 14000), scale: 1 } : undefined });
+      const jpg = /.jpe?g$/i.test(file);   // .jpg files are saved as JPEG (much smaller for review galleries)
+      const r = await send('Page.captureScreenshot', { format: jpg ? 'jpeg' : 'png', ...(jpg ? { quality: 72 } : {}), captureBeyondViewport: full, clip: full ? { x: 0, y: 0, width: m.w, height: Math.min(m.h, 14000), scale: 1 } : undefined });
       fs.mkdirSync(path.dirname(file), { recursive: true });
       fs.writeFileSync(file, Buffer.from(r.result.data, 'base64'));
     },
