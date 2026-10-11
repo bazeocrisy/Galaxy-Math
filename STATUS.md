@@ -32,6 +32,8 @@ Division now has the same five activities as Multiplication. It uses the same sc
   - D-17 Low: the equation and the bracket use different colours for the same part.
   - D-18/D-19 Low: on phones the Progress status pills wrap onto more than one line.
 
+**Published (2026-10-11):** after QA passed, `feature/division` (`c8be657`) was published to `gh-pages` as `f1aafd4`. The Pages build finished and all 15 app files on the public URL match byte-for-byte. **Live browser suites:** Division 181/181 and Multiplication 657/657 at https://bazeocrisy.github.io/Galaxy-Math/. `main` is untouched.
+
 **Tests**
 
 | Suite | Chrome | Edge |
