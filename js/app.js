@@ -1,9 +1,11 @@
-/* Galaxy Math app: router, shared UI components and the Multiplication activities
-   (Teach, Practice, Flashcards, Test, Progress). Depends on registry.js, mult-math.js, visuals.js, mult-lessons.js, progress.js. */
+/* Galaxy Math app: router, shared UI components and the five Multiplication activities
+   (Teach, Practice, Math Thinking Lab, Flashcards, Test) plus Parent Settings and Progress.
+   Depends on registry.js, mult-math.js, visuals.js, mult-lessons.js, mult-bank.js, progress.js. */
 (function () {
   'use strict';
   const $ = (id) => document.getElementById(id);
-  const GM = window.GalaxyMathRegistry, M = window.GalaxyMult, V = window.GalaxyVisuals, L = window.GalaxyMultLessons, P = window.GalaxyProgress;
+  const GM = window.GalaxyMathRegistry, M = window.GalaxyMult, V = window.GalaxyVisuals, L = window.GalaxyMultLessons,
+    B = window.GalaxyBank, P = window.GalaxyProgress;
   const store = P.createStore(P.browserStorage());
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const rich = (s) => esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
@@ -13,6 +15,7 @@
     : spec.kind === 'set' ? { ...spec, items: spec.items.map((it) => ({ ...it, visual: hideTotals(it.visual) })) } : spec;
   const fmt = (sec) => `${Math.floor(sec / 60)}:${String(Math.max(0, sec) % 60).padStart(2, '0')}`;
   const SUBJ = 'multiplication', MENU = '#/multiplication';
+  const lessonTitle = (id) => { const l = L.getLesson(id); return l ? l.title : id; };
 
   /* ---------- timers: every timeout/interval goes through T so leaving a screen stops them all ---------- */
   const T = {
@@ -34,35 +37,35 @@
   // Number-pad keys are the exception: Enter there means "submit", not "press that digit again".
   const onButton = (e) => { const t = e.target && e.target.closest && e.target.closest('button, a'); return !!t && !t.closest('.numpad'); };
 
-  /* ---------- settings (separate for each activity, so Flashcard timers never change Test timers) ---------- */
+  /* ---------- Parent Settings (saved on this device; not locked) ---------- */
   const SKEY = 'galaxy-math.settings';
-  const ALL = [...M.FAMILIES];
+  const ALL = [...M.FAMILIES], CORE = ALL.filter((n) => n <= M.CORE_MAX);
   const pickOne = (v, allowed, d) => (allowed.includes(v) ? v : d);
   function loadSettings() {
     let s = {};
     try { s = JSON.parse(localStorage.getItem(SKEY)) || {}; } catch (e) { s = {}; }
     if (!s || typeof s !== 'object') s = {};
-    const fam = (v) => (Array.isArray(v) ? M.cleanFamilies(v) : ALL.slice());
-    const fc = s.fc || {}, te = s.test || {}, pr = s.practice || {};
+    const fam = (v, d) => (Array.isArray(v) ? M.cleanFamilies(v) : d.slice());
+    const fc = s.fc || {}, te = s.test || {}, pr = s.practice || {}, lab = s.lab || {};
     const out = {
-      fc: { families: fam(fc.families), reveal: pickOne(fc.reveal, [0, 2, 3, 5, 10], 3), hold: pickOne(fc.hold, [1, 2, 3, 5], 2), minutes: pickOne(fc.minutes, [3, 5, 10], 5), order: pickOne(fc.order, ['shuffle', 'order'], 'shuffle') },
-      test: { families: fam(te.families), count: pickOne(te.count, [10, 20, 36], 10), timer: pickOne(te.timer, [0, 2, 3, 5, 10], 5) },
-      practice: { families: fam(pr.families), count: pickOne(pr.count, [10, 20, 30], 10) }
+      tables: fam(s.tables || pr.families, CORE),          // Practice + Lab (v1 kept these under practice.families)
+      extension: s.extension === true,
+      practice: { count: pickOne(pr.count, [10, 20, 30], 10) },
+      lab: { allTypes: lab.allTypes === true },
+      fc: { reveal: pickOne(fc.reveal, [0, 2, 3, 5, 10], 5), hold: pickOne(fc.hold, [1, 2, 3, 5], 2), minutes: pickOne(fc.minutes, [3, 5, 10], 5),
+        order: pickOne(fc.order, ['shuffle', 'order'], 'shuffle'), table: pickOne(fc.table, [0, ...ALL], 0) },   // table 0 = mixed
+      test: { families: fam(te.families, CORE), count: pickOne(te.count, [10, 20, 36], 10), timer: pickOne(te.timer, [0, 2, 3, 5, 10], 5) }
     };
-    if (!s.fc) {  // carry over the original prototype's flashcard choices once
-      try {
-        const t = JSON.parse(localStorage.getItem('fc-tables')); if (Array.isArray(t)) out.fc.families = M.cleanFamilies(t);
-        const sp = localStorage.getItem('fc-speed'); if (sp !== null) out.fc.reveal = pickOne(+sp, [0, 2, 3, 5, 10], 3);
-        const mn = +localStorage.getItem('fc-min'); out.fc.minutes = pickOne(mn, [3, 5, 10], out.fc.minutes);
-      } catch (e) { /* storage unavailable */ }
-    }
     return out;
   }
   const settings = loadSettings();
   function saveSettings() { try { localStorage.setItem(SKEY, JSON.stringify(settings)); } catch (e) { /* in-memory only */ } }
+  const usableTables = (list) => { const t = M.cleanFamilies(list).filter((n) => settings.extension || n <= M.CORE_MAX); return t.length ? t : CORE.slice(); };
+  const tablesText = (list) => { const t = usableTables(list); return t.length === 12 ? 'all tables' : t.length === 10 && t.every((n) => n <= 10) ? 'tables 1–10' : `the ${t.join(', ')} table${t.length === 1 ? '' : 's'}`; };
 
   /* ---------- screens and routing ---------- */
-  const SCREENS = ['landing', 'menu', 'teach', 'lesson', 'practiceSetup', 'practice', 'practiceDone', 'fcSetup', 'fc', 'fcDone', 'testSetup', 'test', 'testDone', 'progress'];
+  const SCREENS = ['landing', 'menu', 'teach', 'lesson', 'practiceSetup', 'practice', 'practiceDone', 'labSetup', 'lab', 'labDone',
+    'fcSetup', 'fc', 'fcDone', 'testSetup', 'test', 'testDone', 'progress', 'settings'];
   let firstShow = true;
   function show(id, crumb = '') {
     SCREENS.forEach((s) => {
@@ -79,7 +82,8 @@
   function nav(h) { if (location.hash === h) route(); else location.hash = h; }
   function stopAll() {
     if (fcState) store.recordFlash(Math.round(Math.min(fcElapsed(), fcState.totalMs) / 1000), fcState.seen);
-    T.clearAll(); onKey = null; fcState = null; testState = null; practiceState = null; lessonState = null; }
+    T.clearAll(); onKey = null; fcState = null; testState = null; practiceState = null; lessonState = null; labState = null;
+  }
   function route() {
     stopAll();
     const r = GM.resolveRoute(location.hash);
@@ -88,8 +92,9 @@
     if (r.view === 'landing') { $('landingNote').textContent = ''; document.title = 'Galaxy Math'; show('landing'); return; }
     if (r.view === 'menu') { renderMenu(r.subject); document.title = `${s.name} · Galaxy Math`; show('menu', `${s.symbol} ${s.name}`); return; }
     if (r.view === 'progress') { renderProgress(); document.title = `${s.name} progress · Galaxy Math`; return; }
+    if (r.view === 'settings') { renderSettings(); document.title = `Parent Settings · Galaxy Math`; return; }
     document.title = `${s.name} ${GM.getActivity(r.activity).name} · Galaxy Math`;
-    ({ teach: renderTeach, practice: renderPracticeSetup, flashcards: renderFcSetup, test: renderTestSetup })[r.activity]();
+    ({ teach: renderTeach, practice: renderPracticeSetup, lab: renderLabSetup, flashcards: renderFcSetup, test: renderTestSetup })[r.activity]();
   }
   window.addEventListener('hashchange', route);
   document.addEventListener('click', (e) => {
@@ -101,16 +106,16 @@
     `<div class="screen-head"><h2 id="${id}" tabindex="-1">${title}</h2><button class="btn btn-ghost" data-nav="${back}">${backLabel}</button></div>`;
 
   /* ---------- shared components ---------- */
-  /** Times-table chooser. Tapping one table while all are selected picks just that table (as in the original app). */
-  function familyPicker(el, initial, onChange) {
+  /** Times-table chooser for Parent Settings. Tapping one table while "All" or "Core" is selected picks just that table. */
+  function familyPicker(el, legend, initial, onChange) {
     let sel = new Set(M.cleanFamilies(initial));
-    el.innerHTML = `<fieldset class="field"><legend>Times tables <span class="muted">(fact families)</span></legend>
+    el.innerHTML = `<fieldset class="field"><legend>${legend}</legend>
       <div class="fam-picker">${ALL.map((n) => `<button type="button" data-fam="${n}" class="${n > M.CORE_MAX ? 'ext' : ''}" aria-label="${n}s table${n > M.CORE_MAX ? ' (extension)' : ''}">${n}</button>`).join('')}</div>
-      <div class="fam-quick"><button type="button" data-quick="all">All 1–12</button><button type="button" data-quick="core">Core 1–10</button></div>
-      <p class="hint-text">Dashed tables (11 and 12) are an extension beyond the third-grade goal.</p></fieldset>`;
+      <div class="fam-quick"><button type="button" data-quick="core">Core 1–10</button><button type="button" data-quick="all">All 1–12</button></div></fieldset>`;
+    const preset = () => sel.size === 12 || (sel.size === 10 && [...sel].every((n) => n <= 10));
     const sync = () => {
       const all = sel.size === 12, core = sel.size === 10 && [...sel].every((n) => n <= 10);
-      el.querySelectorAll('[data-fam]').forEach((b) => b.setAttribute('aria-pressed', String(!all && sel.has(+b.dataset.fam))));
+      el.querySelectorAll('[data-fam]').forEach((b) => b.setAttribute('aria-pressed', String(!all && !core && sel.has(+b.dataset.fam))));
       el.querySelector('[data-quick=all]').setAttribute('aria-pressed', String(all));
       el.querySelector('[data-quick=core]').setAttribute('aria-pressed', String(core));
       onChange([...sel].sort((a, b) => a - b));
@@ -119,10 +124,10 @@
       const b = e.target.closest('button'); if (!b) return;
       if (b.dataset.fam) {
         const n = +b.dataset.fam;
-        if (sel.size === 12) sel = new Set([n]);
-        else { sel.has(n) ? sel.delete(n) : sel.add(n); if (!sel.size) sel = new Set(ALL); }
+        if (preset()) sel = new Set([n]);
+        else { sel.has(n) ? sel.delete(n) : sel.add(n); if (!sel.size) sel = new Set(CORE); }
       } else if (b.dataset.quick === 'all') sel = new Set(ALL);
-      else if (b.dataset.quick === 'core') sel = new Set(ALL.filter((n) => n <= 10));
+      else if (b.dataset.quick === 'core') sel = new Set(CORE);
       sync();
     });
     sync();
@@ -167,91 +172,107 @@
     return pad;
   }
 
-  /** One question with answer entry, optional hint and feedback. Used by Teach (guided + check) and Practice.
-      q: { type: 'number'|'choice', prompt, answer, options?, visual?, hint?, hintVisual?, explain, explainVisual?, correctText?, big? }
-      opts: { tries: 1|2, allowHint, onDone({ firstTry, hinted, given }), nextLabel, onNext } */
+  /** Lesson questions ({ type, hint, explain, ... }) in the shape askQuestion() uses. */
+  const fromLesson = (q) => ({ format: q.type === 'choice' ? 'choice' : 'number', prompt: q.prompt, answer: q.answer, options: q.options, big: q.big,
+    visual: q.visual || null, hints: q.hint ? [{ text: q.hint, visual: q.hintVisual || null }] : [], explain: { text: q.explain, visual: q.explainVisual || null } });
+
+  /** One question: problem → picture → answer → feedback (that order on phones; picture beside the answer on desktop).
+      q: { format: 'number'|'choice', prompt, sub?, big?, answer, options?, visual?, hints: [{ text, visual? }], explain: { text, visual? }, typeName? }
+      opts: { tries, allowHint, allowSkip, revealType, onDone({ firstTry, hinted, given, skipped }), nextLabel, onNext } */
   function askQuestion(el, q, opts) {
-    const tries = opts.tries || 1;
-    el.innerHTML = `<div class="work">
-        <div class="stack"><p class="q-prompt${q.big ? ' big' : ''}" id="qPrompt">${rich(q.prompt)}</p>${viz(hideTotals(q.visual))}
-          <div class="feedback-area" id="qHintBox"></div><div class="feedback" id="qFeedback" role="status" aria-live="polite"></div></div>
-        <div class="answer-col">
-          ${q.type === 'choice'
+    const tries = opts.tries || 1, hints = q.hints || [];
+    el.innerHTML = `<div class="qa">
+        <div class="qa-q"><p class="q-prompt${q.big ? ' big' : ''}" id="qPrompt">${rich(q.prompt)}</p>${q.sub ? `<p class="q-sub">${esc(q.sub)}</p>` : ''}</div>
+        <div class="qa-visual">${viz(hideTotals(q.visual))}</div>
+        <div class="qa-answer">
+          ${q.format === 'choice'
             ? `<div class="choices" role="group" aria-labelledby="qPrompt">${q.options.map((o) => `<button type="button" data-opt="${esc(o)}" aria-pressed="false">${esc(o)}</button>`).join('')}</div>`
             : '<div class="answer" id="qAnswer" aria-label="Your answer"></div><div class="numpad" id="qPad"></div>'}
           <div class="btn-row center" id="qButtons">
-            ${opts.allowHint ? '<button type="button" class="btn btn-secondary" id="qHint">💡 Hint</button>' : ''}
-            <button type="button" class="btn btn-primary btn-lg" id="qCheck">Check</button>
+            ${opts.allowHint && hints.length ? '<button type="button" class="btn btn-secondary" id="qHint">💡 Hint</button>' : ''}
+            ${opts.allowSkip ? '<button type="button" class="btn btn-secondary" id="qSkip">Skip</button>' : ''}
+            <button type="button" class="btn btn-primary btn-lg" id="qCheck">${opts.checkLabel || 'Check'}</button>
           </div>
-        </div></div>`;
-    let attempts = 0, hinted = false, done = false, choice = null, firstTry = null;
+        </div>
+        <div class="qa-feedback"><div id="qHintBox"></div><div class="feedback" id="qFeedback" role="status" aria-live="polite"></div><div class="btn-row center" id="qNextRow"></div></div>
+      </div>`;
+    let attempts = 0, hintLevel = 0, done = false, choice = null, firstTry = null;
     const fb = el.querySelector('#qFeedback');
-    const pad = q.type === 'number' ? numPad(el.querySelector('#qPad'), el.querySelector('#qAnswer')) : null;
+    const pad = q.format === 'number' ? numPad(el.querySelector('#qPad'), el.querySelector('#qAnswer')) : null;
     const value = () => (pad ? pad.value : choice);
-    if (q.type === 'choice') el.querySelector('.choices').addEventListener('click', (e) => {
+    if (q.format === 'choice') el.querySelector('.choices').addEventListener('click', (e) => {
       const b = e.target.closest('[data-opt]'); if (!b || done) return;
       choice = b.dataset.opt;
       el.querySelectorAll('[data-opt]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
     });
-    const showHint = () => {
-      if (hinted || done) return;
-      hinted = true;
-      el.querySelector('#qHintBox').innerHTML = `<div class="feedback info"><strong>Hint:</strong> ${rich(q.hint)}${viz(hideTotals(q.hintVisual))}</div>`;
-      const hb = el.querySelector('#qHint'); if (hb) hb.disabled = true;
-    };
-    if (opts.allowHint) el.querySelector('#qHint').addEventListener('click', showHint);
-    function finish(ok, given) {
+    const hintHtml = (h) => `${rich(h.text)}${viz(hideTotals(h.visual))}`;
+    /** Show hints up to `level` (1 = clue, 2 = strategy). */
+    function revealHints(level) {
+      if (done || !hints.length) return;
+      hintLevel = Math.min(Math.max(hintLevel, level), hints.length);
+      el.querySelector('#qHintBox').innerHTML = `<div class="feedback info"><strong>${hintLevel > 1 ? 'More help:' : 'Hint:'}</strong> ${hints.slice(0, hintLevel).map(hintHtml).join('<br>')}</div>`;
+      const hb = el.querySelector('#qHint');
+      if (hb) { if (hintLevel >= hints.length) hb.disabled = true; else hb.textContent = '💡 More help'; }
+    }
+    let requested = false;
+    if (opts.allowHint && hints.length) el.querySelector('#qHint').addEventListener('click', () => { requested = true; revealHints(hintLevel + 1); });
+    const typeLine = () => (opts.revealType && q.typeName ? `<p class="type-reveal">This was a <b>${esc(q.typeName)}</b> problem.</p>` : '');
+    function finish(given, skipped) {
       done = true;
       if (pad) pad.disable(true);
       el.querySelectorAll('[data-opt]').forEach((b) => { b.disabled = true; if (b.dataset.opt === String(q.answer)) b.classList.add('right'); else if (b.dataset.opt === given) b.classList.add('wrong'); });
-      const btns = el.querySelector('#qButtons');
-      btns.innerHTML = `<button type="button" class="btn btn-go btn-lg" id="qNext">${opts.nextLabel || 'Next →'}</button>`;
-      btns.querySelector('#qNext').addEventListener('click', () => opts.onNext());
-      opts.onDone({ firstTry, hinted, given });
-      setTimeout(() => { const n = el.querySelector('#qNext'); if (n) n.focus({ preventScroll: true }); }, 30);
+      const qb = el.querySelector('#qButtons'); if (qb) qb.remove();
+      const row = el.querySelector('#qNextRow');
+      row.innerHTML = `<button type="button" class="btn btn-go btn-lg" id="qNext">${opts.nextLabel || 'Next →'}</button>`;
+      row.querySelector('#qNext').addEventListener('click', () => opts.onNext());
+      opts.onDone({ firstTry: !!firstTry, hinted: requested, given, skipped: !!skipped });
+      setTimeout(() => {
+        const n = el.querySelector('#qNext'); if (!n) return;
+        n.focus({ preventScroll: true });
+        const r = n.getBoundingClientRect();
+        if (r.bottom > window.innerHeight || r.top < 0) el.querySelector('.qa-feedback').scrollIntoView({ block: 'end', behavior: 'auto' });
+      }, 30);
     }
     function check() {
       if (done) return;
       const given = value();
-      if (given === null || given === '') { fb.className = 'feedback info'; fb.innerHTML = q.type === 'choice' ? 'Choose an answer first.' : 'Type your answer first.'; return; }
+      if (given === null || given === '') { fb.className = 'feedback info'; fb.innerHTML = q.format === 'choice' ? 'Choose an answer first.' : 'Type your answer first.'; return; }
       attempts++;
-      const ok = L.checkLessonAnswer(q, given);
+      const ok = q.format === 'choice' ? given === q.answer : /^\s*\d+\s*$/.test(given) && Number(given) === q.answer;
       if (firstTry === null) firstTry = ok;
       if (ok) {
         fb.className = 'feedback ok';
-        fb.innerHTML = `<strong>✓ ${attempts === 1 ? 'Correct!' : 'You got it!'}</strong> ${rich(q.correctText || q.explain)}`;
-        return finish(true, given);
+        fb.innerHTML = `<strong>✓ ${attempts === 1 ? 'Correct!' : 'You got it!'}</strong> ${rich(q.explain.text)}${typeLine()}`;
+        el.querySelector('#qHintBox').innerHTML = '';
+        return finish(given);
       }
       if (attempts < tries) {
+        // Progressive help: first miss → the clue, second miss → the strategy (with a picture).
+        revealHints(attempts);
         fb.className = 'feedback bad';
-        fb.innerHTML = `<strong>Not quite — try again.</strong> ${q.hint ? rich(q.hint) : ''}${viz(q.hintVisual && !hinted ? hideTotals(q.hintVisual) : null)}`;
-        const hb = el.querySelector('#qHint'); if (hb) hb.disabled = true;   // the hint is already on screen
+        fb.innerHTML = `<strong>Not quite — try again.</strong> ${hints.length ? 'Read the help above.' : ''}`;
         if (pad) pad.clear(); else { choice = null; el.querySelectorAll('[data-opt]').forEach((x) => x.setAttribute('aria-pressed', 'false')); }
         return;
       }
+      el.querySelector('#qHintBox').innerHTML = '';
       fb.className = 'feedback bad';
-      fb.innerHTML = `<strong>The answer is ${esc(q.answer)}.</strong> ${rich(q.explain)}${q.explainVisual ? viz(q.explainVisual) : ''}`;
-      finish(false, given);
+      fb.innerHTML = `<strong>The answer is ${esc(q.answer)}.</strong> ${rich(q.explain.text)}${viz(q.explain.visual)}${typeLine()}`;
+      finish(given);
     }
     el.querySelector('#qCheck').addEventListener('click', check);
+    if (opts.allowSkip) el.querySelector('#qSkip').addEventListener('click', () => {
+      if (done) return;
+      firstTry = false;
+      fb.className = 'feedback info';
+      fb.innerHTML = `<strong>Skipped. The answer is ${esc(q.answer)}.</strong> ${rich(q.explain.text)}${viz(q.explain.visual)}${typeLine()}`;
+      finish(null, true);
+    });
     onKey = (e) => {
       if (done) { if (e.key === 'Enter' && !onButton(e)) { e.preventDefault(); opts.onNext(); } return; }
       if (pad && pad.key(e)) { e.preventDefault(); return; }
       if (e.key === 'Enter' && !onButton(e)) { e.preventDefault(); check(); }
     };
-    return { check, showHint };
   }
-
-  document.addEventListener('visibilitychange', () => {
-    if (document.hidden) {
-      if (fcState && !fcState.paused) fcTogglePause();
-      if (testState && testState.timer && testState.ticker) { T.cancel(testState.ticker); testState.ticker = null; testState.hiddenAt = Date.now(); }
-    } else if (testState && testState.hiddenAt) {
-      const away = Date.now() - testState.hiddenAt;
-      testState.deadline += away; testState.shownAt += away; testState.hiddenAt = 0;
-      testState.ticker = T.every(testTick, 100);
-    }
-  });
 
   /* ---------- landing ---------- */
   GM.SUBJECTS.forEach((s) => {
@@ -259,7 +280,7 @@
     const open = s.status === 'open';
     b.className = `subject s-${s.id} ${open ? 'open' : 'soon'}`;
     b.dataset.subject = s.id;
-    const label = !open ? 'Coming Soon' : GM.readyCount(s.id) === GM.ACTIVITIES.length ? 'Learn · Practice · Flash · Test' : 'Lessons on the way';
+    const label = !open ? 'Coming Soon' : GM.readyCount(s.id) === GM.ACTIVITIES.length ? 'Learn · Practice · Think · Flash · Test' : 'Lessons on the way';
     b.innerHTML = `<span class="sym" aria-hidden="true">${s.symbol}</span><span class="sName">${s.name}</span>` +
       (open ? `<span class="go">${label} →</span>` : `<span class="badge soon">${label}</span>`);
     if (open) { b.setAttribute('aria-label', `${s.name}. ${label}`); b.onclick = () => nav('#/' + s.id); }
@@ -277,32 +298,33 @@
     $('menuTitle').textContent = s.name; $('menuSym').textContent = s.symbol;
     $('menu').style.setProperty('--accent', `var(--${ACCENT[sid]})`);
     const ready = GM.ACTIVITIES.filter((a) => GM.isActivityReady(sid, a.id));
-    $('menuSub').textContent = ready.length === GM.ACTIVITIES.length ? 'Learn it, practice it, flash it, then test yourself.'
+    $('menuSub').textContent = ready.length === GM.ACTIVITIES.length ? 'What would you like to do?'
       : ready.length ? `${ready.map((a) => a.name).join(' and ')} ${ready.length > 1 ? 'are' : 'is'} ready. The others are coming soon.` : `${s.name} lessons and cards are being built. Check back soon!`;
     $('menuNote').textContent = '';
     const done = sid === SUBJ ? store.summary().lessonsDone : 0;
-    const blurb = (a) => (a.id === 'teach' && sid === SUBJ ? `${done} of ${L.LESSONS.length} lessons done` : a.blurb);
     const box = $('modes'); box.innerHTML = '';
     GM.ACTIVITIES.forEach((a) => {
       const ok = GM.isActivityReady(sid, a.id), b = document.createElement('button');
       b.className = `mode m-${a.id} ${ok ? 'ready' : 'soon'}`; b.dataset.activity = a.id;
-      b.innerHTML = `<span class="mIcon" aria-hidden="true">${a.icon}</span><span>${a.name}</span>` + (ok ? `<span class="mBlurb">${blurb(a)}</span>` : '<span class="badge soon">Coming soon</span>');
+      const extra = ok && a.id === 'teach' && sid === SUBJ ? `<span class="mMeta">${done} of ${L.LESSONS.length} lessons done</span>` : '';
+      b.innerHTML = `<span class="mIcon" aria-hidden="true">${a.icon}</span><span class="mText"><span class="mName">${a.name}</span>` +
+        (ok ? `<span class="mBlurb">${a.blurb}</span>${extra}` : '<span class="badge soon">Coming soon</span>') + '</span>';
       if (ok) b.onclick = () => nav(`#/${sid}/${a.id}`);
       else { b.setAttribute('aria-disabled', 'true'); b.setAttribute('aria-label', `${a.name}. Coming soon`); b.onclick = () => { $('menuNote').textContent = `${s.name} ${a.name} is coming soon!`; }; }
       box.appendChild(b);
     });
-    $('menuExtra').innerHTML = (GM.hasView(sid, 'progress') ? `<button class="btn btn-ghost" data-nav="#/${sid}/progress">📊 Progress (for grown-ups)</button>` : '') +
+    $('menuExtra').innerHTML = (GM.hasView(sid, 'settings') ? `<span class="grownups">For grown-ups:</span><button class="btn btn-ghost" data-nav="#/${sid}/progress">📊 Progress</button><button class="btn btn-ghost" data-nav="#/${sid}/settings">⚙️ Parent Settings</button>` : '') +
       '<button class="btn btn-ghost" data-nav="#/">⬅ All subjects</button>';
   }
 
   /* =====================================================================================
-     TEACH
+     TEACH — Show me how
      ===================================================================================== */
   let lessonState = null;
   function renderTeach() {
-    const sum = store.summary();
-    $('teach').innerHTML = screenHead('teachTitle', '💡 Teach') +
-      `<div class="panel"><div class="panel-head"><p class="lede">Ten short lessons about what multiplication <b>means</b>. Finish a lesson by getting at least ${L.PASS} of the 3 check questions right.</p>
+    const sum = store.summary({ lessonsTotal: L.LESSONS.length });
+    $('teach').innerHTML = screenHead('teachTitle', '💡 Teach <span class="h-sub">Show me how</span>') +
+      `<div class="panel"><div class="panel-head"><p class="lede">Short lessons about what multiplication <b>means</b>. Finish a lesson by getting ${L.PASS} of the 3 check questions right.</p>
         <span class="badge done">${sum.lessonsDone} of ${L.LESSONS.length} done</span></div>
         <div class="lessons">${L.LESSONS.map((l, i) => {
           const st = sum.lessons[l.id];
@@ -314,31 +336,33 @@
   }
   function startLesson(id) {
     T.clearAll();
-    lessonState = { lesson: L.getLesson(id), idx: L.LESSONS.findIndex((l) => l.id === id), step: 0, ex: 1, guidedDone: false, checkI: 0, checkRes: [], checkDone: false, recorded: false };
+    lessonState = { lesson: L.getLesson(id), idx: L.LESSONS.findIndex((l) => l.id === id), step: 0, ex: 1, guidedDone: false, checkI: 0, checkRes: [], recorded: false };
     renderLesson(true);
   }
+  // Steps: 0 Goal, 1 Explanation, 2 See it, 3 Worked example, 4 Try it together, 5 Check yourself, 6 Finish
   function renderLesson(first) {
     const st = lessonState, l = st.lesson;
     onKey = null;
     const stepsBar = L.STEPS.map((_, i) => `<span class="${i < st.step ? 'done' : i === st.step ? 'on' : ''}"></span>`).join('');
-    let body = '', nextOk = true, nextLabel = `Next: ${L.STEPS[st.step + 1] || ''} →`;
+    let body = '', nextOk = true;
+    const nextLabel = `Next: ${L.STEPS[st.step + 1] || ''} →`;
     if (st.step === 0) {
       body = `<p class="step-label">Goal</p><p class="objective">${esc(l.objective)}</p><h3>Key words</h3>
         <ul class="words">${l.words.map((w) => `<li><b>${esc(w.term)}</b>: ${esc(w.meaning)}</li>`).join('')}</ul>`;
     } else if (st.step === 1) {
-      body = `<div class="explain">${l.explain.text.map((t) => `<p>${rich(t)}</p>`).join('')}</div>${viz(l.explain.visual)}`;
+      body = `<div class="explain lede">${l.explain.text.map((t) => `<p>${rich(t)}</p>`).join('')}</div>`;
     } else if (st.step === 2) {
+      body = `${viz(l.explain.visual)}<p class="caption">${rich(l.explain.caption)}</p>`;
+    } else if (st.step === 3) {
       const all = st.ex >= l.example.steps.length;
-      body = `<h3>${rich(l.example.title)}</h3>${viz(l.example.visual)}
-        <ol class="ex-steps">${l.example.steps.map((s, i) => `<li${i < st.ex ? '' : ' hidden'}>${rich(s)}</li>`).join('')}</ol>
+      body = `<h3>${rich(l.example.title)}</h3><div class="example-grid">${viz(l.example.visual)}
+        <ol class="ex-steps">${l.example.steps.map((s, i) => `<li${i < st.ex ? '' : ' hidden'}>${rich(s)}</li>`).join('')}</ol></div>
         ${all ? '' : '<div class="btn-row"><button class="btn btn-secondary" id="exMore">Show the next step</button></div>'}`;
       nextOk = all;
-    } else if (st.step === 3) {
-      body = '<p class="step-label">Solve this one together. Ask for a hint if you need it.</p><div id="lessonQ"></div>';
-      nextOk = st.guidedDone;
     } else if (st.step === 4) {
+      body = '<p class="step-label">Solve this one together. Ask for a hint if you need it.</p><div id="lessonQ"></div>';
+    } else if (st.step === 5) {
       body = `<p class="step-label">Question ${st.checkI + 1} of 3 · On your own: no hints this time.</p><div id="lessonQ"></div>`;
-      nextOk = false;
     } else {
       const score = st.checkRes.filter(Boolean).length, passed = score >= L.PASS;
       if (!st.recorded) { store.recordLesson(l.id, score, passed); st.recorded = true; }
@@ -352,146 +376,209 @@
           <button class="btn btn-secondary" data-nav="${MENU}/teach">All lessons</button>
         </div></div>`;
     }
-    const nav2 = st.step >= 4 ? '' : `<div class="btn-row between" style="margin-top:20px">
+    const nav2 = st.step >= 5 ? '' : `<div class="btn-row between lesson-nav">
         <button class="btn btn-secondary" id="lessonBack" ${st.step === 0 ? 'disabled' : ''}>← Back</button>
-        ${st.step === 3 ? '' : `<button class="btn btn-primary btn-lg" id="lessonNext" ${nextOk ? '' : 'disabled'}>${nextLabel}</button>`}</div>`;
+        ${st.step === 4 ? '' : `<button class="btn btn-primary btn-lg" id="lessonNext" ${nextOk ? '' : 'disabled'}>${nextLabel}</button>`}</div>`;
     $('lesson').innerHTML = screenHead('lessonTitle', `Lesson ${st.idx + 1}: ${esc(l.title)}`, `${MENU}/teach`, '⬅ All lessons') +
       `<div class="panel ${st.step === 0 ? 'cream' : ''}"><div class="steps" aria-hidden="true">${stepsBar}</div>
         <p class="step-label" id="stepLabel">Step ${st.step + 1} of ${L.STEPS.length} · ${L.STEPS[st.step]}</p>
-        <div class="stack" style="margin-top:12px">${body}</div>${nav2}</div>`;
+        <div class="stack lesson-body">${body}</div>${nav2}</div>`;
     const go = (d) => { st.step += d; renderLesson(); };
     if ($('lessonBack')) $('lessonBack').onclick = () => go(-1);
     if ($('lessonNext')) $('lessonNext').onclick = () => go(1);
     if ($('exMore')) $('exMore').onclick = () => { st.ex++; renderLesson(); const n = $(st.ex >= l.example.steps.length ? 'lessonNext' : 'exMore'); if (n) n.focus(); };
-    if ($('retryCheck')) $('retryCheck').onclick = () => { Object.assign(st, { step: 4, checkI: 0, checkRes: [], recorded: false }); renderLesson(); };
+    if ($('retryCheck')) $('retryCheck').onclick = () => { Object.assign(st, { step: 5, checkI: 0, checkRes: [], recorded: false }); renderLesson(); };
     if ($('reviewLesson')) $('reviewLesson').onclick = () => { Object.assign(st, { step: 1, checkI: 0, checkRes: [], recorded: false }); renderLesson(); };
     if ($('nextLesson')) $('nextLesson').onclick = () => startLesson(L.LESSONS[st.idx + 1].id);
-    if (st.step === 3) {
-      askQuestion($('lessonQ'), { ...l.guided }, { tries: 2, allowHint: true, nextLabel: 'Next: Check yourself →',
+    if (st.step === 4) {
+      askQuestion($('lessonQ'), fromLesson(l.guided), { tries: 2, allowHint: true, nextLabel: 'Next: Check yourself →',
         onDone: () => { st.guidedDone = true; }, onNext: () => go(1) });
     }
-    if (st.step === 4) {
+    if (st.step === 5) {
       const q = l.check[st.checkI], last = st.checkI === l.check.length - 1;
-      askQuestion($('lessonQ'), { ...q }, { tries: 1, allowHint: false, nextLabel: last ? 'See my result →' : 'Next question →',
+      askQuestion($('lessonQ'), fromLesson(q), { tries: 1, allowHint: false, nextLabel: last ? 'See my result →' : 'Next question →',
         onDone: (r) => { st.checkRes[st.checkI] = r.firstTry; },
-        onNext: () => { if (last) st.step = 5; else st.checkI++; renderLesson(); } });
+        onNext: () => { if (last) st.step = 6; else st.checkI++; renderLesson(); } });
     }
     if (first) show('lesson', crumbFor('Teach'));
     else { const h = $('lessonTitle'); if (h) h.focus({ preventScroll: true }); window.scrollTo(0, 0); }
   }
+  /** Open a lesson from anywhere (e.g. a Lab recommendation). */
+  function openLesson(id) { history.pushState(null, '', `${MENU}/teach`); stopAll(); renderTeach(); startLesson(id); }
 
   /* =====================================================================================
-     PRACTICE
+     PRACTICE — Let me try
      ===================================================================================== */
   let practiceState = null;
+  /** Missed questions from Practice/Lab plus facts missed in Tests, as practice pairs. */
+  function missPairs() {
+    const pairs = store.missedQuestions().map((m) => ({ type: m.type, fam: m.fam, other: m.other }));
+    for (const f of store.missedFacts()) if (!pairs.some((p) => p.fam === f.fam && p.other === f.other)) pairs.push({ type: 'fact', fam: f.fam, other: f.other });
+    return pairs.filter((p) => settings.extension || (p.fam <= M.CORE_MAX && p.other <= M.CORE_MAX)).slice(0, 30);
+  }
   function renderPracticeSetup() {
-    const misses = store.missedFacts();
-    $('practiceSetup').innerHTML = screenHead('practiceSetupTitle', '✏️ Practice') +
-      `<div class="panel"><div class="setup-grid">
-          <div id="psFam"></div>
-          <div class="stack"><div id="psCount"></div>
-            <p class="hint-text">No timer. Each question can be equal groups, an array, repeated addition, a missing factor, a word problem or a fact. Ask for a hint any time.</p>
-            <button class="btn btn-go btn-lg btn-block" id="psStart">▶ Start practice</button></div>
-        </div></div>
-       <div class="panel ice"><div class="panel-head"><h3>Practice my misses</h3><span class="badge">${misses.length} fact${misses.length === 1 ? '' : 's'}</span></div>
-         ${misses.length ? `<div class="chips-list">${misses.slice(0, 24).map((f) => `<span>${f.fam} × ${f.other}</span>`).join('')}</div>
+    const pairs = missPairs();
+    $('practiceSetup').innerHTML = screenHead('practiceSetupTitle', '✏️ Practice <span class="h-sub">Let me try</span>') +
+      `<div class="panel start-panel"><p class="lede">${settings.practice.count} problems from ${tablesText(settings.tables)}, in lots of different ways. No timer, and you can ask for a hint.</p>
+        <button class="btn btn-go btn-lg btn-block" id="psStart">▶ Start practice</button></div>
+       <div class="panel ice"><div class="panel-head"><h3>Practice my misses</h3><span class="badge">${pairs.length} problem${pairs.length === 1 ? '' : 's'}</span></div>
+         ${pairs.length ? `<p class="muted">Problems you missed in Practice, the Lab or a Test come back here until you get them right.</p>
            <div class="btn-row" style="margin-top:12px"><button class="btn btn-primary" id="psMisses">Practice my misses</button></div>`
-          : '<p class="muted">Nothing here yet. Facts you miss in Practice or Test show up here until you get them right.</p>'}</div>`;
-    familyPicker($('psFam'), settings.practice.families, (f) => { settings.practice.families = f; saveSettings(); });
-    seg($('psCount'), 'How many questions', [{ v: 10, label: '10' }, { v: 20, label: '20' }, { v: 30, label: '30' }], settings.practice.count, (v) => { settings.practice.count = v; saveSettings(); });
-    $('psStart').onclick = () => startPractice({ families: settings.practice.families, count: settings.practice.count });
-    if ($('psMisses')) $('psMisses').onclick = () => { const f = store.missedFacts().map(({ fam, other }) => ({ fam, other })); startPractice({ facts: f, count: M.missPracticeCount(f.length) }); };
+          : '<p class="muted">Nothing here yet. Problems you miss come back here until you get them right.</p>'}</div>
+       <p class="grownup-note">Grown-ups: number of problems and times tables are in <a href="#/multiplication/settings" data-nav="#/multiplication/settings">Parent Settings</a>.</p>`;
+    $('psStart').onclick = () => startPractice({ count: settings.practice.count });
+    if ($('psMisses')) $('psMisses').onclick = () => startPractice({ pairs, count: M.missPracticeCount(pairs.length) });
     show('practiceSetup', crumbFor('Practice'));
   }
-  /** Turn an engine question into the shape askQuestion() shows. */
-  function practiceView(q) {
-    const h = M.hintFor(q), e = M.explainFor(q);
-    const sameVisual = q.visual && e.visual && q.visual.kind === e.visual.kind;
-    return { type: 'number', prompt: q.prompt, answer: q.answer, visual: q.visual || null, big: ['fact', 'missing', 'repeated'].includes(q.type),
-      hint: h.text, hintVisual: h.visual && !q.visual ? h.visual : null, explain: e.text, explainVisual: sameVisual ? null : e.visual, correctText: q.equation };
-  }
-  function startPractice({ families, facts, count }) {
+  function startPractice({ count, pairs }) {
     T.clearAll();
-    practiceState = { qs: M.makePracticeSet({ families, facts, count }), i: 0, results: [], families, fromMisses: !!facts };
+    practiceState = { qs: B.makeSet({ families: usableTables(settings.tables), extension: settings.extension, count, pairs }), i: 0, results: [], fromMisses: !!pairs };
     renderPracticeQ(true);
   }
   function renderPracticeQ(first) {
     const ps = practiceState, q = ps.qs[ps.i], n = ps.qs.length, last = ps.i === n - 1;
     $('practice').innerHTML = screenHead('practiceTitle', `✏️ Practice${ps.fromMisses ? ': my misses' : ''}`, MENU, '✕ Exit') +
-      `<div class="panel"><div class="meta-row"><span id="pCount">Question ${ps.i + 1} of ${n}</span><span class="badge type">${M.TYPE_NAMES[q.type]}${q.extension ? ' · extension' : ''}</span></div>
+      `<div class="panel q-panel"><div class="meta-row"><span id="pCount">Question ${ps.i + 1} of ${n}</span><span class="badge type">${esc(q.typeName)}${q.extension ? ' · extension' : ''}</span></div>
         <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="${n}" aria-valuenow="${ps.i}" aria-label="Practice progress"><span style="width:${(ps.i / n) * 100}%"></span></div>
-        <div id="pQ" style="margin-top:16px"></div></div>`;
-    askQuestion($('pQ'), practiceView(q), { tries: 2, allowHint: true, nextLabel: last ? 'See my results →' : 'Next question →',
+        <div id="pQ" class="q-host"></div></div>`;
+    askQuestion($('pQ'), q, { tries: q.format === 'choice' ? 2 : 3, allowHint: true, nextLabel: last ? 'See my results →' : 'Next question →',
       onDone: (r) => { ps.results.push({ q, firstTry: r.firstTry, hinted: r.hinted }); store.recordPracticeAnswer(q, r.firstTry, r.hinted); },
       onNext: () => { if (last) finishPractice(); else { ps.i++; renderPracticeQ(); } } });
     if (first) show('practice', crumbFor('Practice'));
     else { $('practiceTitle').focus({ preventScroll: true }); window.scrollTo(0, 0); }
   }
+  /** Missed questions with their worked explanations (shared by the Practice and Lab reports). */
+  const reviewList = (items, id) => `<ul class="missed-list" id="${id}">${items.map((q) => `<li><details><summary><span class="badge type">${esc(q.typeName)}</span> ${rich(q.prompt)} → <b>${esc(q.answer)}</b></summary>
+      <p style="margin-top:6px">${rich(q.explain.text)}</p>${viz(q.explain.visual)}</details></li>`).join('')}</ul>`;
   function finishPractice() {
     const ps = practiceState; onKey = null;
-    store.recordPracticeSession();
+    store.recordPracticeSession(ps.results.map((r) => r.q.typeId));
     const right = ps.results.filter((r) => r.firstTry).length, hints = ps.results.filter((r) => r.hinted).length;
     const missed = ps.results.filter((r) => !r.firstTry);
     $('practiceDone').innerHTML = screenHead('practiceDoneTitle', '✏️ Practice complete!') +
       `<div class="panel"><div class="results-top"><div class="pct">${right}/${ps.results.length}</div>
           <div><p class="lede"><b>${right} of ${ps.results.length}</b> right on the first try${hints ? ` · ${hints} hint${hints === 1 ? '' : 's'} used` : ''}.</p>
-          <p class="muted">${right === ps.results.length ? 'Every one on the first try. Stellar!' : 'Mistakes help your brain grow. Review the ones below, then practice them again.'}</p></div></div></div>
-       ${missed.length ? `<div class="panel cream"><h3>Review</h3><ul class="missed-list" style="margin-top:10px">${missed.map((r) => {
-          const e = M.explainFor(r.q);
-          return `<li><details><summary>${esc(r.q.prompt)} → ${r.q.answer}</summary><p style="margin-top:6px">${esc(e.text)}</p>${viz(e.visual)}</details></li>`;
-        }).join('')}</ul></div>` : ''}
+          <p class="muted">${right === ps.results.length ? 'Every one on the first try. Stellar!' : 'Mistakes help your brain grow. Look at the ones below, then practice them again.'}</p></div></div></div>
+       ${missed.length ? `<div class="panel cream"><h3>Look again</h3>${reviewList(missed.map((r) => r.q), 'pdMissed')}</div>` : ''}
        <div class="btn-row center" style="margin-top:16px">
          ${missed.length ? '<button class="btn btn-go btn-lg" id="pdAgain">Practice these again</button>' : ''}
          <button class="btn btn-primary" id="pdNew">New practice</button>
          <button class="btn btn-ghost" data-nav="${MENU}">⬅ Multiplication</button></div>`;
-    if ($('pdAgain')) $('pdAgain').onclick = () => startPractice({ facts: missed.map((r) => ({ fam: r.q.fam, other: r.q.other })), count: M.missPracticeCount(missed.length) });
+    if ($('pdAgain')) $('pdAgain').onclick = () => { const pairs = missed.map((r) => ({ type: r.q.typeId, fam: r.q.fam, other: r.q.other })); startPractice({ pairs, count: M.missPracticeCount(pairs.length) }); };
     $('pdNew').onclick = () => nav(`${MENU}/practice`);
     show('practiceDone', crumbFor('Practice'));
   }
 
   /* =====================================================================================
-     FLASHCARDS
+     MATH THINKING LAB — Make me think
+     ===================================================================================== */
+  let labState = null;
+  const LAB_SIZES = [{ n: 10, name: 'Quick Challenge', icon: '🚀' }, { n: 25, name: 'Thinking Workout', icon: '🪐' }, { n: 50, name: 'Big Challenge', icon: '🌌' }];
+  function labTypes() { return settings.lab.allTypes ? B.TYPES.map((t) => t.id) : B.unlockedTypes(store.completedLessons(), store.practiceAttempts()); }
+  function renderLabSetup() {
+    const types = labTypes(), locked = B.TYPES.filter((t) => !types.includes(t.id));
+    const next = locked.length ? L.getLesson(locked[0].lesson) : null;
+    $('labSetup').innerHTML = screenHead('labSetupTitle', '🧪 Math Thinking Lab') +
+      `<p class="screen-sub">Different problems. Different ways to think.</p>
+       <div class="lab-sizes">${LAB_SIZES.map((s) => `<button class="lab-size" data-size="${s.n}"><span class="ls-icon" aria-hidden="true">${s.icon}</span><span class="ls-n">${s.n}</span><span class="ls-unit">problems</span><span class="ls-name">${s.name}</span></button>`).join('')}</div>
+       <div class="panel ice lab-info"><p><b>No timer.</b> One try for each problem, then you'll see how to think about it.</p>
+         <p>Your Lab has <b id="labTypeCount">${types.length} of ${B.TYPES.length}</b> kinds of problems.</p>
+         ${locked.length ? `<p class="muted">More kinds join the Lab when you finish a Teach lesson or try them in Practice.${next ? ` Next up: <b>${esc(next.title)}</b>.` : ''}</p>
+           <div class="btn-row" style="margin-top:8px">${next ? `<button class="btn btn-secondary" id="labLearn">Learn “${esc(next.title)}”</button>` : ''}<button class="btn btn-secondary" data-nav="${MENU}/practice">Go to Practice</button></div>` : '<p class="muted">Every kind of problem is in your Lab.</p>'}</div>`;
+    $('labSetup').querySelectorAll('[data-size]').forEach((b) => b.addEventListener('click', () => startLab(+b.dataset.size)));
+    if ($('labLearn')) $('labLearn').onclick = () => openLesson(next.id);
+    show('labSetup', crumbFor('Math Thinking Lab'));
+  }
+  function startLab(count) {
+    T.clearAll();
+    labState = { qs: B.makeSet({ types: labTypes(), families: usableTables(settings.tables), extension: settings.extension, count }), i: 0, answers: [] };
+    renderLabQ(true);
+  }
+  function renderLabQ(first) {
+    const ls = labState, q = ls.qs[ls.i], n = ls.qs.length, last = ls.i === n - 1;
+    $('lab').innerHTML = screenHead('labTitle', '🧪 Math Thinking Lab', MENU, '✕ Exit') +
+      `<div class="panel q-panel"><div class="meta-row"><span id="lCount">Problem ${ls.i + 1} of ${n}</span><span class="muted" id="lScore">${ls.answers.filter((a) => a.correct).length} right so far</span></div>
+        <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="${n}" aria-valuenow="${ls.i}" aria-label="Challenge progress"><span style="width:${(ls.i / n) * 100}%"></span></div>
+        <div id="lQ" class="q-host"></div></div>`;
+    // Lab: no hints and no strategy label before answering; the type is named in the feedback afterwards.
+    askQuestion($('lQ'), q, { tries: 1, allowHint: false, allowSkip: true, revealType: true, checkLabel: 'Submit', nextLabel: last ? 'See my report →' : 'Next problem →',
+      onDone: (r) => { ls.answers.push({ q, given: r.skipped ? null : r.given, correct: r.firstTry }); },
+      onNext: () => { if (last) finishLab(); else { ls.i++; renderLabQ(); } } });
+    if (first) show('lab', crumbFor('Math Thinking Lab'));
+    else { $('labTitle').focus({ preventScroll: true }); window.scrollTo(0, 0); }
+  }
+  function finishLab() {
+    const ls = labState; onKey = null;
+    const sc = B.scoreSession(ls.answers);
+    store.recordLab(sc, ls.answers);
+    const types = Object.keys(sc.byType).sort((a, b) => B.TYPES.findIndex((t) => t.id === a) - B.TYPES.findIndex((t) => t.id === b));
+    // Recommend the lessons behind the question types missed most (up to three).
+    const missCount = {};
+    for (const m of sc.missed) missCount[m.q.typeId] = (missCount[m.q.typeId] || 0) + 1;
+    const recs = [...new Set(Object.entries(missCount).sort((a, b) => b[1] - a[1]).map(([id]) => B.TYPE[id].lesson))].slice(0, 3);
+    $('labDone').innerHTML = screenHead('labDoneTitle', '🧪 Lab report') +
+      `<div class="panel"><div class="results-top"><div><div class="pct" id="ldPct">${sc.percent}%</div><p class="center muted">${sc.correct} of ${sc.total} right</p></div>
+          <div class="tally"><div class="c"><b id="ldC">${sc.correct}</b>correct</div><div class="i"><b id="ldI">${sc.incorrect}</b>incorrect</div><div class="u"><b id="ldU">${sc.unanswered}</b>skipped</div></div></div>
+        <p class="center" style="margin-top:10px">${sc.percent >= 90 ? 'Brilliant thinking!' : sc.percent >= 70 ? 'Great thinking. Look at the problems below to grow even more.' : 'Good effort. Every problem you look at again makes your brain stronger.'}</p></div>
+       <div class="panel"><h3>How you did with each kind of problem</h3><div class="table-wrap"><table class="data" id="ldTypes"><thead><tr><th>Kind of problem</th><th>Right</th></tr></thead><tbody>
+         ${types.map((id) => `<tr><td>${esc(B.TYPE[id].name)}</td><td>${sc.byType[id].correct} of ${sc.byType[id].total}</td></tr>`).join('')}</tbody></table></div>
+         <p class="hint-text">One challenge is a snapshot. Skills are marked “Strong” only after several sessions.</p></div>
+       ${sc.missed.length ? `<div class="panel cream"><h3>Problems to look at again</h3>${reviewList(sc.missed.map((m) => m.q), 'ldMissed')}</div>` : ''}
+       ${recs.length ? `<div class="panel ice"><h3>Recommended lessons</h3><div class="btn-row" style="margin-top:8px" id="ldRecs">${recs.map((id) => `<button class="btn btn-secondary" data-rec="${id}">💡 ${esc(lessonTitle(id))}</button>`).join('')}</div></div>` : ''}
+       <div class="btn-row center" style="margin-top:16px">
+         ${sc.missed.length ? '<button class="btn btn-primary" id="ldMisses">Practice my misses</button>' : ''}
+         <button class="btn btn-go btn-lg" id="ldAgain">Start another challenge</button>
+         <button class="btn btn-ghost" data-nav="${MENU}">⬅ Multiplication</button></div>`;
+    $('labDone').querySelectorAll('[data-rec]').forEach((b) => b.addEventListener('click', () => openLesson(b.dataset.rec)));
+    if ($('ldMisses')) $('ldMisses').onclick = () => {
+      const pairs = sc.missed.map((m) => ({ type: m.q.typeId, fam: m.q.fam, other: m.q.other }));
+      history.pushState(null, '', `${MENU}/practice`); stopAll(); startPractice({ pairs, count: M.missPracticeCount(pairs.length) });
+    };
+    $('ldAgain').onclick = () => nav(`${MENU}/lab`);
+    labState = null;
+    show('labDone', crumbFor('Lab report'));
+  }
+
+  /* =====================================================================================
+     FLASHCARDS — Help me remember
      ===================================================================================== */
   let fcState = null;
   function renderFcSetup() {
-    $('fcSetup').innerHTML = screenHead('fcSetupTitle', '🃏 Flashcards') +
-      `<div class="panel"><div class="setup-grid">
-          <div id="fsFam"></div>
-          <div class="stack"><div id="fsReveal"></div><div id="fsHold"></div><div id="fsMin"></div><div id="fsOrder"></div>
-            <button class="btn btn-go btn-lg btn-block" id="fsStart">▶ Start flashcards</button></div>
-        </div><p class="hint-text" style="margin-top:12px">Flashcards are for remembering. They never start a test, and they don't change Test settings.</p></div>`;
-    const f = settings.fc;
-    familyPicker($('fsFam'), f.families, (v) => { f.families = v; saveSettings(); });
-    let holdSeg = null;
-    seg($('fsReveal'), 'Show the answer', [{ v: 0, label: 'When I tap' }, { v: 2, label: '2 s' }, { v: 3, label: '3 s' }, { v: 5, label: '5 s' }, { v: 10, label: '10 s' }], f.reveal,
-      (v) => { f.reveal = v; saveSettings(); holdSeg.disable(v === 0); });
-    holdSeg = seg($('fsHold'), 'Keep the answer up for', [{ v: 1, label: '1 s' }, { v: 2, label: '2 s' }, { v: 3, label: '3 s' }, { v: 5, label: '5 s' }], f.hold, (v) => { f.hold = v; saveSettings(); });
-    holdSeg.disable(f.reveal === 0);
-    seg($('fsMin'), 'Session length', [{ v: 3, label: '3 min' }, { v: 5, label: '5 min' }, { v: 10, label: '10 min' }], f.minutes, (v) => { f.minutes = v; saveSettings(); });
-    seg($('fsOrder'), 'Order', [{ v: 'shuffle', label: 'Shuffled' }, { v: 'order', label: 'In order' }], f.order, (v) => { f.order = v; saveSettings(); });
+    const tables = settings.extension ? ALL : CORE, f = settings.fc;
+    $('fcSetup').innerHTML = screenHead('fcSetupTitle', '🃏 Flashcards <span class="h-sub">Help me remember</span>') +
+      `<div class="panel start-panel"><h3>Pick a times table</h3>
+        <div class="table-pick" id="fsPick">${tables.map((n) => `<button type="button" data-table="${n}" aria-label="${n}s table">${n}s</button>`).join('')}<button type="button" data-table="0" class="mixed">Mixed</button></div>
+        <button class="btn btn-go btn-lg btn-block" id="fsStart">▶ Start flashcards</button>
+        <p class="muted center">${f.reveal ? `The answer shows after ${f.reveal} seconds. Tap the card to see it sooner.` : 'Tap the card to see the answer.'}</p></div>
+       <p class="grownup-note">Grown-ups: timing and session length are in <a href="#/multiplication/settings" data-nav="#/multiplication/settings">Parent Settings</a>.</p>`;
+    if (!tables.includes(f.table)) f.table = 0;
+    const sync = () => $('fsPick').querySelectorAll('[data-table]').forEach((b) => b.setAttribute('aria-pressed', String(+b.dataset.table === f.table)));
+    $('fsPick').addEventListener('click', (e) => { const b = e.target.closest('[data-table]'); if (!b) return; f.table = +b.dataset.table; saveSettings(); sync(); });
+    sync();
     $('fsStart').onclick = startFlashcards;
     show('fcSetup', crumbFor('Flashcards'));
   }
   function startFlashcards() {
     T.clearAll();
-    const f = settings.fc, facts = M.factsFor(f.families);
+    const f = settings.fc, fams = f.table ? [f.table] : usableTables(ALL), facts = M.factsFor(fams, settings.extension ? 12 : M.CORE_MAX);
     fcState = { deck: f.order === 'shuffle' ? M.shuffle(facts.slice()) : facts, idx: 0, seen: 1, reveal: f.reveal, hold: f.hold, totalMs: f.minutes * 60000,
-      activeMs: 0, resumedAt: Date.now(), paused: false, flipped: false, phase: null, families: f.families.slice() };
-    $('fc').innerHTML = screenHead('fcTitle', '🃏 Flashcards', MENU, '✕ Exit') +
+      activeMs: 0, resumedAt: Date.now(), paused: false, flipped: false, phase: null, families: fams };
+    const tap = f.reveal === 0;
+    $('fc').innerHTML = screenHead('fcTitle', `🃏 ${f.table ? `${f.table}s` : 'Mixed'} flashcards`, MENU, '✕ Exit') +
       `<div class="fc-wrap"><div class="meta-row on-dark"><span id="fcClock"></span><span id="fcSeen"></span></div>
         <div class="bar dark"><span id="fcBar" style="width:100%"></span></div>
-        <div class="fc-stage"><button class="fc" id="fcCard" aria-label="Flash card. Tap to flip."><div class="fc-face fc-front" id="fcFront"></div><div class="fc-face fc-back" id="fcBack"></div></button></div>
+        <div class="fc-stage"><button class="fc" id="fcCard" aria-label="Flash card. Tap to see the answer."><div class="fc-face fc-front" id="fcFront"></div><div class="fc-face fc-back" id="fcBack"></div></button></div>
         <p class="fc-status on-dark" id="fcStatus" aria-live="polite"></p>
-        <div class="panel" style="padding:14px">
-          <div class="fc-controls"><button class="btn btn-secondary" id="fcPrev">← Previous</button><button class="btn btn-primary" id="fcFlip">Flip</button><button class="btn btn-secondary" id="fcNext">Next →</button></div>
-          <div class="fc-controls" style="margin-top:8px"><button class="btn btn-secondary" id="fcPause">⏸ Pause</button><button class="btn btn-secondary" id="fcShuffle">🔀 Shuffle</button><button class="btn btn-go" id="fcEnd">Finish</button></div>
-        </div></div>`;
+        <div class="fc-simple">
+          <button class="btn btn-primary btn-lg" id="fcFlip">Show answer</button>
+          ${tap ? '<button class="btn btn-secondary btn-lg" id="fcNext">Next card →</button>' : ''}
+          <button class="btn btn-secondary btn-lg" id="fcPause">⏸ Pause</button>
+        </div>
+        <div class="btn-row center" style="margin-top:10px"><button class="btn btn-ghost" id="fcEnd">I'm done</button></div></div>`;
     $('fcCard').onclick = () => fcFlip();
     $('fcFlip').onclick = () => fcFlip();
-    $('fcNext').onclick = () => fcMove(1);
-    $('fcPrev').onclick = () => fcMove(-1);
+    if ($('fcNext')) $('fcNext').onclick = () => fcMove(1);
     $('fcPause').onclick = fcTogglePause;
-    $('fcShuffle').onclick = () => { const s = fcState; const cur = s.deck[s.idx]; M.shuffle(s.deck); s.deck.splice(s.deck.indexOf(cur), 1); s.deck.unshift(cur); s.idx = 0; $('fcStatus').textContent = 'Shuffled!'; };
     $('fcEnd').onclick = fcFinish;
     onKey = (e) => {
       if (e.key === ' ' && !onButton(e)) { e.preventDefault(); fcFlip(); }
@@ -516,7 +603,7 @@
   function fcStatusText() {
     const s = fcState;
     if (s.paused) return 'Paused';
-    return s.reveal === 0 ? 'Tap the card (or press Space) to flip it.' : `The answer shows after ${s.reveal} s and stays for ${s.hold} s.`;
+    return s.reveal === 0 ? 'Think of the answer, then tap the card.' : `Think of the answer. It shows in ${s.reveal} seconds.`;
   }
   function fcShowCard() {
     const s = fcState, { fam, other } = s.deck[s.idx];
@@ -524,8 +611,9 @@
     $('fcCard').classList.remove('flip');
     $('fcFront').innerHTML = `<span class="fc-tag">${fam}s table</span><div class="vert"><div>${fam}</div><div class="op"><b>×</b>${other}</div></div>`;
     $('fcBack').innerHTML = `<div><span class="fc-ans">${fam * other}</span><span class="fc-eq">${fam} × ${other} = ${fam * other}</span></div>`;
-    $('fcCard').setAttribute('aria-label', `Flash card: ${fam} times ${other}. Tap to flip.`);
+    $('fcCard').setAttribute('aria-label', `Flash card: ${fam} times ${other}. Tap to see the answer.`);
     $('fcStatus').textContent = fcStatusText();
+    $('fcFlip').textContent = 'Show answer';
     fcSchedule();
   }
   /** Auto mode: flip after `reveal` seconds, then hold the answer for `hold` seconds, then the next card. */
@@ -540,7 +628,8 @@
     const s = fcState; s.flipped = on;
     $('fcCard').classList.toggle('flip', on);
     const { fam, other } = s.deck[s.idx];
-    $('fcCard').setAttribute('aria-label', on ? `Answer: ${fam} times ${other} equals ${fam * other}` : `Flash card: ${fam} times ${other}. Tap to flip.`);
+    $('fcCard').setAttribute('aria-label', on ? `Answer: ${fam} times ${other} equals ${fam * other}` : `Flash card: ${fam} times ${other}. Tap to see the answer.`);
+    $('fcFlip').textContent = on ? 'Hide answer' : 'Show answer';
   }
   function fcFlip() { const s = fcState; if (!s || s.paused) return; fcSetFlip(!s.flipped); fcSchedule(); }
   function fcMove(d) {
@@ -557,7 +646,7 @@
     else { s.paused = false; s.resumedAt = Date.now(); fcSchedule(); }
     $('fc').classList.toggle('paused', s.paused);
     $('fcPause').textContent = s.paused ? '▶ Resume' : '⏸ Pause';
-    ['fcPrev', 'fcFlip', 'fcNext', 'fcShuffle'].forEach((id) => { $(id).disabled = s.paused; });
+    ['fcFlip', 'fcNext'].forEach((id) => { if ($(id)) $(id).disabled = s.paused; });
     $('fcStatus').textContent = fcStatusText();
   }
   function fcFinish() {
@@ -566,50 +655,39 @@
     T.clearAll(); onKey = null; fcState = null;
     $('fc').classList.remove('paused');
     store.recordFlash(seconds, s.seen);
-    const tables = s.families.length === 12 ? 'all tables' : s.families.length === 10 && s.families.every((n) => n <= 10) ? 'core tables 1–10' : s.families.map((n) => `${n}s`).join(', ');
+    const tables = s.families.length === 1 ? `the ${s.families[0]}s` : 'mixed tables';
     $('fcDone').innerHTML = screenHead('fcDoneTitle', '🃏 Great flying!') +
       `<div class="panel center"><p class="stars" aria-hidden="true">🚀⭐🚀</p>
-        <div class="stats" style="margin-top:8px"><div class="stat"><b>${s.seen}</b>cards seen</div><div class="stat"><b>${fmt(seconds)}</b>time practiced</div><div class="stat"><b style="font-size:1.1rem">${esc(tables)}</b>tables</div></div>
-        <p class="muted" style="margin-top:12px">Flashcards help you remember. Mastery comes from tests, so a test is up to you.</p>
+        <div class="stats" style="margin-top:8px"><div class="stat"><b>${s.seen}</b>cards seen</div><div class="stat"><b>${fmt(seconds)}</b>time practiced</div><div class="stat"><b style="font-size:1.1rem">${esc(tables)}</b>times table</div></div>
         <div class="btn-row center" style="margin-top:16px"><button class="btn btn-go btn-lg" id="fdAgain">Flashcards again</button>
-          <button class="btn btn-primary" data-nav="${MENU}/test">Take a test (optional)</button><button class="btn btn-secondary" data-nav="${MENU}">⬅ Multiplication</button></div></div>`;
+          <button class="btn btn-secondary" data-nav="${MENU}/flashcards">Pick another table</button><button class="btn btn-secondary" data-nav="${MENU}">⬅ Multiplication</button></div></div>`;
     $('fdAgain').onclick = startFlashcards;
     show('fcDone', crumbFor('Flashcards'));
   }
 
   /* =====================================================================================
-     TEST
+     TEST — Show what I know
      ===================================================================================== */
   let testState = null;
+  function testTables() { return usableTables(settings.test.families); }
   function renderTestSetup() {
-    $('testSetup').innerHTML = screenHead('testSetupTitle', '⏱️ Test') +
-      `<div class="panel"><div class="setup-grid"><div id="tsFam"></div>
-          <div class="stack"><div id="tsCount"></div><div id="tsTimer"></div>
-            <p class="hint-text">No hints during a test. A question left blank counts as unanswered, and every question counts toward your score.</p>
-            <div class="feedback info" id="tsMastery" aria-live="polite"></div>
-            <button class="btn btn-go btn-lg btn-block" id="tsStart">▶ Start test</button></div></div></div>`;
     const t = settings.test;
-    familyPicker($('tsFam'), t.families, (v) => { t.families = v; saveSettings(); });
-    seg($('tsCount'), 'Questions', [{ v: 10, label: '10' }, { v: 20, label: '20' }, { v: 36, label: '36' }], t.count, (v) => { t.count = v; saveSettings(); });
-    seg($('tsTimer'), 'Time for each question', [{ v: 0, label: 'Untimed' }, { v: 2, label: '2 s' }, { v: 3, label: '3 s' }, { v: 5, label: '5 s' }, { v: 10, label: '10 s' }], t.timer, (v) => { t.timer = v; saveSettings(); });
-    $('tsStart').onclick = () => startTest({ families: t.families, count: t.count, timer: t.timer, kind: 'test' });
-    const masteryNote = () => {
-      const limit = M.masteryTableLimit(t.count), n = t.families.length;
-      $('tsMastery').innerHTML = n <= limit
-        ? `<strong>Counts toward mastery:</strong> each table gets at least ${M.MASTERY_MIN_QUESTIONS} questions.`
-        : `<strong>Practice test:</strong> with ${n} tables and ${t.count} questions, each table gets fewer than ${M.MASTERY_MIN_QUESTIONS} questions, so this test will not count toward mastery. To earn mastery, pick up to ${limit} table${limit === 1 ? '' : 's'} for ${t.count} questions.`;
-    };
-    $('tsFam').addEventListener('click', masteryNote); $('tsCount').addEventListener('click', masteryNote);
-    masteryNote();
+    $('testSetup').innerHTML = screenHead('testSetupTitle', '⏱️ Test <span class="h-sub">Show what I know</span>') +
+      `<div class="panel start-panel center"><p class="lede"><b>${t.count} questions</b> from ${tablesText(t.families)} · ${t.timer ? `${t.timer} seconds for each` : 'no timer'}</p>
+        <p class="muted">No hints in a test. Just do your best!</p>
+        <button class="btn btn-go btn-lg btn-block" id="tsStart">▶ Start test</button></div>
+       <p class="grownup-note">Grown-ups: questions, timer and tables are in <a href="#/multiplication/settings" data-nav="#/multiplication/settings">Parent Settings</a>.</p>`;
+    $('tsStart').onclick = () => startTest({ families: testTables(), count: t.count, timer: t.timer, kind: 'test' });
     show('testSetup', crumbFor('Test'));
   }
   function startTest({ families, facts, count, timer, kind }) {
     T.clearAll();
-    testState = { qs: M.makeTestSet({ families, facts, count }), i: 0, responses: [], timer, kind, families: families || [...new Set(facts.map((f) => f.fam))].sort((a, b) => a - b),
+    testState = { qs: M.makeTestSet({ families, facts, count, maxFactor: settings.extension ? 12 : M.CORE_MAX }), i: 0, responses: [], timer, kind,
+      families: families || [...new Set(facts.map((f) => f.fam))].sort((a, b) => a - b),
       deadline: 0, shownAt: 0, ticker: null, quitArmed: false, settings: { families, facts, count, timer, kind } };
     $('test').innerHTML = `<h2 class="sr-only" id="testTitle" tabindex="-1">${kind === 'retry' ? 'Retry missed facts' : 'Multiplication test'}</h2>
       <div class="assess"><div class="meta-row"><span id="tCount"></span>
-          <span class="btn-row">${timer ? '<span class="timer-pill" id="tTimer" role="timer" aria-live="off"></span>' : '<span class="badge">Untimed</span>'}<button class="btn btn-danger" id="tQuit">Quit</button></span></div>
+          <span class="btn-row">${timer ? '<span class="timer-pill" id="tTimer" role="timer" aria-live="off"></span>' : '<span class="badge">No timer</span>'}<button class="btn btn-danger" id="tQuit">Quit</button></span></div>
         <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="${count}" aria-valuenow="0" aria-label="Test progress" id="tProg"><span id="tBar"></span></div>
         ${timer ? '<div class="timer-bar" aria-hidden="true"><span id="tTimeBar"></span></div>' : ''}
         <div class="assess-grid" style="margin-top:16px">
@@ -683,11 +761,11 @@
         ${sc.missed.length ? `<h3 style="margin-top:16px">Missed facts</h3><ul class="missed-list" id="rMissed" style="margin-top:8px">${sc.missed.map((m) =>
           `<li><b>${m.q.a} × ${m.q.b} = ${m.q.answer}</b> <span class="muted">· ${m.result === 'unanswered' ? 'no answer' : `you answered ${esc(m.given)}`}</span></li>`).join('')}</ul>` : '<p class="center" style="margin-top:12px"><b>No missed facts!</b></p>'}
         <h3 style="margin-top:16px">Accuracy by table</h3>
-        <table class="data" id="rFam"><thead><tr><th>Table</th><th>Right</th><th>Accuracy</th>${counts ? '<th>Mastery</th>' : ''}</tr></thead><tbody>${fams.map((f) => {
+        <div class="table-wrap"><table class="data" id="rFam"><thead><tr><th>Table</th><th>Right</th><th>Accuracy</th>${counts ? '<th>Mastery</th>' : ''}</tr></thead><tbody>${fams.map((f) => {
           const b = sc.byFamily[f], pct = Math.round((b.correct / b.total) * 100);
           const note = b.total < M.MASTERY_MIN_QUESTIONS ? `needs ${M.MASTERY_MIN_QUESTIONS}+ questions` : pct >= 90 ? '✓ counts' : 'below 90%';
           return `<tr><td>${f}s${f > M.CORE_MAX ? ' <span class="badge ext">ext</span>' : ''}</td><td>${b.correct} / ${b.total}</td><td>${pct}%</td>${counts ? `<td>${note}</td>` : ''}</tr>`;
-        }).join('')}</tbody></table>
+        }).join('')}</tbody></table></div>
         <p class="hint-text">A table is mastered after 90% or better in two separate tests, each with at least ${M.MASTERY_MIN_QUESTIONS} questions from that table.</p>
         <div class="btn-row center" style="margin-top:16px">
           ${sc.missed.length ? '<button class="btn btn-go btn-lg" id="rRetry">Retry missed facts</button>' : ''}
@@ -698,33 +776,92 @@
     testState = null;
     show('testDone', crumbFor('Test results'));
   }
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      if (fcState && !fcState.paused) fcTogglePause();
+      if (testState && testState.timer && testState.ticker) { T.cancel(testState.ticker); testState.ticker = null; testState.hiddenAt = Date.now(); }
+    } else if (testState && testState.hiddenAt) {
+      const away = Date.now() - testState.hiddenAt;
+      testState.deadline += away; testState.shownAt += away; testState.hiddenAt = 0;
+      testState.ticker = T.every(testTick, 100);
+    }
+  });
+
+  /* =====================================================================================
+     PARENT SETTINGS
+     ===================================================================================== */
+  function renderSettings() {
+    $('settings').innerHTML = screenHead('settingsTitle', '⚙️ Parent Settings') +
+      `<div class="feedback info" style="margin-bottom:12px">For grown-ups. Settings are saved on this device and are <b>not locked</b>, so a child could change them. Changes apply right away.</div>
+       <div class="panel settings-section"><h3>Times tables for Practice and the Lab</h3><div class="setup-grid"><div id="stTables"></div>
+         <div class="stack"><div id="stExt"></div><p class="hint-text">Third-grade fluency is facts with factors up to 10 (products within 100). Turning the extension on adds the 11s and 12s and facts like 3 × 12.</p></div></div></div>
+       <div class="panel settings-section"><h3>Practice</h3><div id="stPracCount"></div></div>
+       <div class="panel settings-section"><h3>Math Thinking Lab</h3><div id="stLabTypes"></div>
+         <p class="hint-text">“As they learn them” includes a kind of problem once its Teach lesson is finished or it has been tried 3 times in Practice. Starter kinds (facts, equal groups, arrays, repeated addition) are always included.</p></div>
+       <div class="panel settings-section"><h3>Flashcards</h3><div class="setup-grid"><div class="stack"><div id="stReveal"></div><div id="stHold"></div></div><div class="stack"><div id="stMin"></div><div id="stOrder"></div></div></div></div>
+       <div class="panel settings-section"><h3>Test</h3><div class="setup-grid"><div id="stTestTables"></div><div class="stack"><div id="stTestCount"></div><div id="stTimer"></div>
+         <div class="feedback info" id="stMastery" aria-live="polite"></div></div></div></div>
+       <div class="btn-row between" style="margin-top:16px"><button class="btn btn-ghost" data-nav="${MENU}">⬅ Multiplication</button><button class="btn btn-ghost" data-nav="${MENU}/progress">📊 Progress</button></div>`;
+    const S = settings, save = () => saveSettings();
+    familyPicker($('stTables'), 'Tables', S.tables, (v) => { S.tables = v; save(); });
+    seg($('stExt'), 'Include 11s and 12s (extension)', [{ v: false, label: 'Off' }, { v: true, label: 'On' }], S.extension, (v) => { S.extension = v; save(); masteryNote(); });
+    seg($('stPracCount'), 'Problems in a practice', [{ v: 10, label: '10' }, { v: 20, label: '20' }, { v: 30, label: '30' }], S.practice.count, (v) => { S.practice.count = v; save(); });
+    seg($('stLabTypes'), 'Kinds of problems in the Lab', [{ v: false, label: 'As they learn them' }, { v: true, label: 'All 12 kinds now' }], S.lab.allTypes, (v) => { S.lab.allTypes = v; save(); });
+    let holdSeg = null;
+    seg($('stReveal'), 'Show the answer', [{ v: 0, label: 'On tap' }, { v: 2, label: '2 s' }, { v: 3, label: '3 s' }, { v: 5, label: '5 s' }, { v: 10, label: '10 s' }], S.fc.reveal,
+      (v) => { S.fc.reveal = v; save(); holdSeg.disable(v === 0); });
+    holdSeg = seg($('stHold'), 'Keep the answer up for', [{ v: 1, label: '1 s' }, { v: 2, label: '2 s' }, { v: 3, label: '3 s' }, { v: 5, label: '5 s' }], S.fc.hold, (v) => { S.fc.hold = v; save(); });
+    holdSeg.disable(S.fc.reveal === 0);
+    seg($('stMin'), 'Session length', [{ v: 3, label: '3 min' }, { v: 5, label: '5 min' }, { v: 10, label: '10 min' }], S.fc.minutes, (v) => { S.fc.minutes = v; save(); });
+    seg($('stOrder'), 'Order', [{ v: 'shuffle', label: 'Shuffled' }, { v: 'order', label: 'In order' }], S.fc.order, (v) => { S.fc.order = v; save(); });
+    familyPicker($('stTestTables'), 'Test tables', S.test.families, (v) => { S.test.families = v; save(); masteryNote(); });
+    seg($('stTestCount'), 'Questions', [{ v: 10, label: '10' }, { v: 20, label: '20' }, { v: 36, label: '36' }], S.test.count, (v) => { S.test.count = v; save(); masteryNote(); });
+    seg($('stTimer'), 'Time for each question', [{ v: 0, label: 'Untimed' }, { v: 2, label: '2 s' }, { v: 3, label: '3 s' }, { v: 5, label: '5 s' }, { v: 10, label: '10 s' }], S.test.timer, (v) => { S.test.timer = v; save(); });
+    function masteryNote() {
+      const limit = M.masteryTableLimit(S.test.count), n = testTables().length;
+      $('stMastery').innerHTML = n <= limit
+        ? `<strong>Counts toward mastery:</strong> each table gets at least ${M.MASTERY_MIN_QUESTIONS} questions.`
+        : `<strong>Practice test:</strong> with ${n} tables and ${S.test.count} questions, each table gets fewer than ${M.MASTERY_MIN_QUESTIONS} questions, so the test will not count toward mastery. Pick up to ${limit} table${limit === 1 ? '' : 's'} for ${S.test.count} questions to earn mastery.`;
+    }
+    masteryNote();
+    show('settings', '× Multiplication · Parent Settings');
+  }
 
   /* =====================================================================================
      PROGRESS (for grown-ups)
      ===================================================================================== */
   function renderProgress() {
-    const s = store.summary(), p = s.practice;
-    const recent = s.tests.slice(-6).reverse();
+    const s = store.summary({ lessonsTotal: L.LESSONS.length }), p = s.practice;
+    const recentTests = s.tests.slice(-5).reverse(), recentLab = s.lab.slice(-5).reverse();
+    const labAvg = s.lab.length ? Math.round(s.lab.reduce((a, x) => a + x.percent, 0) / s.lab.length) : null;
     const dots = (f) => (f.mastered ? '⭐ Mastered' : `${'●'.repeat(f.passes)}${'○'.repeat(f.needed - f.passes)} ${f.passes}/${f.needed}`);
+    const pc = (x) => (x.total ? `${x.correct}/${x.total}` : '–');
+    const date = (at) => (at ? new Date(at).toLocaleDateString() : '');
     $('progress').innerHTML = screenHead('progressTitle', '📊 Multiplication progress') +
       (store.persistent ? '' : '<div class="feedback info" style="margin-bottom:12px">This browser is not letting Galaxy Math save, so progress lasts only until the page is closed.</div>') +
       `<div class="panel"><div class="stats">
-          <div class="stat"><b id="pgLessons">${s.lessonsDone}/${L.LESSONS.length}</b>lessons finished</div>
-          <div class="stat"><b>${p.questions ? Math.round((p.firstTry / p.questions) * 100) + '%' : '–'}</b>practice right first try (${p.questions} questions)</div>
-          <div class="stat"><b id="pgTests">${s.testsTaken}</b>tests taken</div>
-          <div class="stat"><b id="pgCore">${s.coreMastered}/10</b>core tables mastered</div></div>
-        <p class="hint-text" style="margin-top:10px">Mastery = 90% or better on a table in two separate tests (at least ${M.MASTERY_MIN_QUESTIONS} questions from that table each time). Speed is shown separately and only comes from timed tests. Opening lessons or flashcards never counts as mastery.</p></div>
-       <div class="panel"><h3>Times tables</h3><div style="overflow-x:auto"><table class="data" id="pgTable"><thead><tr><th>Table</th><th>Accuracy</th><th>Mastery</th><th>Speed</th></tr></thead><tbody>
+          <div class="stat"><b id="pgLessons">${s.lessonsDone}/${s.lessonsTotal}</b>lessons finished<small>understanding</small></div>
+          <div class="stat"><b>${p.questions ? Math.round((p.firstTry / p.questions) * 100) + '%' : '–'}</b>practice right first try<small>${p.questions} problems</small></div>
+          <div class="stat"><b id="pgLab">${s.labSessions}</b>Thinking Lab challenges<small>${labAvg === null ? 'none yet' : `average ${labAvg}%`}</small></div>
+          <div class="stat"><b id="pgTests">${s.testsTaken}</b>tests taken<small>independent</small></div>
+          <div class="stat"><b id="pgCore">${s.coreMastered}/10</b>core tables mastered<small>from tests</small></div></div>
+        <p class="hint-text" style="margin-top:10px">Four kinds of evidence are kept apart: <b>understanding</b> (Teach lessons), <b>practice</b> (with hints), <b>reasoning</b> (Thinking Lab, no hints) and <b>independent tests</b>. Memorization speed comes only from timed tests. A table is mastered at 90%+ in two separate tests; a kind of problem is “Strong” only after 10+ problems at 90%+ across at least two sessions.</p></div>
+       <div class="panel"><h3>Kinds of problems (Practice and Lab)</h3><div class="table-wrap"><table class="data" id="pgTypes"><thead><tr><th>Kind of problem</th><th>Practice</th><th>Lab</th><th>Status</th></tr></thead><tbody>
+         ${s.types.map((t) => `<tr><td>${t.letter}. ${esc(t.name)}</td><td>${pc(t.practice)}</td><td>${pc(t.lab)}</td><td><span class="status st-${t.status.id}">${esc(t.status.label)}</span></td></tr>`).join('')}
+       </tbody></table></div></div>
+       <div class="panel"><h3>Times tables</h3><div class="table-wrap"><table class="data" id="pgTable"><thead><tr><th>Table</th><th>Accuracy (all activities)</th><th>Test mastery</th><th>Timed speed</th></tr></thead><tbody>
          ${s.families.map((f) => `<tr><td>${f.fam}s${f.extension ? ' <span class="badge ext">extension</span>' : ''}</td><td>${f.accuracy === null ? '–' : `${f.accuracy}% <span class="muted">(${f.correct}/${f.total})</span>`}</td><td class="mastery-dots">${dots(f)}</td><td>${f.avgSeconds === null ? '–' : `${f.avgSeconds} s`}</td></tr>`).join('')}
        </tbody></table></div></div>
-       <div class="panel"><h3>Lessons</h3><ul class="words" style="margin-top:8px">${L.LESSONS.map((l, i) => { const st = s.lessons[l.id];
+       <div class="panel"><h3>Understanding: Teach lessons</h3><ul class="words" style="margin-top:8px">${L.LESSONS.map((l, i) => { const st = s.lessons[l.id];
           return `<li>${i + 1}. ${esc(l.title)}: ${st && st.completed ? '<b>✓ completed</b>' : st ? `tried (best ${st.best} of 3)` : 'not started'}</li>`; }).join('')}</ul></div>
-       <div class="panel"><h3>Recent tests</h3>${recent.length ? `<table class="data" style="margin-top:8px"><thead><tr><th>Date</th><th>Score</th><th>✓ / ✗ / blank</th><th>Type</th></tr></thead><tbody>${recent.map((t) =>
-          `<tr><td>${t.at ? new Date(t.at).toLocaleDateString() : ''}</td><td>${t.percent}%</td><td>${t.correct} / ${t.incorrect} / ${t.unanswered} of ${t.total}</td><td>${t.kind === 'retry' ? 'retry missed' : t.timed ? `${t.timed} s timed` : 'untimed'}</td></tr>`).join('')}</tbody></table>` : '<p class="muted">No tests yet.</p>'}</div>
-       <div class="panel cream"><h3>Facts to practice</h3>${s.misses.length ? `<div class="chips-list" style="margin-top:8px">${s.misses.map((f) => `<span>${f.fam} × ${f.other}</span>`).join('')}</div>
+       <div class="panel"><h3>Recent Thinking Lab challenges</h3>${recentLab.length ? `<div class="table-wrap"><table class="data" style="margin-top:8px"><thead><tr><th>Date</th><th>Problems</th><th>Score</th><th>✓ / ✗ / skipped</th></tr></thead><tbody>${recentLab.map((x) =>
+          `<tr><td>${date(x.at)}</td><td>${x.total}</td><td>${x.percent}%</td><td>${x.correct} / ${x.incorrect} / ${x.unanswered}</td></tr>`).join('')}</tbody></table></div>` : '<p class="muted">No challenges yet.</p>'}</div>
+       <div class="panel"><h3>Recent tests</h3>${recentTests.length ? `<div class="table-wrap"><table class="data" style="margin-top:8px"><thead><tr><th>Date</th><th>Score</th><th>✓ / ✗ / blank</th><th>Type</th></tr></thead><tbody>${recentTests.map((t) =>
+          `<tr><td>${date(t.at)}</td><td>${t.percent}%</td><td>${t.correct} / ${t.incorrect} / ${t.unanswered} of ${t.total}</td><td>${t.kind === 'retry' ? 'retry missed' : t.timed ? `${t.timed} s timed` : 'untimed'}</td></tr>`).join('')}</tbody></table></div>` : '<p class="muted">No tests yet.</p>'}</div>
+       <div class="panel cream"><h3>Problems to practice</h3>${s.missedQuestions.length || s.misses.length ? `<div class="chips-list" style="margin-top:8px" id="pgMissed">${s.missedQuestions.slice(0, 20).map((m) => `<span>${esc(B.TYPE[m.type].name)}: ${m.fam} × ${m.other}</span>`).join('')}${s.misses.filter((f) => !s.missedQuestions.some((m) => m.fam === f.fam && m.other === f.other)).slice(0, 12).map((f) => `<span>Test: ${f.fam} × ${f.other}</span>`).join('')}</div>
           <div class="btn-row" style="margin-top:12px"><button class="btn btn-primary" data-nav="${MENU}/practice">Go to Practice my misses</button></div>` : '<p class="muted">None right now.</p>'}</div>
-       <div class="panel"><h3>Milestones</h3>${s.milestones.length ? `<ul class="words" style="margin-top:8px">${s.milestones.map((m) => `<li>⭐ ${esc(m)}</li>`).join('')}</ul>` : '<p class="muted">Milestones appear as lessons are finished and tables are mastered.</p>'}
-         <p class="muted" style="margin-top:10px">Flashcards: ${s.flash.sessions} session${s.flash.sessions === 1 ? '' : 's'}, ${fmt(s.flash.seconds)} total, ${s.flash.cards} cards.</p></div>
+       <div class="panel"><h3>Milestones</h3>${s.milestones.length ? `<ul class="words" style="margin-top:8px">${s.milestones.map((m) => `<li>⭐ ${esc(m)}</li>`).join('')}</ul>` : '<p class="muted">Milestones appear as lessons are finished, challenges completed and tables mastered.</p>'}
+         <p class="muted" style="margin-top:10px">Memory practice: ${s.flash.sessions} flashcard session${s.flash.sessions === 1 ? '' : 's'}, ${fmt(s.flash.seconds)} total, ${s.flash.cards} cards. Flashcards and opening lessons never count as mastery.</p></div>
        <div class="btn-row between" style="margin-top:16px"><button class="btn btn-ghost" data-nav="${MENU}">⬅ Multiplication</button><button class="btn btn-danger" id="pgReset">Reset progress</button></div>`;
     let armed = false;
     $('pgReset').onclick = () => {
@@ -735,7 +872,7 @@
   }
 
   // Read-only view of the running activity for the browser tests.
-  window.__galaxy.state = () => ({ lesson: lessonState, practice: practiceState, test: testState && { ...testState, pad: undefined }, fc: fcState, settings });
+  window.__galaxy.state = () => ({ lesson: lessonState, practice: practiceState, lab: labState, test: testState && { ...testState, pad: undefined }, fc: fcState, settings });
 
   route();
 })();

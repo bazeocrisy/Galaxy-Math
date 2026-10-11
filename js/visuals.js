@@ -73,6 +73,17 @@
     return svg(width, 112, labels ? `number line: ${plural(n, 'jump')} of ${size} from 0 to ${total}` : `number line: ${plural(n, 'jump')} of ${size} from 0`, body, 'viz-jumps');
   }
 
+  /** Bar model for "times as many": one bar of `size` for the first person, `times` equal bars for the second.
+      The total is never written, so it can be used as a hint. */
+  function compare({ times, size, names = ['Mia', 'Ben'] }) {
+    const box = 40, h = 30, labelW = 64, gap = 16, w = labelW + times * box + 8;
+    const row = (y, n, color) => Array.from({ length: n }, (_, i) =>
+      `<rect class="bar-box" x="${labelW + i * box}" y="${y}" width="${box - 2}" height="${h}" rx="5" fill="${color}"/><text x="${labelW + i * box + (box - 2) / 2}" y="${y + h / 2 + 5}" text-anchor="middle" font-size="14" font-weight="700" fill="#fff">${size}</text>`).join('');
+    const body = `<text x="0" y="${8 + h / 2 + 5}" font-size="14" font-weight="700" fill="${C.line}">${esc(names[0])}</text>${row(8, 1, C.ring)}` +
+      `<text x="0" y="${8 + h + gap + h / 2 + 5}" font-size="14" font-weight="700" fill="${C.line}">${esc(names[1])}</text>${row(8 + h + gap, times, C.dot)}`;
+    return svg(w, 8 + 2 * h + gap + 8, `bar model: ${names[0]} has 1 bar of ${size}; ${names[1]} has ${times} bars of ${size}`, body, 'viz-compare');
+  }
+
   /** 4 × 3 = 12 with "factor / factor / product" labels. */
   function equation({ a, b, p }) {
     const part = (v, l, cls) => `<span class="eq-part ${cls}"><b>${v}</b><small>${l}</small></span>`;
@@ -85,7 +96,7 @@
     return `<div class="viz-set">${items.map((it) => `<figure>${render(it.visual)}<figcaption>${esc(it.caption)}</figcaption></figure>`).join('')}</div>`;
   }
 
-  const KINDS = { groups, uneven, array, jumps, equation, set };
+  const KINDS = { groups, uneven, array, jumps, equation, set, compare };
   function render(spec) {
     if (!spec) return '';
     const fn = KINDS[spec.kind];
@@ -93,7 +104,7 @@
     return fn(spec);
   }
 
-  const api = { render, groups, uneven, array, jumps, equation, set, KINDS };
+  const api = { render, groups, uneven, array, jumps, equation, set, compare, KINDS };
   if (typeof module === 'object' && module.exports) module.exports = api;
   else root.GalaxyVisuals = api;
 })(this);

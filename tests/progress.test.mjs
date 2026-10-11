@@ -123,5 +123,68 @@ test('nothing personal is stored', () => {
   st.recordTest(M.scoreTest([{ q: q(2, 2), given: '4' }]), { families: [2], responses: [{ q: q(2, 2), given: '4' }] });
   const saved = JSON.parse(s.map.get(P.KEY));
   assert.deepEqual(Object.keys(saved), ['v', 'mult']);
-  assert.deepEqual(Object.keys(saved.mult).sort(), ['facts', 'flash', 'lessons', 'misses', 'practice', 'tests']);
+  assert.deepEqual(Object.keys(saved.mult).sort(), ['facts', 'flash', 'lab', 'lessons', 'missedQs', 'misses', 'practice', 'tests', 'types']);
+  assert.doesNotMatch(JSON.stringify(saved), /name|email|child/i);
+});
+
+const B = require('../js/mult-bank.js');
+function seeded(seed) { return () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; }; }
+
+test('v1 progress (from the first Multiplication release) is upgraded, not lost', () => {
+  const v1 = { v: 1, mult: { lessons: { arrays: { completed: true, best: 3, attempts: 1, completedAt: '2026-10-11T00:00:00Z' } },
+    practice: { sessions: 2, questions: 20, firstTry: 15, hints: 3, byFamily: {} }, tests: [], facts: { '6x7': { correct: 1, total: 2 } }, misses: { '6x7': 1 }, flash: { sessions: 1, seconds: 60, cards: 9 } } };
+  const st = P.createStore(memoryStorage({ [P.KEY]: JSON.stringify(v1) }));
+  const sum = st.summary();
+  assert.equal(sum.lessonsDone, 1);
+  assert.equal(sum.practice.questions, 20);
+  assert.deepEqual(sum.misses.map((f) => `${f.fam}x${f.other}`), ['6x7']);
+  assert.equal(sum.labSessions, 0);
+  assert.equal(sum.types.length, 12);
+  st.recordFlash(10, 1);
+  assert.equal(JSON.parse(st.data && JSON.stringify(st.data())).v, 2, 'saved back as v2');
+});
+
+test('Lab sessions record results by question type and missed questions', () => {
+  const s = memoryStorage();
+  const st = P.createStore(s);
+  const q1 = B.generate('error', 6, 7, { rng: seeded(1) }), q2 = B.generate('compare', 4, 3, { rng: seeded(2) }), q3 = B.generate('fact', 2, 5, { rng: seeded(3) });
+  const answers = [{ q: q1, given: q1.answer }, { q: q2, given: '11' }, { q: q3, given: null }];
+  st.recordLab(B.scoreSession(answers), answers);
+  const sum = P.createStore(s).summary();
+  assert.equal(sum.labSessions, 1);
+  assert.deepEqual([sum.lab[0].correct, sum.lab[0].incorrect, sum.lab[0].unanswered], [1, 1, 1]);
+  const byId = Object.fromEntries(sum.types.map((t) => [t.id, t]));
+  assert.deepEqual(byId.error.lab, { correct: 1, total: 1 });
+  assert.deepEqual(byId.compare.lab, { correct: 0, total: 1 });
+  assert.equal(byId.compare.sessions, 1);
+  assert.deepEqual(sum.missedQuestions.map((m) => `${m.type}:${m.fam}x${m.other}`).sort(), ['compare:4x3', 'fact:2x5']);
+  assert.ok(sum.milestones.includes('Completed a first Math Thinking Lab challenge'));
+});
+
+test('a type cannot become Strong from one session, and practice answers clear missed questions', () => {
+  const st = P.createStore(memoryStorage());
+  const qs = Array.from({ length: 12 }, (_, i) => B.generate('fact', 3, 1 + (i % 10), { rng: seeded(i + 1) }));
+  for (const q of qs) st.recordPracticeAnswer(q, true, false);
+  st.recordPracticeSession(qs.map((q) => q.typeId));
+  let fact = st.summary().types.find((t) => t.id === 'fact');
+  assert.equal(fact.status.label, 'Getting stronger', '12/12 in a single session is not "Strong"');
+  for (const q of qs) st.recordPracticeAnswer(q, true, false);
+  st.recordPracticeSession(qs.map((q) => q.typeId));
+  fact = st.summary().types.find((t) => t.id === 'fact');
+  assert.equal(fact.status.label, 'Strong');
+  const miss = B.generate('equal', 4, 6, { rng: seeded(9) });
+  st.recordPracticeAnswer(miss, false, true);
+  assert.equal(st.missedQuestions().length, 1);
+  st.recordPracticeAnswer(miss, true, false);
+  assert.equal(st.missedQuestions().length, 0);
+  assert.equal(st.practiceAttempts().equal, 2);
+});
+
+test('corrupt v2 fields are dropped safely', () => {
+  const bad = { v: 2, mult: { types: { nope: {}, fact: { practice: { correct: 'x', total: 3 } } }, lab: ['x', { total: 5, byType: { bogus: { total: 1 } } }], missedQs: [{ type: 'fact', fam: 99, other: 1 }, { type: 'zzz', fam: 2, other: 2 }, { type: 'fact', fam: 2, other: 3 }] } };
+  const sum = P.createStore(memoryStorage({ [P.KEY]: JSON.stringify(bad) })).summary();
+  assert.deepEqual(sum.missedQuestions, [{ type: 'fact', fam: 2, other: 3 }]);
+  assert.equal(sum.lab.length, 1);
+  assert.deepEqual(sum.lab[0].byType, {});
+  assert.deepEqual(sum.types.find((t) => t.id === 'fact').practice, { correct: 0, total: 3 });
 });

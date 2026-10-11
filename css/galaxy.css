@@ -281,3 +281,106 @@ table.data th { font-size: .88rem; color: var(--navy-2); }
   *, *::before, *::after { transition: none !important; animation: none !important; }
   .btn:active, .subject.open:hover, .mode.ready:hover { transform: none; }
 }
+
+/* ======================= Multiplication 2.0 ======================= */
+:root { --content: 980px; }
+.wrap { max-width: var(--content); }
+.h-sub { display: inline-block; font-size: .6em; font-weight: 500; opacity: .85; margin-left: .35em; }
+.screen-sub { margin: -6px 0 var(--s4); opacity: .92; font-size: 1.1rem; }
+.grownup-note { margin-top: var(--s3); font-size: .92rem; opacity: .85; text-align: center; }
+.grownup-note a { color: var(--sun); }
+.start-panel { max-width: 640px; margin-left: auto; margin-right: auto; }
+.start-panel .lede { margin-bottom: var(--s4); }
+.start-panel + .panel { max-width: 640px; margin-left: auto; margin-right: auto; }
+
+/* menu: five activities (a list on phones, a row on wide screens) */
+.modes { grid-template-columns: 1fr; max-width: 560px; gap: var(--s3); }
+.mode { flex-direction: row; justify-content: flex-start; text-align: left; gap: var(--s4); min-height: 80px; padding: var(--s3) var(--s4); }
+.mode .mIcon { font-size: 2.1rem; width: 48px; text-align: center; flex: none; }
+.mode .mText { display: flex; flex-direction: column; gap: 2px; }
+.mode .mName { font-size: 1.25rem; }
+.mode .mMeta { font-size: .85rem; color: var(--grape-d); font-weight: 700; }
+.mode.m-lab { background: #E9FBF3; border-color: var(--grass-d); }
+@media (min-width: 900px) {
+  .modes { grid-template-columns: repeat(5, minmax(0, 1fr)); max-width: none; }
+  .mode { flex-direction: column; text-align: center; justify-content: center; min-height: 150px; }
+  .mode .mText { align-items: center; }
+}
+.menu-extra { align-items: center; }
+.grownups { opacity: .85; font-size: .95rem; }
+
+/* one question: problem → picture → answer → feedback */
+.q-panel { padding: var(--s4) var(--s5); }
+.q-host { margin-top: var(--s4); }
+.qa { display: grid; gap: var(--s3) var(--s5); grid-template-areas: "q" "visual" "answer" "feedback"; }
+.qa-q { grid-area: q; }
+.qa-visual { grid-area: visual; }
+.qa-visual:empty { display: none; }
+.qa-answer { grid-area: answer; display: flex; flex-direction: column; gap: var(--s3); align-items: stretch; }
+.qa-answer .answer { align-self: center; }
+.qa-feedback { grid-area: feedback; display: flex; flex-direction: column; gap: var(--s2); }
+#qNextRow:empty, #qHintBox:empty { display: none; }
+.q-sub { margin-top: var(--s1); color: var(--navy-2); font-weight: 700; }
+.type-reveal { margin-top: var(--s2); font-size: .95rem; }
+@media (min-width: 860px) {
+  .qa { grid-template-columns: minmax(0, 1.4fr) minmax(300px, 1fr); grid-template-areas: "q answer" "visual answer" "feedback feedback"; align-items: start; }
+}
+@media (max-width: 859px) {
+  /* phones: keep the whole problem and the Submit button on one screen */
+  .qa { gap: var(--s2); }
+  .qa .viz-array, .qa .viz-groups { max-height: 20vh; }
+  .qa .viz-set .viz-array, .qa .viz-set .viz-groups { max-height: 16vh; }
+  .qa .viz-jumps { max-height: 14vh; }
+  .q-panel { padding: var(--s3) var(--s3); }
+  .q-host { margin-top: var(--s3); }
+  .qa .numpad { gap: 6px; max-width: 280px; }
+  .qa .numpad button { min-height: 46px; font-size: 1.3rem; }
+  .qa .answer { min-height: 52px; font-size: 1.9rem; }
+  .qa .q-prompt { font-size: 1.15rem; }
+  .qa .q-prompt.big { font-size: 2rem; }
+  .qa .choices button { min-height: 48px; font-size: 1.1rem; }
+}
+
+/* lessons */
+.lesson-body { margin-top: var(--s3); }
+.lesson-nav { margin-top: var(--s5); }
+.caption { text-align: center; font-weight: 700; font-size: 1.15rem; margin-top: var(--s2); }
+.example-grid { display: grid; gap: var(--s4); align-items: center; }
+@media (min-width: 760px) { .example-grid { grid-template-columns: auto 1fr; } }
+.explain.lede p { font-size: 1.15rem; }
+
+/* Math Thinking Lab */
+.lab-sizes { display: grid; gap: var(--s3); grid-template-columns: 1fr; max-width: 760px; margin: 0 auto var(--s4); }
+.lab-size { display: grid; grid-template-columns: auto auto 1fr; grid-template-areas: "icon n unit" "icon name name"; align-items: baseline; gap: 0 var(--s2);
+  padding: var(--s3) var(--s4); border-radius: var(--r-lg); border: 3px solid var(--grass-d); background: #E9FBF3; color: var(--navy); text-align: left; box-shadow: 0 6px 0 rgba(0, 0, 0, .35); }
+.lab-size .ls-icon { grid-area: icon; font-size: 2rem; align-self: center; margin-right: var(--s2); }
+.lab-size .ls-n { grid-area: n; font-size: 2rem; font-weight: 700; }
+.lab-size .ls-unit { grid-area: unit; font-weight: 700; }
+.lab-size .ls-name { grid-area: name; color: var(--navy-2); font-weight: 700; }
+@media (min-width: 640px) {
+  .lab-sizes { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .lab-size { grid-template-columns: 1fr; grid-template-areas: "icon" "n" "unit" "name"; text-align: center; justify-items: center; }
+}
+.lab-info { max-width: 760px; margin: 0 auto; }
+.lab-info p + p { margin-top: var(--s2); }
+
+/* Flashcards: simple child controls */
+.table-pick { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: var(--s2); margin: var(--s3) 0 var(--s4); }
+.table-pick button { min-height: 56px; border-radius: var(--r-md); border: 2px solid var(--line); background: var(--paper); color: var(--navy); font-size: 1.25rem; font-weight: 700; }
+.table-pick button.mixed { grid-column: span 2; }
+.table-pick button[aria-pressed="true"] { background: var(--grape-d); border-color: var(--grape-d); color: #fff; }
+.fc-simple { display: flex; flex-wrap: wrap; gap: var(--s3); justify-content: center; }
+.fc-simple .btn { min-width: 150px; }
+
+/* progress and settings */
+.status { display: inline-block; padding: 2px 10px; border-radius: var(--r-pill); font-weight: 700; font-size: .88rem; background: #ECEAF4; color: var(--navy); }
+.st-strong { background: var(--ok-bg); color: #0E5A3F; }
+.st-stronger { background: var(--ice); color: var(--sky-d); }
+.st-growing { background: var(--warn-bg); color: #5E4300; }
+.st-starting { background: var(--lav); color: var(--grape-d); }
+.stat small { display: block; color: var(--navy-2); font-size: .8rem; }
+.settings-section h3 { margin-bottom: var(--s3); }
+.viz-compare { max-width: 100%; height: auto; }
+.table-wrap { overflow-x: auto; max-width: 100%; }
+.qa-visual { align-self: start; }
+.qa-visual .viz-wrap { align-items: flex-start; }

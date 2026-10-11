@@ -53,7 +53,10 @@
     (g, n) => ({ text: `${g === 1 ? 'One rocket carries' : `${g} rockets each carry`} ${plural(n, 'astronaut')}. How many astronauts is that altogether?`, unit: 'astronauts' }),
     (g, n) => ({ text: `There ${g === 1 ? 'is' : 'are'} ${plural(g, 'box', 'boxes')} of crayons. Each box has ${plural(n, 'crayon')}. How many crayons are there?`, unit: 'crayons' }),
     (g, n) => ({ text: `${g === 1 ? 'One planet has' : `${g} planets each have`} ${plural(n, 'moon')}. How many moons in all?`, unit: 'moons' }),
-    (g, n) => ({ text: `A muffin tray has ${plural(g, 'row')} with ${plural(n, 'muffin')} in each row. How many muffins fit in the tray?`, unit: 'muffins' })
+    (g, n) => ({ text: `A muffin tray has ${plural(g, 'row')} with ${plural(n, 'muffin')} in each row. How many muffins fit in the tray?`, unit: 'muffins' }),
+    (g, n) => ({ text: `${g === 1 ? 'One baseball team has' : `${g} baseball teams each have`} ${plural(n, 'player')}. How many players are there?`, unit: 'players' }),
+    // a deliberately long story, so layouts are tested with long text too
+    (g, n) => ({ text: `The Galaxy Math rocket club is packing snack bags for a trip to the Moon. They fill ${plural(g, 'bag')} and put ${plural(n, 'space cookie')} in ${g === 1 ? 'it' : 'every bag'}. How many space cookies did they pack altogether?`, unit: 'space cookies' })
   ];
 
   // groups / repeated addition need a picture with at most 10 groups; returns [groups, size] or null.
@@ -199,12 +202,12 @@
 
   /** Test deck: count fact questions. Chosen tables share the questions evenly (so results by table are fair),
       no fact repeats while a table still has unused facts, and the same fact never comes twice in a row. */
-  function makeTestSet({ families, count = 10, facts, rng = Math.random } = {}) {
+  function makeTestSet({ families, count = 10, facts, maxFactor = 12, rng = Math.random } = {}) {
     let picked;
     if (facts && facts.length) picked = drawFacts(facts, count, rng);
     else {
       const quota = tableQuotas(families, count, rng);
-      picked = shuffle(Object.entries(quota).flatMap(([f, n]) => drawFacts(factsFor([+f]), n, rng)), rng);
+      picked = shuffle(Object.entries(quota).flatMap(([f, n]) => drawFacts(factsFor([+f], maxFactor), n, rng)), rng);
     }
     picked = spreadOut(picked, rng);
     return picked.map((f) => makeQuestion('fact', f.fam, f.other, rng));
