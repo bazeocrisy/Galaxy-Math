@@ -80,3 +80,59 @@ lessons 05–06 and Lab 09, 10, 17.
   group got 2") in a hint for every quotient-1 sharing problem. It is a small, local fix. Recommended before release
   also: D-02 (same root cause), D-03/D-04 (grammar a child sees), D-07/D-08 (leftover "tables"/multiplication text,
   an explicit owner requirement), and D-05 (guessable middle-answer pattern in Lab choices).
+
+---
+
+## 4. Recheck — commit `11c5d79` (feature/division)
+
+**Method:** I read the diff for `js/div-bank.js`, `js/app.js`, `js/visuals.js`, `js/div-lessons.js` and `css/galaxy.css`. I re-ran
+the Node sampler on the fixed bank: every divisor 1–12 × quotient 1–10 and 1–12, all 12 kinds, 40 seeds each,
+**106,920 questions**. On top of the original checks it now also tests:
+- hint text matches the hint picture (rounds dealt, groups circled);
+- no hint picture shows the finished answer;
+- the jump-back hint shows 1 to q − 1 jumps;
+- the answer is always the quotient of the selected divisor;
+- how often the correct choice is the middle value;
+- how often Who-is-right includes the subtraction mistake.
+
+I reviewed the regenerated screenshots at 390 and 1280 (08, 09, 15, 20, 22, 23) and the 320 Lab cases (09, 10, 15, 17), and inspected a crop of
+`390-23-progress`. I did not run the browser suites.
+
+**The original checks still pass:** no divisor 0, every answer correct, 0 picture/number mismatches, exactly one
+correct option in every choice question, and no false fact offered.
+
+| ID | Status | Recheck evidence |
+|---|---|---|
+| D-01 | **Fixed** | `shareHint()` shows `min(2, q−1)` rounds and the text says the same ("after 2 rounds: every group has 2 so far"). When q = 1 there is no picture and the text is a question ("Give each of the 7 groups one. Are any left over?"). Sampler: 0 text/picture mismatches and 0 hints showing the answer. Screens `390-08` and `1280-08` read correctly. |
+| D-02 | **Fixed** | `groupHint()`, the `dfact` hint ("Here is how it starts" only when a picture exists) and the `subtract` hint (`partial(q) ≥ 1`, else "Take 6 away from 54 once…") all fixed. Sampler: 0 "Here…" hints without a picture and 0 jump-back hints showing 0 or all jumps. |
+| D-03 | **Fixed** | `plural()` is used throughout, and `darray` now needs d, q ≥ 2. Sampler: 0 "1 rows / 1 groups / 1 subtractions / 1 dots". |
+| D-04 | **Fixed** | Explanations now read, for example: "Mia said 5, but 5 × 1 = 5, which is too many; Ava subtracted instead of dividing (4 − 1 = 3)." |
+| D-05 | **Fixed** (residual noted) | Fact-family choices: the correct option is the middle value 0% of the time (0/4,852). Who-is-right: the correct claim is the middle value in 51% (4,773/9,360), down from about 100%. It is always one of the two consecutive numbers, so blind guessing tops out at about 50%. That is acceptable for a no-hint Lab item. |
+| D-06 | **Fixed** | The p − d "subtracted" claim now appears in 92% of Who-is-right questions. The 720 without it are cases where p − d equals q or equals the slip (e.g. 4 ÷ 2), which is unavoidable. |
+| D-07 | **Fixed** | `390-20` / `1280-20` read "This test can help you master these **families**." Test results say "Accuracy by family" with a "Family" column (code). |
+| D-08 | **Fixed** | `1280-22` reads "Practice uses the eleven core kinds. The challenge kind (Who is right?) joins after its lesson.", "Which families", "up to 2 families… The families change…". Progress says "A family is mastered…". The count is correct: 11 kinds have difficulty < 3. |
+| D-09 | **Fixed** | Sampler: every number-format answer (except missing divisor/dividend) equals the quotient of the selected divisor. `dfamily` now asks "q × d = p. So p ÷ d = ?" and `darray` always shows p ÷ d (rows of d → q rows, or d rows → q each). |
+| D-10 | **Partially fixed** | Share piles over 50 now sit 20 to a row. At 390 the 100-pile is about 220 px wide and the plates are larger (`390-09`). At 320 the CSS cap (`.qa-visual .viz-share { max-height: 20vh / 15vh }`) still shrinks it: dots are about 2–3 px and plates about 20 px (`320-09`). The grouping 100-pile is unchanged and still tiny at 320 (`320-10`). Remains **Medium**. |
+| D-11 | Open (by choice, Low) | Not changed. The grouping pile is still in rows of 10 (`320-10`). |
+| D-12 | **Fixed** | First word-problem hint: "Read the story again. Does 6 tell you how many groups there are, or how many go in each group?" |
+| D-13 | **Fixed** | Square families: "The family is 3 × 3 = 9 and 9 ÷ 3 = 3." and "This family has only two facts…". |
+| D-14 | **Fixed** | `rich()` adds non-breaking spaces. In `320-17` the explanation wraps between equations ("100 ÷ 10 = 10. Check: / 10 × 10 = 100."), not inside one. |
+| D-15 | **Fixed** | `jumpsBack` labels 0 (`visuals.js:140`). |
+| D-16 | **Fixed** | "among 5 tables", "one too many in each group (24 ÷ 6 = 5)", "dots are put into", "groups of students". |
+| D-17 | Open (by choice, Low) | Not changed. |
+| D-18 | **Partially fixed** | "Not tried yet" no longer wraps, but see new finding D-19. |
+
+### New findings
+
+| ID | Severity | Location | Evidence | Recommended fix |
+|---|---|---|---|---|
+| D-19 | Low | `css/galaxy.css` (`#pgTypes td:last-child { white-space: nowrap; }`); screen `390-23-progress` | At 390 the nowrap Status column runs past the panel edge. The pill is cut off at "Not tried ye…", and there is no visible cue that the table scrolls sideways. This is a side effect of the D-18 fix. | Shorten the status label on narrow screens (e.g. "New"), or let the "Kind of problem" column wrap tighter, or reduce the table font/padding below 420 px so the row fits. |
+
+No other new problems. The `dfamily` and `derror` rewrites introduced no false facts, no second correct option and no
+missing-picture hints in 106,920 samples.
+
+### Recheck verdict
+
+- Open: Critical **0** · High **0** · Medium **1** (D-10, partially fixed) · Low **3** (D-11, D-17, and D-19, which is what is left of D-18).
+- **Verdict: release-ready.** With no Critical or High findings open, Division 1.0 meets the release rule. D-10
+  (picture size at 320 px) and D-19 (Status column clipped at 390 px) are worth fixing in a follow-up.

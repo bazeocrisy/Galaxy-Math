@@ -1,6 +1,49 @@
 # Galaxy Math — Development Status
 
-Updated: 2026-10-11 (branch `feature/galaxy-math-foundation`; not merged to `main`). Division has **not** been started.
+Updated: 2026-10-11 (branch `feature/division`, built on `feature/galaxy-math-foundation`; not merged to `main`). Addition and Subtraction have **not** been started.
+
+## Division 1.0 (2026-10-11)
+
+Division now has the same five activities as Multiplication. It uses the same screens and design: a subject profile in `js/app.js` swaps the fact engine, the question bank, the lessons and the wording.
+
+**What is in it**
+- **Teach:** 15 lessons in order, each Goal → Explanation → See it → Worked example → Try it together → Check yourself → Finish.
+  - The lessons teach dividend, divisor and quotient, and the division bracket.
+  - Remainders come only in the last lesson, *Leftovers (extension)*. Every other problem divides exactly.
+- **Practice:** 10 mixed problems with step-by-step help: a clue, then a picture, then a worked explanation. Practice my misses is included.
+- **Math Thinking Lab:** 10, 25 or 50 problems. The report shows accuracy, right/wrong/skipped, results by kind of problem, missed problems with explanations, recommended lessons and Practice my misses.
+- **Flashcards:** the child picks a divisor (÷1–÷10, or Mixed). The answer shows after 5 seconds, or sooner with a tap. Pause, I'm done and a summary are included.
+- **Test:** 10, 20 or 36 questions, timed or untimed, with automatic or chosen families. There are no hints. Results count correct, incorrect and unanswered.
+- **Families:** ÷1 to ÷10 are core; ÷11 and ÷12 are an extension.
+- **Question bank:** `js/div-bank.js` has 12 kinds (A–L); `js/bank-kit.js` holds the logic shared with Multiplication.
+- **Progress:** v3 keeps Multiplication and Division apart. Older saved data is kept as Multiplication progress, and resetting one subject never touches the other.
+- **Settings:** each subject has its own Parent Settings.
+
+**Independent educational QA:** a separate subagent wrote `docs/review/division/DIVISION-AUDIT.md`.
+- **How it checked:** it generated about 108,000 questions in Node, and reviewed the code and the screenshots in `docs/review/division/shots` (23 screens at each of the six widths, 138 in all).
+- **Math checks:** no question divides by zero, every answer is right, every picture matches its numbers, every choice question has exactly one right option, and sharing and grouping are kept distinct.
+- **First pass:** 0 Critical, 1 High, 9 Medium, 8 Low.
+  - The High was D-01: the sharing hint said "every group got 2" even when the answer was 1.
+- **Fixed:** D-01–D-09 and D-12–D-16.
+- **Recheck after the fixes:** 0 Critical, 0 High. Verdict: release-ready.
+- **Still open:** these are in the audit report.
+  - D-10 Medium, partly fixed: at 320×640 the 100-dot sharing and grouping pictures are still small. Submit stays on screen.
+  - D-11 Low: the grouping pile is laid out in rows of 10.
+  - D-17 Low: the equation and the bracket use different colours for the same part.
+  - D-18/D-19 Low: on phones the Progress status pills wrap onto more than one line.
+
+**Tests**
+
+| Suite | Chrome | Edge |
+|---|---|---|
+| Unit tests (`npm test`) | 88/88 | — |
+| Division browser suite (`tests/browser-division.test.mjs`) | 180/180 | 180/180 |
+| Multiplication regression suite (`tests/browser.test.mjs`) | 656/656 | 654/654 |
+
+- **Division suite coverage:** every Division screen at the six viewports; completing all 15 lessons; a failed check does not complete a lesson; Practice hints and misses; Lab 10/25/50 and its report; flashcard timing; Test scoring and mastery; Progress persistence and per-subject reset; navigation and timer cleanup.
+- **Phone layouts:** 48 worst-case checks (share 100 by 10, group 100 in tens, a 10×10 array, the longest story, 10 groups of 10, Who is right?) keep Submit on screen at 320, 375, 390 and 768.
+- **Multiplication count:** its check count varies slightly because some checks depend on the generated problems.
+- **Devices:** all of this is headless-browser viewport simulation. **No real phones or tablets were used.**
 
 ## UI redesign — approved and live (2026-10-11)
 
