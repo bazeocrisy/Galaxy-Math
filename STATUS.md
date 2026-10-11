@@ -28,8 +28,8 @@ The Multiplication menu has five activities that share one design:
 | Progress by fact family and by kind of problem | ✅ | Progress shows understanding, practice, Lab reasoning and tests separately; a table of the 12 kinds with constructive statuses; a times-table table with accuracy, test mastery and timed speed |
 | Mobile and desktop layouts pass QA | ✅ (emulated) | 320×640, 375×812, 390×844, 768×1024, 1280×800, 1366×768: no horizontal overflow, no clipped text, touch targets ≥ 44 px, **Submit on screen for all 12 kinds at every size incl. 320×640**, long word problems. No real devices were available. |
 | Auditor resolved all Critical and High findings | ✅ | A-01 (Critical) and A-02, A-03 (High) verified fixed in the retest |
-| Live deployment verified | see "Deployment" below | |
-| GitHub contains final code, tests and docs | see "Deployment" below | |
+| Live deployment verified | ✅ | 607/607 live browser checks; auditor live check passed (see Deployment) |
+| GitHub contains final code, tests and docs | ✅ | feature branch on GitHub (this commit) |
 
 ## What changed in 2.0
 
@@ -98,7 +98,7 @@ Each kind has a stable ID, skill, difficulty and related lesson. Each problem ha
   - 1 partly fixed: A-06. The Lab still uses the same question bank as Practice, and Lab-only formats are a recommendation for later.
   - 1 declined and accepted by the auditor: A-26 (Division menu kept as instructed).
   - No Critical or High findings open.
-- **New Lows from the retest:** A-27, A-28 and A-29 were fixed afterwards (developer responses recorded; see "Deployment" for the auditor's live check).
+- **New Lows from the retest:** A-27 and A-29 fixed and verified; A-28 partly fixed and accepted as a Low.
 
 ## Tests (run 2026-10-11)
 
@@ -110,9 +110,20 @@ Each kind has a stable ID, skill, difficulty and related lesson. Each problem ha
   - **Microsoft Edge 155.0.4283.45: 604/604.** A few checks depend on which problem comes first, which explains the one-check difference.
 - Not available here: Firefox, Safari, and real iPhone/Android devices. All phone and tablet results come from viewport and touch emulation in Chrome and Edge.
 
-## Deployment
+## Deployment: live testing site (verified 2026-10-11)
 
-Pending at the time of this commit. The build is published to `gh-pages` with `npm run publish:pages` and verified with the live browser suite. Results are recorded in the next commit.
+- **URL:** https://bazeocrisy.github.io/Galaxy-Math/
+- **Published:** feature commit `d433449` was merged into `gh-pages` as `330b045` with `npm run publish:pages` (no force-push). `gh-pages` differs from `d433449` only by `.nojekyll`. `main` was not touched.
+- **Pages build:** `built` for `330b045` at 13:04 UTC. All 11 app files (`index.html`, `css/galaxy.css`, 7 scripts, logo, favicon) match the commit byte-for-byte.
+- **Live browser suite** (Chrome, `LIVE_URL=…`): **607/607**, including "no failed requests" and "no page errors".
+- **Auditor live check (Agent 2):**
+  - deployed files identical to `d433449`
+  - no missing assets and no JavaScript errors
+  - all routes correct, including every locked `#/division/*` route
+  - all five activities worked end to end at 390×844 and 1280×800
+  - A-27 and A-29 verified; A-28 accepted as a partly-fixed Low
+- **Open audit items:** none Critical or High. A-06 (Medium) and A-28 (Low) are partly fixed; A-26 (Low) is declined at the owner's request with the rationale accepted.
+- This STATUS/audit update is a docs-only commit on the feature branch and was not re-published.
 
 ## Known limitations
 

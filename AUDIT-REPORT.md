@@ -40,6 +40,43 @@
 - **Open counts after retest:**
   - Original 26 findings: 0 Critical, 0 High, 1 Medium partly fixed (A-06), and 1 Low declined and accepted (A-26).
   - New findings: 3 Low.
+- **Final pass (commit `d433449`, live as `gh-pages` `330b045`):**
+  - A-27 is verified.
+  - A-28 is partly fixed and accepted as a Low.
+  - A-29 is verified.
+- **Open at the end of the audit:**
+  - **0 Critical and 0 High.**
+  - 1 Medium partly fixed: A-06.
+  - 1 Low partly fixed: A-28.
+  - 1 Low declined and accepted: A-26.
+  - All other 26 findings are verified fixed.
+- **Live site:** matches `d433449`, with no missing assets and no JavaScript errors. See "Live deployment check" below.
+
+## Live deployment check (2026-10-11, https://bazeocrisy.github.io/Galaxy-Math/)
+
+What I ran: one headless Chrome against the live site, one Node script (`live.mjs`) and one debug script. I did not run the full suite.
+
+- **Deployed files match commit `d433449`.** Each file below is byte-identical to `git show d433449:<file>` after normalising line endings, and each returned HTTP 200:
+  - `index.html`, `css/galaxy.css`
+  - all seven files in `js/`
+  - `assets/favicon.svg`, `assets/galaxy-math-logo.svg`
+- **Assets and errors:**
+  - Every page resource returned 200. The Google Fonts stylesheet reports status 0 because it is cross-origin with no timing headers, and the font file loaded with 200.
+  - All six `Galaxy*` globals are present, the logo image decodes and the CSS is applied.
+  - No JavaScript errors or console errors in any run.
+- **Routes:**
+  - `#/` shows the landing page and `#/multiplication` shows the menu.
+  - All five activities open their start screens. `#/multiplication/settings` and `#/multiplication/progress` open their screens.
+  - `#/division` and `#/division/{teach, practice, lab, test, flashcards, settings}` all resolve to the Division menu, where everything is locked.
+  - `#/addition`, `#/subtraction/test` and `#/nonsense` go to the landing page.
+- **Five activities, end to end at 390×844 and 1280×800** (fresh storage):
+  - **Teach:** Lesson 1, worked through every step, ends "Lesson complete! 3 of 3", and Progress shows 1/13 lessons.
+  - **Practice:** 10 answered correctly gives "10/10 right on the first try".
+  - **Lab:** 10 problems, 7 right and 3 skipped, gives a report of 70%, 7 correct / 0 incorrect / 3 skipped, with 3 recommended lessons. A-29 also passed here (see above).
+  - **Flashcards:** 7s table. Show answer flips the card (for example, "63 · 7 × 9 = 63"), I'm done shows the summary, and 0 timers remain afterwards.
+  - **Test:** Automatic mode offers 10 questions from the 1s and 2s with "⭐ This test can help you master these tables". 7 right and 3 wrong gives 70%, a tally of 7 / 3 / 0, and per-table rows of 5 questions each (for example, "1s 3/5 60% not yet", "2s 4/5 80% not yet").
+  - **Progress:** shows the lesson, the 2 Lab sessions and the 1 test. No horizontal overflow at either size.
+- **Result: no regressions found on the live site.** I had no real devices; viewport emulation only.
 
 ---
 
@@ -313,7 +350,7 @@ Severity counts: **Critical 1 · High 2 · Medium 11 · Low 12** (26 total)
 - **Evidence:** `js/mult-bank.js` HINTS.missing (`q.answer > 1 ? … : null`) and HINTS.word (`q.a <= 10 ? … : null`). Probe output: `hint refers to missing picture: { missing: 44, word: 191 }`.
 - **Recommended fix:** Use different wording when there is no picture, or draw an array for more than 10 groups.
 - Developer response: **Fixed.** The missing-factor hint for an answer of 1 now says “7 is already 7. How many 7s is that?” with no picture. The word-problem hint mentions a picture only when one is drawn (10 or fewer groups); otherwise it suggests drawing the groups on paper. A unit test (“A-27”) checks every missing and word hint: any text that mentions a picture has one.
-- Retest result: _pending_
+- Retest result: **Verified** (commit d433449). I re-ran the probe over every missing-factor and word-problem hint (facts 1–10 and 1–12, 40 seeds each). No hint text mentions a picture unless a picture is drawn; the previous run found 235. An answer of 1 now reads "7 is already 7. How many 7s is that?". Word problems with more than 10 groups now say "Draw the groups on paper…".
 
 ### A-28: Low (found during retest): On small phones, the auto-scroll after a miss hides the question and its picture
 - **Area:** Practice layout (A-03 fix side effect)
@@ -323,7 +360,7 @@ Severity counts: **Critical 1 · High 2 · Medium 11 · Low 12** (26 total)
 - **Evidence:** Retest measurements (`recheck2.mjs`). Screenshot `re/320x640-array-after-miss.png`.
 - **Recommended fix:** On short screens, keep the question picture visible. For example, show the clue next to or above the pad, or scroll only so the bottom of the feedback reaches the bottom of the screen. Re-check the position after each hint level.
 - Developer response: **Fixed (reduced).** The auto-scroll now moves only as far as needed (`block: "nearest"`) instead of putting the feedback at the top, so on 320×640 more of the problem stays on screen. On the very smallest screens the picture can still scroll partly out of view after a second miss; the “Help is below” status line remains by the answer box.
-- Retest result: _pending_
+- Retest result: **Partly** (accepted as Low, as the developer's "reduced" says). The scroll after a miss is now smaller. On a 320×640 array question it went from 259 px to 215 px, and with a 6 × 7 fact from 131 px to 87 px. Everything you need to answer is still on screen: the answer box, the status line, the pad, Check, the hint and the feedback. But the array question's prompt is still above the top of the screen. After a second miss, the feedback can still run below the fold: 756–824 px on a 640-px screen (fact question) and 917–985 px on an 844-px screen (word problem). The "Help is below" status line stays visible. I do not consider this blocking.
 
 ### A-29: Low (found during retest): Lab "Finish now" is missing when only the current problem has been answered
 - **Area:** Lab Exit panel
@@ -331,7 +368,7 @@ Severity counts: **Critical 1 · High 2 · Medium 11 · Low 12** (26 total)
 - **Evidence:** `js/app.js` `renderLabQ` (`${ls.answers.length ? … : ''}`). Browser check: "1st answered (skipped), Exit before Next: finishNow shown? false".
 - **Recommended fix:** Build or refresh the panel when Exit is tapped, using the current answer count.
 - Developer response: **Fixed.** “Finish now and see my report” is shown whenever at least one problem has an answer, including the one just answered on screen before Next. A browser check covers answering problem 1, tapping Exit and finishing.
-- Retest result: _pending_
+- Retest result: **Verified** locally and on the live site at 390×844 and 1280×800. With no answers, Exit hides "Finish now". After skipping problem 1 and tapping Exit before Next, "Finish now" shows, and the report counts that problem ("0 of 1 right · 1 skipped").
 
 ---
 
