@@ -139,7 +139,7 @@
       case 'missing': return { text: `${a} × ${b} = ${p}, so the missing factor is ${q.answer}. Check: ${plural(a, 'row')} of ${b} make ${p}.`, visual: { kind: 'array', rows: a, cols: b } };
       case 'groups': return { text: `There ${isAre(a)} ${plural(a, 'group')} with ${b} in each group. Count by ${b}s: ${counts}. ${a} × ${b} = ${p}.`, visual: { kind: 'groups', groups: a, size: b } };
       case 'array': return { text: `${plural(a, 'row')} with ${b} in each row is ${a} × ${b}. Count by ${b}s: ${counts}. There ${isAre(p)} ${plural(p, 'dot')}.`, visual: { kind: 'array', rows: a, cols: b } };
-      case 'repeated': return { text: `Adding ${b} ${times(a)} is ${a} × ${b}. The jumps land on ${counts}. The total is ${p}.`, visual: { kind: 'jumps', jumps: a, size: b } };
+      case 'repeated': return { text: `${b} added ${times(a)} is ${a} × ${b}. The jumps land on ${counts}. The total is ${p}.`, visual: { kind: 'jumps', jumps: a, size: b } };
       case 'word': return { text: `There ${isAre(a)} ${plural(a, 'group')} with ${b} in each group, so multiply: ${a} × ${b} = ${p} ${q.unit}.`, visual: a <= 10 ? { kind: 'groups', groups: a, size: b } : { kind: 'array', rows: a, cols: b } };
       default: return { text: '' };
     }

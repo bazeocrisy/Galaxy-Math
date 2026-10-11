@@ -131,8 +131,10 @@
       },
       /** Questions (type + fact) missed in Practice or the Lab and not yet answered right, newest first. */
       missedQuestions() { return mult().missedQs.slice(); },
-      /** Practice attempts per question type (used to decide which types the Lab may include). */
+      /** Practice attempts per question type. */
       practiceAttempts() { return Object.fromEntries(Object.entries(mult().types).map(([id, t]) => [id, t.practice.total])); },
+      /** Correct first-try Practice answers per question type (used to decide which types the Lab may include). */
+      practiceCorrect() { return Object.fromEntries(Object.entries(mult().types).map(([id, t]) => [id, t.practice.correct])); },
       completedLessons() { return Object.entries(mult().lessons).filter(([, l]) => l.completed).map(([id]) => id); },
       summary({ lessonsTotal = 13 } = {}) {
         const m = mult();

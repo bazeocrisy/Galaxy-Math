@@ -384,3 +384,27 @@ table.data th { font-size: .88rem; color: var(--navy-2); }
 .table-wrap { overflow-x: auto; max-width: 100%; }
 .qa-visual { align-self: start; }
 .qa-visual .viz-wrap { align-items: flex-start; }
+
+/* audit fixes: inline status by the answer, short phones (320×640), narrow results */
+.q-status { min-height: 1.2em; margin: -4px 0 0; text-align: center; font-weight: 700; color: var(--coral-d); font-size: .95rem; }
+.q-status:empty { display: none; }
+@media (max-width: 859px) and (max-height: 700px) {
+  .topbar { display: none; }
+  .screen-head { margin-bottom: var(--s2); }
+  .screen-head h2 { font-size: 1.2rem; }
+  .screen-head .btn { min-height: 44px; padding: 6px 12px; }
+  .q-panel .meta-row { margin-bottom: 4px; }
+  .q-host { margin-top: var(--s2); }
+  .qa .viz-array, .qa .viz-groups { max-height: 15vh; }
+  .qa .viz-set .viz-array, .qa .viz-set .viz-groups { max-height: 12vh; }
+  .qa .answer { min-height: 44px; font-size: 1.6rem; }
+  .qa .numpad { gap: 4px; }
+  .qa .numpad button { min-height: 44px; font-size: 1.2rem; }
+  .qa .q-prompt { font-size: 1.05rem; }
+  .qa .q-prompt.big { font-size: 1.7rem; }
+  .qa-answer { gap: var(--s2); }
+}
+@media (max-width: 420px) {
+  .tally b { font-size: 1.3rem; }
+  .tally div { font-size: .8rem; padding: var(--s2) 4px; overflow-wrap: anywhere; }
+}

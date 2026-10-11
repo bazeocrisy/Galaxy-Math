@@ -19,11 +19,12 @@
     { id: 'family', letter: 'H', name: 'Fact families', skill: 'Connect multiplication and division facts', difficulty: 2, lesson: 'fact-families', format: 'number|choice' },
     { id: 'word', letter: 'I', name: 'Word problems', skill: 'Find equal groups in a story', difficulty: 2, lesson: 'word-problems', format: 'number' },
     { id: 'error', letter: 'J', name: 'Check the work', skill: 'Decide whether an answer is right and fix it', difficulty: 3, lesson: 'check-the-work', format: 'choice' },
-    { id: 'compare', letter: 'K', name: 'Times as many', skill: 'Multiplicative comparison', difficulty: 3, lesson: 'times-as-many', format: 'number' },
+    { id: 'compare', letter: 'K', name: 'Times as many (challenge)', skill: 'Multiplicative comparison', difficulty: 3, lesson: 'times-as-many', format: 'number' },
     { id: 'equal', letter: 'L', name: 'Equal products', skill: 'Find the missing number that keeps an equation balanced', difficulty: 3, lesson: 'equations', format: 'number' }
   ];
   const TYPE = Object.fromEntries(TYPES.map((t) => [t.id, t]));
-  const STARTER_TYPES = ['fact', 'groups', 'array', 'repeated'];   // always in the Lab: the first ideas taught
+  // Always in the Lab: the first ideas taught, plus two low-risk reasoning kinds (switch the order, match the equation).
+  const STARTER_TYPES = ['fact', 'groups', 'array', 'repeated', 'turnaround', 'match'];
   const ANSWER_FORMATS = { number: 'a whole number typed with the number pad or keyboard (spaces and leading zeros are ignored)', choice: 'one of the listed options' };
 
   const plural = (n, w, many = w + 's') => `${n} ${n === 1 ? w : many}`;
@@ -34,6 +35,8 @@
     const options = M.shuffle([correct, ...distractors], rng);
     return { ...base, format: 'choice', answer: correct, options, distractors };
   }
+  /** A neighbour of n (n + 1, or n − 1 when n + 1 would go past maxFactor). Keeps distractors inside the chosen range. */
+  const near = (n, maxFactor) => (n + 1 <= maxFactor ? n + 1 : n - 1);
   /** Three distinct distractors from a candidate list (drops any equal to the answer or to each other). */
   const uniq = (correct, list, n = 2) => [...new Set(list.filter((x) => x && x !== correct))].slice(0, n);
 
@@ -55,26 +58,26 @@
       const h = M.hintFor(q), e = M.explainFor(q);
       const out = { ...base, a: q.a, b: q.b, answer: q.answer, prompt: q.prompt, visual: q.visual || null, equation: q.equation, unit: q.unit,
         big: ['fact', 'missing', 'repeated'].includes(typeId), explain: e, variantKey: `${q.factKey}:${q.hidden || ''}` };
-      if (typeId === 'repeated') out.sub = `That is ${plural(q.a, 'group')} with ${q.b} in each group.`;
+      if (typeId === 'repeated') { out.sub = `That is ${plural(q.a, 'group')} with ${q.b} in each group.`; out.subIsHint = true; }
       out.hints = HINTS[typeId](q, h);
       return finish(out);
     }
 
     if (typeId === 'match') {
-      if (fam < 2 && other < 2) return null;
+      if (fam < 2 || other < 2) return null;   // 1 + 1 + 1 + … is not a useful match problem
       const [g, n] = M.groupShape(fam, other) && M.groupShape(fam, other)[0] >= 2 ? M.groupShape(fam, other) : [Math.max(fam, other), Math.min(fam, other)];
       if (g < 2) return null;
       const fromPicture = rng() < 0.5;
       const correct = `${g} × ${n}`;
       // Never offer the turned-around fact (n × g): it has the same value and would make two right answers.
-      const ds = uniq(correct, [g !== n ? `${n} × ${n}` : `${g + 1} × ${n}`, `${g} + ${n}`, `${g} × ${n + 1}`]);
+      const ds = uniq(correct, [g !== n ? `${n} × ${n}` : `${near(g, maxFactor)} × ${n}`, `${g} + ${n}`, `${g} × ${near(n, maxFactor)}`]);
       const visual = fromPicture ? (rng() < 0.5 && g <= 10 ? { kind: 'groups', groups: g, size: n } : { kind: 'array', rows: g, cols: n }) : null;
-      const what = visual ? (visual.kind === 'groups' ? `${plural(g, 'group')} with ${n} in each group` : `${plural(g, 'row')} with ${n} in each row`) : `${n} added ${g} times`;
+      const what = visual ? (visual.kind === 'groups' ? `There are ${plural(g, 'group')} with ${n} in each group` : `There are ${plural(g, 'row')} with ${n} in each row`) : `${n} is added ${g} times, which is ${plural(g, 'group')} of ${n}`;
       const q = choiceQuestion({ ...base, a: g, b: n, prompt: visual ? 'Which multiplication matches this picture?' : `Which multiplication matches ${Array(g).fill(n).join(' + ')}?`,
         visual, equation: `${g} × ${n} = ${g * n}`, variantKey: `${g}x${n}:${visual ? visual.kind : 'add'}` }, correct, ds, rng);
       q.hints = [{ text: visual ? 'Count the groups (or rows). Then count how many are in one group (or row).' : `Count how many times ${n} is added.` },
         { text: `In Galaxy Math the first number tells how many groups, and the second tells how many in each group.` }];
-      q.explain = { text: `There are ${what}, so it is ${g} × ${n}. (${g} + ${n} would only add the two numbers once.)`, visual: visual ? null : { kind: 'groups', groups: Math.min(g, 10), size: n } };
+      q.explain = { text: `${what}, so it is ${g} × ${n}. (${g} + ${n} would only add the two numbers once.)`, visual: visual ? null : g <= 10 ? { kind: 'groups', groups: g, size: n } : { kind: 'array', rows: g, cols: n } };
       return finish(q);
     }
 
@@ -106,10 +109,12 @@
           explain: { text: `${a} × ${b} = ${p}, so splitting ${p} into ${plural(a, 'equal group')} puts ${b} in each group: ${p} ÷ ${a} = ${b}.`, visual: a <= 10 ? { kind: 'groups', groups: a, size: b } : null } };
         return finish(q);
       }
-      const correct = rng() < 0.5 ? `${p} ÷ ${a} = ${b}` : `${b} × ${a} = ${p}`;
+      // For squares (3 × 3 = 9) the turned-around fact is the same as the one given, so use the division member.
+      const correct = a === b || rng() < 0.5 ? `${p} ÷ ${a} = ${b}` : `${b} × ${a} = ${p}`;
       // Distractors are TRUE facts from other families (so no false fact is ever shown as an option), each using
       // a different set of three numbers. a + b = p happens only for 2 + 2 = 4, which would share the numbers, so skip it.
-      const ds = uniq(correct, [a + b !== p ? `${a} + ${b} = ${a + b}` : null, `${a} × ${b + 1} = ${a * (b + 1)}`, a !== b ? `${b} × ${b} = ${b * b}` : `${a + 1} × ${b} = ${(a + 1) * b}`]);
+      const nb = near(b, maxFactor), na = near(a, maxFactor);
+      const ds = uniq(correct, [a + b !== p ? `${a} + ${b} = ${a + b}` : null, `${a} × ${nb} = ${a * nb}`, a !== b ? `${b} × ${b} = ${b * b}` : `${na} × ${b} = ${na * b}`]);
       const q = choiceQuestion({ ...base, a, b, prompt: `Which fact is in the same family as ${a} × ${b} = ${p}?`, visual: null, equation: `${a} × ${b} = ${p}`, variantKey: `${a}x${b}:fam` }, correct, ds, rng);
       q.hints = [{ text: `A fact family uses the same three numbers. Which choice uses only ${a}, ${b} and ${p}?` },
         { text: `Its members are ${a} × ${b} = ${p}, ${b} × ${a} = ${p}, ${p} ÷ ${a} = ${b} and ${p} ÷ ${b} = ${a}.` }];
@@ -119,7 +124,7 @@
 
     if (typeId === 'error') {
       const [a, b] = rng() < 0.5 ? [fam, other] : [other, fam];
-      const wrongs = [...new Set([a * (b + 1), b > 1 ? a * (b - 1) : null, a + b].filter((v) => v !== null && v !== p && v > 0))];
+      const wrongs = [...new Set([b + 1 <= maxFactor ? a * (b + 1) : null, b > 1 ? a * (b - 1) : null, a + b].filter((v) => v !== null && v !== p && v > 0))];
       const name = pickFrom(NAMES, rng);
       const right = rng() < 0.34;
       const claim = right ? p : pickFrom(wrongs, rng);
@@ -128,11 +133,12 @@
       const correct = right ? yes : fix(p);
       const others = wrongs.filter((v) => v !== claim);
       const ds = right ? uniq(correct, others.map(fix)) : uniq(correct, [yes, ...others.map(fix)]);
-      for (let k = 1; ds.length < 2; k++) { const v = fix(p + a * k + 1); if (v !== correct && !ds.includes(v)) ds.push(v); }
+      for (let k = 1; ds.length < 2; k++) { const v = fix(p + k); if (v !== correct && !ds.includes(v) && v !== fix(claim)) ds.push(v); }
       const reason = claim === a + b ? `${name} added instead of multiplying` : claim === a * (b + 1) ? `${claim} is ${a} × ${b + 1}, one group of ${a} too many` : claim === a * (b - 1) ? `${claim} is ${a} × ${b - 1}, one group of ${a} too few` : '';
       const q = choiceQuestion({ ...base, a, b, prompt: `${name} says ${a} × ${b} = ${claim}. Is ${name} right?`, visual: null, equation: `${a} × ${b} = ${p}`, variantKey: `${a}x${b}:${claim}` }, correct, ds, rng);
       q.hints = [{ text: `Work out ${a} × ${b} yourself first. Then compare.` },
-        { text: `Skip-count by ${b}s, ${a === 1 ? 'once' : `${a} times`}, or use a fact you know (like ${a} × ${Math.max(1, b - 1)} = ${a * Math.max(1, b - 1)}, then add ${a}).` }];
+        { text: b === 1 ? `Anything times 1 stays the same: ${a} × 1 is just ${a}.` : a === 1 ? `1 × ${b} is just one group of ${b}.`
+          : `Use a fact you know: ${a} × ${b - 1} = ${a * (b - 1)}. Then add one more ${a}.` }];
       q.explain = { text: right ? `${a} × ${b} really is ${p}, so ${name} is right.` : `${a} × ${b} = ${p}, not ${claim}. ${reason ? reason[0].toUpperCase() + reason.slice(1) + '.' : ''}`.trim(), visual: a <= 12 ? { kind: 'array', rows: a, cols: b } : null };
       return finish(q);
     }
@@ -149,7 +155,7 @@
         prompt: `${kid1} has ${plural(small, thing[0], thing[1])}. ${kid2} has ${times} times as many. How many ${thing[1]} does ${kid2} have?`,
         visual: null, equation: `${times} × ${small} = ${times * small}`, unit: thing[1],
         hints: [{ text: `“${times} times as many” means ${times} groups the size of ${kid1}'s amount.` },
-          { text: `${kid2} has ${plural(times, 'group')} of ${small}. Multiply: ${times} × ${small}.`, visual: { kind: 'compare', times, size: small, names: [kid1, kid2] } }],
+          { text: `Look at the bars: ${kid2}'s amount is made of ${plural(times, 'bar')}, each the size of ${kid1}'s. How much is that altogether?`, visual: { kind: 'compare', times, size: small, names: [kid1, kid2] } }],
         explain: { text: `${kid1} has ${small}. ${times} times as many is ${times} × ${small} = ${times * small} ${thing[1]}.`, visual: { kind: 'compare', times, size: small, names: [kid1, kid2] } } };
       return finish(q);
     }
@@ -177,12 +183,12 @@
     fact: (q) => [{ text: `${q.a} × ${q.b} means ${plural(q.a, 'group')} of ${q.b}.` },
       { text: q.a === 1 ? `One group of ${q.b} is just ${q.b} things.` : `Skip-count by ${q.b}s, ${q.a} times: ${countStart(q.b, q.a)} Or use a fact you know and add one more group.`, visual: q.a <= 10 ? { kind: 'array', rows: q.a, cols: q.b } : null }],
     missing: (q) => { const known = q.hidden === 'a' ? q.b : q.a; return [{ text: `What number times ${known} makes ${q.product}?` },
-      { text: `Count by ${known}s until you reach ${q.product}. The number of jumps is the missing factor.`, visual: { kind: 'jumps', jumps: q.answer, size: known, labels: false } }]; },
+      { text: `Count by ${known}s and keep going until you reach ${q.product}. Count how many jumps it takes. Here is how it starts.`, visual: q.answer > 1 ? { kind: 'jumps', jumps: Math.min(2, q.answer - 1), size: known, labels: false } : null }]; },
     groups: (q, h) => [{ text: 'How many groups are there? How many are in each group?' }, { text: h.text }],
     array: (q, h) => [{ text: 'How many rows are there? How many dots are in each row?' }, { text: h.text }],
     repeated: (q, h) => [{ text: `Count how many ${q.b}s are added.` }, { text: h.text, visual: { kind: 'groups', groups: q.a, size: q.b } }],
     word: (q) => [{ text: 'Find the equal groups in the story: how many groups, and how many in each group?' },
-      { text: `There are ${plural(q.a, 'group')} with ${q.b} in each. Multiply ${q.a} × ${q.b}.`, visual: q.a <= 10 ? { kind: 'groups', groups: q.a, size: q.b } : null }]
+      { text: 'Draw it, or look at this picture: each circle is one group. How many groups? How many in each? Then find the total.', visual: q.a <= 10 ? { kind: 'groups', groups: q.a, size: q.b } : null }]
   };
 
   /** Is the given answer right? Numbers: whole numbers only (spaces and leading zeros ignored). Choices: exact option. */
@@ -245,10 +251,10 @@
   }
 
   /** Which types a child has had a chance to learn: the starter types, any type whose Teach lesson is complete, and any
-      type tried at least 3 times in Practice. */
-  function unlockedTypes(completedLessons = [], practiceAttempts = {}) {
+      type answered correctly (first try) at least 3 times in Practice. Challenge kinds (difficulty 3) need their lesson. */
+  function unlockedTypes(completedLessons = [], practiceCorrect = {}) {
     const done = new Set(completedLessons);
-    return TYPES.filter((t) => STARTER_TYPES.includes(t.id) || done.has(t.lesson) || (practiceAttempts[t.id] || 0) >= 3).map((t) => t.id);
+    return TYPES.filter((t) => STARTER_TYPES.includes(t.id) || done.has(t.lesson) || (t.difficulty < 3 && (practiceCorrect[t.id] || 0) >= 3)).map((t) => t.id);
   }
 
   /** Constructive status for a question type from all its attempts (never "weak"/"poor"; never from one short session). */
@@ -277,7 +283,13 @@
       missed: answers.filter((a) => !check(a.q, a.given)) };
   }
 
-  const api = { TYPES, TYPE, STARTER_TYPES, ANSWER_FORMATS, generate, check, factPool, makeSet, unlockedTypes, skillStatus, scoreSession };
+  /** Kinds of problems Practice uses: every core kind (difficulty 1–2), plus a challenge kind once its lesson is done. */
+  function practiceTypes(completedLessons = []) {
+    const done = new Set(completedLessons);
+    return TYPES.filter((t) => t.difficulty < 3 || done.has(t.lesson)).map((t) => t.id);
+  }
+
+  const api = { practiceTypes, TYPES, TYPE, STARTER_TYPES, ANSWER_FORMATS, generate, check, factPool, makeSet, unlockedTypes, skillStatus, scoreSession };
   if (typeof module === 'object' && module.exports) module.exports = api;
   else root.GalaxyBank = api;
 })(this);

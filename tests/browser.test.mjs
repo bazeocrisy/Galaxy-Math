@@ -138,6 +138,7 @@ try {
   let ps = (await state()).practice;
   check('practice: 10 problems by default from core tables', ps.qs.length === 10 && ps.qs.every((x) => x.fam <= 10 && x.other <= 10));
   check('practice: varied kinds of problems', new Set(ps.qs.map((x) => x.typeId)).size >= 6, J(ps.qs.map((x) => x.typeId)));
+  check('practice: challenge kinds wait for their lessons', ps.qs.every((x) => x.difficulty < 3));
   check('practice: no identical problems', new Set(ps.qs.map((x) => x.key)).size === 10);
   check('practice fits on desktop', await fitsY());
   let didNumber = false, didChoice = false, didHint = false;
@@ -157,9 +158,7 @@ try {
     } else if (x.format === 'choice' && !didChoice) {
       didChoice = true;
       await answerQ(x, false);
-      check('choice miss → a clue', /Hint:/.test(await text('#qHintBox')));
-      await answerQ(x, false);
-      check('2nd choice miss → answer and explanation', /The answer is/.test(await text('#qFeedback')) && (await exists('.choices .right')));
+      check('choice miss → answer and explanation (one try, no guessing by elimination)', /The answer is/.test(await text('#qFeedback')) && (await exists('.choices .right')));
       await enter();
     } else if (!didHint) {
       didHint = true;
@@ -190,19 +189,19 @@ try {
   const sizes = await q(`[...document.querySelectorAll('[data-size]')].map(e => e.dataset.size + ':' + e.querySelector('.ls-name').textContent)`);
   check('lab: 10 / 25 / 50 choices', J(sizes) === J(['10:Quick Challenge', '25:Thinking Workout', '50:Big Challenge']), J(sizes));
   check('lab: subtitle', /Different problems. Different ways to think./.test(await text('#labSetup')));
-  const expectUnlocked = await q('window.GalaxyBank.unlockedTypes(window.__galaxy.store.completedLessons(), window.__galaxy.store.practiceAttempts()).length');
+  const expectUnlocked = await q('window.GalaxyBank.unlockedTypes(window.__galaxy.store.completedLessons(), window.__galaxy.store.practiceCorrect()).length');
   check('lab: shows how many kinds are unlocked', (await text('#labTypeCount')) === `${expectUnlocked} of 12`, `${await text('#labTypeCount')} vs ${expectUnlocked}`);
   check('lab: learning path offered for locked kinds', expectUnlocked === 12 || (await exists('#labLearn')));
   await shot('lab-setup-1280');
   await click('[data-size="10"]', 200);
   let ls = (await state()).lab;
-  const unlocked = await q('window.GalaxyBank.unlockedTypes(window.__galaxy.store.completedLessons(), window.__galaxy.store.practiceAttempts())');
+  const unlocked = await q('window.GalaxyBank.unlockedTypes(window.__galaxy.store.completedLessons(), window.__galaxy.store.practiceCorrect())');
   check('lab: 10 problems, only from unlocked kinds', ls.qs.length === 10 && ls.qs.every((x) => unlocked.includes(x.typeId)));
-  check('lab: no hint button, no strategy label before answering', !(await exists('#lab #qHint')) && !(await exists('#lab .badge.type')) && !/This was a/.test(await text('#lab')));
+  check('lab: no hint button, no strategy label before answering', !(await exists('#lab #qHint')) && !(await exists('#lab .badge.type')) && !/Kind of problem/.test(await text('#lab')) && !(await exists('#lab .q-sub')));
   for (let i = 1; i < ls.qs.length; i++) if (unlocked.length > 1) check(`lab: no back-to-back kind at ${i}`, ls.qs[i].typeId !== ls.qs[i - 1].typeId);
   for (let i = 0; i < 10; i++) {
     const x = ls.qs[i];
-    if (i === 1) { await answerQ(x, false); check('lab: wrong answer → educational feedback', /The answer is/.test(await text('#qFeedback')) && /This was a/.test(await text('#qFeedback'))); }
+    if (i === 1) { await answerQ(x, false); check('lab: wrong answer → educational feedback', /The answer is/.test(await text('#qFeedback')) && /Kind of problem: /.test(await text('#qFeedback'))); }
     else if (i === 2) { await click('#qSkip'); check('lab: skip shows the answer', /Skipped/.test(await text('#qFeedback'))); }
     else { await answerQ(x, true); if (i === 0) { check('lab: right answer still explains', /Correct!/.test(await text('#qFeedback')) && (await text('#qFeedback')).length > 25); await shot('lab-feedback-1280'); } }
     await enter();
@@ -212,7 +211,6 @@ try {
   check('lab report: results by kind of problem', (await q(`document.querySelectorAll('#ldTypes tbody tr').length`)) === new Set(ls.qs.map((x) => x.typeId)).size);
   check('lab report: missed problems with explanations', (await q(`document.querySelectorAll('#ldMissed li').length`)) === 2);
   check('lab report: recommended lessons', (await q(`document.querySelectorAll('#ldRecs [data-rec]').length`)) >= 1);
-  check('lab report: one session is not mastery', /only after several sessions/.test(await text('#labDone')));
   await shot('lab-report-1280');
   const recLesson = await q(`document.querySelector('#ldRecs [data-rec]').dataset.rec`);
   await click('#ldRecs [data-rec]', 250);
@@ -229,8 +227,19 @@ try {
   ls = (await state()).lab;
   check('lab 50: 50 problems, all 12 kinds, no identical problems', ls.qs.length === 50 && new Set(ls.qs.map((x) => x.typeId)).size === 12 && new Set(ls.qs.map((x) => x.key)).size === 50);
   for (let i = 1; i < 50; i++) if (ls.qs[i].typeId === ls.qs[i - 1].typeId) { check('lab 50: no back-to-back kind', false, String(i)); break; }
-  await click('[data-nav="#/multiplication"]', 200);
-  check('exit lab → menu, no timers, not saved', (await visible('menu')) && (await timers()) === 0 && (await q('window.__galaxy.store.summary().labSessions')) === 1);
+  await click('#labExit', 100);
+  check('lab exit asks first (A-11)', (await visible('lab')) && !(await q('labLeave.hidden')));
+  await click('#labStay', 80);
+  check('keep going stays in the challenge', (await visible('lab')) && (await q('labLeave.hidden')));
+  await click('#labExit', 80);
+  await click('#labQuit', 200);
+  check('leave without saving → menu, no timers, not saved', (await visible('menu')) && (await timers()) === 0 && (await q('window.__galaxy.store.summary().labSessions')) === 1);
+  // finish early: answered problems still count
+  await goto('#/multiplication/lab'); await click('[data-size="25"]', 200);
+  ls = (await state()).lab;
+  for (let i = 0; i < 3; i++) { await answerQ(ls.qs[i], true); await enter(); }
+  await click('#labExit', 80); await click('#labFinishNow', 250);
+  check('finish now → report for the 3 answered problems', (await visible('labDone')) && (await text('#ldPct')) === '100%' && (await text('#ldC')) === '3' && (await q('window.__galaxy.store.summary().labSessions')) === 2);
 
   // =============== FLASHCARDS (child picks a table; timing set by parents) ===============
   await goto('#/multiplication/flashcards');
@@ -280,8 +289,15 @@ try {
   // =============== TEST (one Start; options in Parent Settings) ===============
   await goto('#/multiplication/test');
   check('test: one Start, summary of options', (await exists('#tsStart')) && !(await exists('#testSetup .seg')) && /10 questions/.test(await text('#testSetup')) && /5 seconds/.test(await text('#testSetup')));
+  check('default test can count toward mastery (A-02)', /help you master/.test(await text('#tsCounts')) && /the 1, 2 tables/.test(await text('#testSetup')), await text('#testSetup'));
   await goto('#/multiplication/settings');
-  check('settings: 10 core tables × 10 questions is a practice test', /will not count toward mastery/.test(await text('#stMastery')));
+  check('settings: automatic test tables explained', /Automatic:/.test(await text('#stMastery')) && (await q('stTestTables.hidden')));
+  await setSetting('#stTestMode [data-v="custom"]');
+  check('settings: custom tables shown; 10 core tables × 10 questions is a practice test', !(await q('stTestTables.hidden')) && /will not count toward mastery/.test(await text('#stMastery')));
+  check('settings: 11 and 12 disabled while the extension is off (A-24)', await q(`document.querySelector('#stTestTables [data-fam="11"]').disabled && document.querySelector('#stTables [data-fam="12"]').disabled`));
+  await setSetting('#stExt [data-v="true"]');
+  check('turning the extension on enables 11 and 12', await q(`!document.querySelector('#stTables [data-fam="12"]').disabled`));
+  await setSetting('#stExt [data-v="false"]');
   await setSetting('#stTestTables [data-fam="6"]'); await setSetting('#stTimer [data-v="2"]');
   check('settings: one table × 10 counts toward mastery', /Counts toward mastery/.test(await text('#stMastery')));
   await goto('#/multiplication/test');
@@ -350,13 +366,14 @@ try {
   check('progress after reload', await visible('progress'));
   check('progress: lessons kept', /^\d+\/13$/.test(await text('#pgLessons')) && (await text('#pgLessons')) !== '0/13');
   check('progress: tests kept', (await text('#pgTests')) === '3', await text('#pgTests'));
-  check('progress: lab challenges kept', (await text('#pgLab')) === '1');
+  check('progress: lab challenges kept', (await text('#pgLab')) === '2');
   check('progress: mastery kept', /6s.*⭐ Mastered/.test(await q(`document.querySelector('#pgTable').innerText.replace(/\\n/g, ' ')`)));
   const typeRows = await q(`[...document.querySelectorAll('#pgTypes tbody tr')].map(r => r.innerText)`);
   check('progress: all 12 kinds of problems listed', typeRows.length === 12);
   check('progress: constructive statuses only', typeRows.every((r) => !/weak|poor|bad|fail/i.test(r)));
   check('progress: missed problems listed', await exists('#pgMissed span'));
   check('progress: separates understanding / practice / reasoning / tests', /understanding/.test(await text('#progress')) && /reasoning/.test(await text('#progress')) && /independent tests/.test(await text('#progress')));
+  check('progress (not the child screens) explains when a skill is Strong', /only after 10\+ problems/.test(await text('#progress')));
   await shot('progress-1280');
   await goto('#/multiplication/settings');
   check('parent settings persist after reload', (await q(`document.querySelector('#stTimer [aria-pressed=true]').dataset.v`)) === '0' && (await q(`document.querySelector('#stReveal [aria-pressed=true]').dataset.v`)) === '0');
@@ -410,7 +427,7 @@ try {
         check(`${w}: ${t} no overflow`, await noOverflowX());
         const cut = await clippedText();
         check(`${w}: ${t} no clipped text`, cut.length === 0, J(cut));
-        if (w >= 375) check(`${w}: ${t} Submit visible without scrolling`, await submitOnScreen());
+        check(`${w}: ${t} Submit visible without scrolling`, await submitOnScreen());
         const small = await q(`[...document.querySelectorAll('#lab .numpad button, #lab .choices button, #qCheck, #qSkip')].filter(e => { const r = e.getBoundingClientRect(); return r.height < 44 || r.width < 44; }).length`);
         check(`${w}: ${t} touch targets ≥ 44 px`, small === 0);
         if (w === 390 && ['array', 'error', 'compare', 'match', 'word'].includes(t)) await shot(`lab-${t}-390`);
@@ -418,7 +435,16 @@ try {
       await click('#qSkip', 30); await click('#qNext', 60);
     }
     check(`${w}: lab covered all 12 kinds`, seen.size === 12, [...seen].join());
-    // long text in a number problem and a choice problem
+    // a miss: the message and help must be on screen (A-03)
+    await goto('#/multiplication/practice'); await click('#psStart', 150);
+    const p0 = (await state()).practice.qs[0];
+    if (p0.format === 'number') {
+      await type(p0.answer + 1); await enter(); await b.wait(80);
+      const seen = await q(`(() => { const s = document.getElementById('qStatus'), f = document.getElementById('qFeedback'), r1 = s.getBoundingClientRect(), r2 = f.getBoundingClientRect(); return (r1.top >= 0 && r1.bottom <= innerHeight && s.textContent.length > 0) || (r2.top >= 0 && r2.bottom <= innerHeight); })()`);
+      check(`${w}: after a miss the child can see a message (A-03)`, seen);
+      if (w === 320) await shot('practice-miss-320');
+    }
+    // long text in a number problem
     await goto('#/multiplication/practice'); await click('#psStart', 150);
     // A real word problem has no picture, so show the long story the way the app would.
     await b.js(`qPrompt.textContent = ${J(longStory)}; qPrompt.classList.remove('big'); document.querySelector('.qa-visual').innerHTML = '';`);

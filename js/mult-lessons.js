@@ -118,7 +118,7 @@
       explain: {
         text: ['In **4 × 3 = 12**, the numbers 4 and 3 are **factors**. 12 is the **product**.',
           'The × sign means "groups of". The = sign means both sides are worth the same amount.',
-          'So 4 × 6 = 3 × 8 is true: both sides are worth 24.'],
+          'The = sign can sit between two multiplications too: **4 × 6 = 3 × 8** is true, because both sides are worth 24.'],
         visual: { kind: 'set', items: [{ visual: { kind: 'equation', a: 4, b: 3, p: 12 }, caption: 'factor × factor = product' },
           { visual: { kind: 'array', rows: 4, cols: 3 }, caption: '4 rows of 3 = 12' }] },
         caption: 'Both show 4 × 3 = 12.'
@@ -134,8 +134,8 @@
           explain: 'Factors are the numbers being multiplied: 3 and 9. 27 is the product.', explainVisual: { kind: 'equation', a: 3, b: 9, p: 27 } },
         { type: 'number', prompt: 'Find the missing factor: 6 × ? = 18', answer: 3,
           explain: '6 rows of 3 make 18, so the missing factor is 3.', visual: { kind: 'array', rows: 6, cols: 3 } },
-        { type: 'number', prompt: 'What is the product of 7 and 5?', answer: 35,
-          explain: 'The product of 7 and 5 means 7 × 5. Count by 5s seven times: 5, 10, 15, 20, 25, 30, 35.', visual: { kind: 'array', rows: 7, cols: 5 } }
+        { type: 'number', prompt: 'Make both sides equal: 2 × 6 = 3 × ?', answer: 4,
+          explain: '2 × 6 = 12. 3 times what makes 12? 3 × 4 = 12, so both sides are worth 12.', explainVisual: { kind: 'set', items: [{ visual: { kind: 'array', rows: 2, cols: 6 }, caption: '2 × 6 = 12' }, { visual: { kind: 'array', rows: 3, cols: 4 }, caption: '3 × 4 = 12' }] } }
       ]
     },
     {
@@ -214,11 +214,14 @@
       objective: 'I can use a strategy to find facts in every times table from 1 to 12.',
       words: [{ term: 'strategy', meaning: 'a smart way to work out an answer' }],
       explain: {
-        text: ['You can build hard facts from easy ones. Here 6 × 7 is split into 5 × 7 (purple) and 1 × 7 (pink): 35 + 7 = 42.',
-          '**×1** the same number · **×2** double it · **×3** double, then add one more group · **×4** double, then double again · **×5** count by 5s, or half of ×10',
-          '**×6** ×5 plus one more group · **×7** ×5 plus ×2 · **×8** double the ×4 fact · **×9** ×10 minus one group · **×10** that many tens (6 × 10 = 60)',
-          'Extension: **×11** ×10 plus one more group · **×12** ×10 plus ×2.',
-          'Third graders learn to multiply quickly with factors up to 10 (products within 100). The 11s and 12s are an extra challenge.'],
+        text: ['You can build a hard fact from easy facts you already know.',
+          '**×2** Double it: 2 × 8 = 8 + 8.',
+          '**×4** Double it, then double again.',
+          '**×5** Count by 5s.',
+          '**×10** That many tens: 6 × 10 = 60.',
+          '**×9** Do ×10, then take away one group: 9 × 6 = 60 − 6.',
+          '**×3, ×6, ×7, ×8** Split into facts you know: 6 × 7 = 5 × 7 + 1 × 7 = 35 + 7.',
+          'Extension: **×11** and **×12** are ×10 plus a little more: 12 × 6 = 60 + 12.'],
         visual: { kind: 'array', rows: 6, cols: 7, split: 5 },
         caption: '6 × 7 = 5 × 7 + 1 × 7 = 35 + 7 = 42'
       },

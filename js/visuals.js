@@ -58,16 +58,17 @@
   /** Number line from 0 with `jumps` hops of `size`. labels: false hides the landing numbers (used in questions,
       so the picture never shows the total before the child answers). */
   function jumps({ jumps: n, size, labels = true }) {
-    const total = n * size, x0 = 18, width = 520, unit = (width - 2 * x0) / total, y = 78;
+    // Fewer jumps → a narrower picture, so labels stay readable when it is shrunk to fit a phone.
+    const total = n * size, x0 = 18, width = Math.max(240, Math.min(520, 60 + n * 80)), unit = (width - 2 * x0) / total, y = 78;
     let body = `<line x1="${x0 - 6}" x2="${width - x0 + 6}" y1="${y}" y2="${y}" stroke="${C.line}" stroke-width="3"/>`;
     for (let k = 0; k <= n; k++) {
       const x = x0 + k * size * unit;
       body += `<line x1="${x}" x2="${x}" y1="${y - 7}" y2="${y + 7}" stroke="${C.line}" stroke-width="2"/>` +
-        (labels || k === 0 ? `<text x="${x}" y="${y + 24}" text-anchor="middle" font-size="14" fill="${C.line}">${k * size}</text>` : '');
+        (labels || k === 0 ? `<text x="${x}" y="${y + 24}" text-anchor="middle" font-size="16" fill="${C.line}">${k * size}</text>` : '');
       if (k < n) {
         const x2 = x0 + (k + 1) * size * unit, mid = (x + x2) / 2, top = y - Math.min(46, 16 + (x2 - x) * 0.45);
         body += `<path class="hop" d="M${x} ${y - 4} Q${mid} ${top} ${x2} ${y - 4}" fill="none" stroke="${C.dot}" stroke-width="3"/>`;
-        if (x2 - x >= 26) body += `<text x="${mid}" y="${top + 12}" text-anchor="middle" font-size="13" font-weight="700" fill="${C.dot}">+${size}</text>`;
+        if (x2 - x >= 26) body += `<text x="${mid}" y="${top + 12}" text-anchor="middle" font-size="15" font-weight="700" fill="${C.dot}">+${size}</text>`;
       }
     }
     return svg(width, 112, labels ? `number line: ${plural(n, 'jump')} of ${size} from 0 to ${total}` : `number line: ${plural(n, 'jump')} of ${size} from 0`, body, 'viz-jumps');

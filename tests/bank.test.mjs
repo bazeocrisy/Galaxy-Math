@@ -167,11 +167,14 @@ test('practice-my-misses pairs revisit the same facts and types', () => {
   assert.ok(set.some((q) => q.typeId === 'error') && set.some((q) => q.typeId === 'compare'));
 });
 
-test('unlocked Lab types: starters, plus lessons completed or types tried 3+ times in Practice', () => {
+test('unlocked Lab types: starters, plus lessons completed or 3+ right answers in Practice (challenge kinds need their lesson)', () => {
   assert.deepEqual(B.unlockedTypes([], {}), B.STARTER_TYPES.slice().sort((a, b) => B.TYPES.findIndex((t) => t.id === a) - B.TYPES.findIndex((t) => t.id === b)));
   assert.ok(B.unlockedTypes(['check-the-work'], {}).includes('error'));
-  assert.ok(B.unlockedTypes([], { compare: 3 }).includes('compare'));
-  assert.ok(!B.unlockedTypes([], { compare: 2 }).includes('compare'));
+  assert.ok(B.unlockedTypes([], { missing: 3 }).includes('missing'));
+  assert.ok(!B.unlockedTypes([], { missing: 2 }).includes('missing'));
+  assert.ok(!B.unlockedTypes([], { compare: 30 }).includes('compare'), 'times as many needs its lesson');
+  assert.ok(B.unlockedTypes(['times-as-many'], {}).includes('compare'));
+  assert.ok(B.STARTER_TYPES.includes('turnaround') && B.STARTER_TYPES.includes('match'), 'the Lab starts with reasoning kinds too');
   assert.equal(B.unlockedTypes(L.LESSONS.map((l) => l.id), {}).length, 12);
 });
 
@@ -188,4 +191,58 @@ test('session scoring counts unanswered and splits results by type', () => {
   assert.deepEqual([sc.total, sc.correct, sc.incorrect, sc.unanswered, sc.percent], [3, 1, 1, 1, 33]);
   assert.deepEqual(sc.byType.fact, { correct: 1, total: 1 });
   assert.equal(sc.missed.length, 2);
+});
+
+// ---- regression tests for the independent audit (AUDIT-REPORT.md) ----
+test('A-01: every "use a fact you know" hint is correct arithmetic', () => {
+  for (let fam = 1; fam <= 12; fam++) for (let other = 1; other <= 12; other++) for (let s = 0; s < 6; s++) {
+    const q = B.generate('error', fam, other, { rng: seeded(fam * 97 + other * 7 + s) });
+    const m = /(\d+) × (\d+) = (\d+)\. Then add one more (\d+)/.exec(q.hints[1].text);
+    if (m) { const [x, y, z, w] = m.slice(1).map(Number); assert.equal(x * y, z, q.hints[1].text); assert.equal(z + w, q.a * q.b, q.hints[1].text); }
+    else assert.match(q.hints[1].text, /just/, q.hints[1].text);
+  }
+});
+
+test('A-04: the missing-factor strategy picture never shows all the jumps', () => {
+  for (let fam = 1; fam <= 12; fam++) for (let other = 1; other <= 12; other++) {
+    const q = B.generate('missing', fam, other, { rng: seeded(fam * 13 + other) });
+    const v = q.hints[1].visual;
+    if (v) assert.ok(v.jumps < q.answer, `${q.prompt}: ${v.jumps} jumps for answer ${q.answer}`);
+  }
+});
+
+test('A-13: extension match pictures match the equation', () => {
+  for (const [f, o] of [[11, 11], [11, 12], [12, 12]]) for (let s = 0; s < 20; s++) {
+    const q = B.generate('match', f, o, { rng: seeded(s) });
+    const v = q.explain.visual;
+    if (v) assert.equal(v.kind === 'groups' ? v.groups * v.size : v.rows * v.cols, q.a * q.b, q.prompt);
+  }
+});
+
+test('A-14: with core facts only, no 11s, 12s or products over 100 appear anywhere', () => {
+  for (const t of B.TYPES) for (let fam = 1; fam <= 10; fam++) for (let other = 1; other <= 10; other++) for (let s = 0; s < 4; s++) {
+    const q = B.generate(t.id, fam, other, { rng: seeded(fam * 100 + other + s * 7), maxFactor: 10 });
+    if (!q) continue;
+    const all = [q.prompt, ...(q.options || [])].join(' | ');
+    for (const m of all.matchAll(/(\d+) × (\d+)/g)) assert.ok(+m[1] <= 10 && +m[2] <= 10, `${t.id}: ${all}`);
+    for (const m of all.matchAll(/\d+/g)) assert.ok(+m[0] <= 100, `${t.id}: ${all}`);
+  }
+});
+
+test('A-18: a fact-family question never offers the given fact back as the answer', () => {
+  for (let n = 1; n <= 12; n++) for (let s = 0; s < 20; s++) {
+    const q = B.generate('family', n, n, { rng: seeded(n * 31 + s) });
+    if (q.format === 'choice') assert.notEqual(q.answer, `${n} × ${n} = ${n * n}`);
+  }
+});
+
+test('A-08 / A-22: Practice keeps challenge kinds behind their lessons; hints do not hand over the equation', () => {
+  assert.deepEqual(B.practiceTypes([]).sort(), ['array', 'fact', 'family', 'groups', 'match', 'missing', 'repeated', 'turnaround', 'word']);
+  assert.ok(B.practiceTypes(['check-the-work']).includes('error'));
+  assert.match(B.TYPE.compare.name, /challenge/);
+  for (let s = 0; s < 30; s++) {
+    const w = B.generate('word', 4, 7, { rng: seeded(s) }), c = B.generate('compare', 4, 7, { rng: seeded(s) });
+    assert.doesNotMatch(w.hints[1].text, /\d+ × \d+/, w.hints[1].text);
+    assert.doesNotMatch(c.hints[1].text, /\d+ × \d+/, c.hints[1].text);
+  }
 });
