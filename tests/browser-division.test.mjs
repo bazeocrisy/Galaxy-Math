@@ -54,7 +54,7 @@ try {
   await b.viewport(1280, 800);
   await freshStart();
   await b.js(`window.__galaxy.rootStore.recordLesson('arrays', 3, true);`);   // a multiplication record that must survive
-  check('landing: Division is open with all five activities', /Learn · Practice · Think · Flash · Test/.test(await text('[data-subject=division]')) && !(await q(`document.querySelector('[data-subject=division]').getAttribute('aria-disabled')`)));
+  check('landing: Division is open with all five activities', /Teach, Practice, Math Thinking Lab, Flashcards and Test/.test(await q(`document.querySelector('[data-subject=division]').getAttribute('aria-label')`)) && !(await q(`document.querySelector('[data-subject=division]').getAttribute('aria-disabled')`)));
   await b.js(`document.querySelector('[data-subject=division]').focus();`); await b.key('Enter'); await b.wait(250);
   check('keyboard: Enter opens Division', (await visible('menu')) && (await q('location.hash')) === '#/division' && (await text('#menuTitle')) === 'Division');
   const modes = await q(`[...document.querySelectorAll('#modes .mode')].map(e => [e.dataset.activity, e.getAttribute('aria-disabled')])`);

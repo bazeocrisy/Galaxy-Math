@@ -350,16 +350,38 @@
     };
   }
 
+  /* ---------- navigation icons: one line-icon set (24 × 24, round strokes, currentColor) ---------- */
+  const ICON_PATHS = {
+    addition: '<path d="M12 5v14M5 12h14"/>',
+    subtraction: '<path d="M5 12h14"/>',
+    multiplication: '<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>',
+    division: '<path d="M5 12h14"/><circle cx="12" cy="6.5" r="1.6" class="fill"/><circle cx="12" cy="17.5" r="1.6" class="fill"/>',
+    teach: '<path d="M9 18h6M10 21.5h4"/><path d="M12 2.5a6.5 6.5 0 0 0-4 11.6c.7.6 1 1.3 1 2.2v.2h6v-.2c0-.9.3-1.6 1-2.2a6.5 6.5 0 0 0-4-11.6z"/>',
+    practice: '<path d="M4 20l1.2-4.6L15.6 5a2.1 2.1 0 0 1 3 3L8.2 18.4z"/><path d="M13.6 7l3 3M4 20h16"/>',
+    lab: '<path d="M9 2.5h6M10 2.5v6.2L4.6 18.2A2.2 2.2 0 0 0 6.5 21.5h11a2.2 2.2 0 0 0 1.9-3.3L14 8.7V2.5"/><path d="M7.2 14.5h9.6"/>',
+    flashcards: '<rect x="3" y="7" width="13" height="14" rx="2.2"/><path d="M7.5 3.5h11.3a2.2 2.2 0 0 1 2.2 2.2v11"/><path d="M7 14h5"/>',
+    test: '<circle cx="12" cy="13.5" r="8"/><path d="M12 9.5v4l2.6 2M9.5 2.5h5M12 2.5v3"/>',
+    progress: '<path d="M4 20V11M10 20V5M16 20v-6M2.5 20h19"/>',
+    settings: '<path d="M4 6h9M18 6h2M4 12h3M11 12h9M4 18h11M19 18h1"/><circle cx="15.5" cy="6" r="2.3"/><circle cx="9" cy="12" r="2.3"/><circle cx="17" cy="18" r="2.3"/>',
+    back: '<path d="M19 12H5M11 6l-6 6 6 6"/>',
+    go: '<path d="M5 12h14M13 6l6 6-6 6"/>'
+  };
+  const icon = (name, cls = '') => `<svg class="ic${cls ? ' ' + cls : ''}" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${ICON_PATHS[name]}</svg>`;
+  /** What each subject covers, shown on its home-page card. */
+  const SUBJECT_TAGLINE = { multiplication: 'Times tables, arrays and word problems', division: 'Sharing, grouping and fact families' };
+
   /* ---------- landing ---------- */
   GM.SUBJECTS.forEach((s) => {
     const b = document.createElement('button');
     const open = s.status === 'open';
     b.className = `subject s-${s.id} ${open ? 'open' : 'soon'}`;
     b.dataset.subject = s.id;
-    const label = !open ? 'Coming Soon' : GM.readyCount(s.id) === GM.ACTIVITIES.length ? 'Learn · Practice · Think · Flash · Test' : 'Lessons on the way';
-    b.innerHTML = `<span class="sym" aria-hidden="true">${s.symbol}</span><span class="sName">${s.name}</span>` +
-      (open ? `<span class="go">${label} →</span>` : `<span class="badge soon">${label}</span>`);
-    if (open) { b.setAttribute('aria-label', `${s.name}. ${label}`); b.onclick = () => nav('#/' + s.id); }
+    const full = GM.readyCount(s.id) === GM.ACTIVITIES.length;
+    const label = !open ? 'Coming Soon' : full ? 'Start' : 'Lessons on the way';
+    const tag = open ? SUBJECT_TAGLINE[s.id] || '' : '';
+    b.innerHTML = `<span class="sym" aria-hidden="true">${icon(s.id)}</span><span class="sText"><span class="sName">${s.name}</span>${tag ? `<span class="sTag">${tag}</span>` : ''}</span>` +
+      (open ? `<span class="go"><span class="lbl">${label}</span>${icon('go')}</span>` : `<span class="badge soon">${label}</span>`);
+    if (open) { b.setAttribute('aria-label', `${s.name}: ${tag}. ${full ? 'Teach, Practice, Math Thinking Lab, Flashcards and Test' : label}`); b.onclick = () => nav('#/' + s.id); }
     else {
       b.setAttribute('aria-disabled', 'true'); b.setAttribute('aria-label', `${s.name}. Coming soon`);
       b.onclick = () => { $('landingNote').textContent = `${s.name} is coming soon! Try Multiplication for now.`; };
@@ -371,7 +393,7 @@
   const ACCENT = { addition: 'grass-d', subtraction: 'sky-d', multiplication: 'grape-d', division: 'coral-d' };
   function renderMenu(sid) {
     const s = GM.getSubject(sid);
-    $('menuTitle').textContent = s.name; $('menuSym').textContent = s.symbol;
+    $('menuTitle').textContent = s.name; $('menuSym').innerHTML = icon(sid);
     $('menu').style.setProperty('--accent', `var(--${ACCENT[sid]})`);
     const ready = GM.ACTIVITIES.filter((a) => GM.isActivityReady(sid, a.id));
     $('menuSub').textContent = ready.length === GM.ACTIVITIES.length ? 'What would you like to do?'
@@ -383,14 +405,15 @@
       const ok = GM.isActivityReady(sid, a.id), b = document.createElement('button');
       b.className = `mode m-${a.id} ${ok ? 'ready' : 'soon'}`; b.dataset.activity = a.id;
       const extra = ok && a.id === 'teach' && sid === SUBJ ? `<span class="mMeta">${done} of ${L.LESSONS.length} lessons done</span>` : '';
-      b.innerHTML = `<span class="mIcon" aria-hidden="true">${a.icon}</span><span class="mText"><span class="mName">${a.name}</span>` +
+      b.innerHTML = `<span class="mIcon" aria-hidden="true">${icon(a.id)}</span><span class="mText"><span class="mName">${a.name}</span>` +
         (ok ? `<span class="mBlurb">${a.blurb}</span>${extra}` : '<span class="badge soon">Coming soon</span>') + '</span>';
       if (ok) b.onclick = () => nav(`#/${sid}/${a.id}`);
       else { b.setAttribute('aria-disabled', 'true'); b.setAttribute('aria-label', `${a.name}. Coming soon`); b.onclick = () => { $('menuNote').textContent = `${s.name} ${a.name} is coming soon!`; }; }
       box.appendChild(b);
     });
-    $('menuExtra').innerHTML = (GM.hasView(sid, 'settings') ? `<span class="grownups">For grown-ups:</span><button class="btn btn-ghost" data-nav="#/${sid}/progress">📊 Progress</button><button class="btn btn-ghost" data-nav="#/${sid}/settings">⚙️ Parent Settings</button>` : '') +
-      '<button class="btn btn-ghost" data-nav="#/">⬅ All subjects</button>';
+    // secondary links: back to all subjects, and the grown-up pages (quieter than the five activities)
+    $('menuExtra').innerHTML = `<button class="link-btn" data-nav="#/">${icon('back')}All subjects</button>` +
+      (GM.hasView(sid, 'settings') ? `<span class="grownup-links"><span class="grownups">For grown-ups</span><button class="link-btn" data-nav="#/${sid}/progress">${icon('progress')}Progress</button><button class="link-btn" data-nav="#/${sid}/settings">${icon('settings')}Parent Settings</button></span>` : '');
   }
 
   /* =====================================================================================
