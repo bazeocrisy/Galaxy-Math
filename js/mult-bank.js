@@ -73,7 +73,7 @@
       const ds = uniq(correct, [g !== n ? `${n} × ${n}` : `${near(g, maxFactor)} × ${n}`, `${g} + ${n}`, `${g} × ${near(n, maxFactor)}`]);
       const visual = fromPicture ? (rng() < 0.5 && g <= 10 ? { kind: 'groups', groups: g, size: n } : { kind: 'array', rows: g, cols: n }) : null;
       const what = visual ? (visual.kind === 'groups' ? `There are ${plural(g, 'group')} with ${n} in each group` : `There are ${plural(g, 'row')} with ${n} in each row`) : `${n} is added ${g} times, which is ${plural(g, 'group')} of ${n}`;
-      const q = choiceQuestion({ ...base, a: g, b: n, prompt: visual ? 'Which multiplication matches this picture?' : `Which multiplication matches ${Array(g).fill(n).join(' + ')}?`,
+      const q = choiceQuestion({ ...base, a: g, b: n, prompt: visual ? 'Which multiplication matches this picture?' : 'Which multiplication matches this addition?', expr: visual ? undefined : Array(g).fill(n).join(' + '),
         visual, equation: `${g} × ${n} = ${g * n}`, variantKey: `${g}x${n}:${visual ? visual.kind : 'add'}` }, correct, ds, rng);
       q.hints = [{ text: visual ? 'Count the groups (or rows). Then count how many are in one group (or row).' : `Count how many times ${n} is added.` },
         { text: `In Galaxy Math the first number tells how many groups, and the second tells how many in each group.` }];
