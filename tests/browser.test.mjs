@@ -1,12 +1,15 @@
 // Browser checks for the Galaxy Math landing page, activity menus and the preserved flashcard/test engine.
 // Run: npm run test:browser   (SHOT_DIR=... to choose where screenshots go; default tests/screenshots)
+// Live: LIVE_URL=https://bazeocrisy.github.io/Galaxy-Math/ npm run test:browser   (tests the published site instead of a local server)
 import path from 'node:path';
 import { startServer, startBrowser, BASE, ROOT } from './lib/harness.mjs';
 
 const SHOT_DIR = process.env.SHOT_DIR || path.join(ROOT, 'tests', 'screenshots');
-const server = await startServer();
+const LIVE = process.env.LIVE_URL;
+const server = LIVE ? { origin: '', missing: [], close() {} } : await startServer();
 const b = await startBrowser();
-const URL = server.origin + BASE;
+const URL = LIVE ? LIVE.replace(/\/?$/, '/') : server.origin + BASE;
+console.log(`Testing ${URL}`);
 let pass = 0, fail = 0;
 function check(name, ok, detail = '') {
   if (ok) pass++; else { fail++; console.log(`FAIL ${name} ${detail}`); }
@@ -150,6 +153,10 @@ try {
 
   check('no page errors', b.errors.length === 0, JSON.stringify(b.errors));
   check('no missing local files', server.missing.length === 0, JSON.stringify(server.missing));
+  if (LIVE) {
+    const bad = await q(`performance.getEntriesByType('resource').filter(e => e.name.startsWith(location.origin) && e.responseStatus >= 400).map(e => e.name)`);
+    check('live: no failed requests', bad.length === 0, JSON.stringify(bad));
+  }
 } catch (e) {
   fail++; console.log('ERROR', e);
 } finally {

@@ -1,6 +1,6 @@
 # Galaxy Math — Development Status
 
-Updated: 2026-10-11 (branch `feature/galaxy-math-foundation`, not merged, not published)
+Updated: 2026-10-11 (branch `feature/galaxy-math-foundation`; not merged to `main`; Phase 1–2 build live on the `gh-pages` testing site)
 
 ## Phase 1 — Baseline audit (done)
 
@@ -37,7 +37,24 @@ The personal name from the original prototype does not appear anywhere in the pa
 - `npm test` — 11/11 unit tests (registry, routing guards, local file references, no external scripts/analytics, self-contained SVGs).
 - `npm run test:browser` — 76/76 headless-Chrome checks: landing at 320, 375, 390, 768 and 1280 px (no horizontal overflow, text fits, touch-target size, logo loads, background fills screen); disabled-card behavior; menu contents and readable disabled labels; redirects; flashcards start/stop; no timers after Menu, Quit or browser Back; time-out shows report (no forced test); optional quick check; test countdown; correct answer graded; page works when localStorage throws; no page errors; no missing files.
 - Screenshots: `docs/screenshots/` (landing 390 px and 1280 px, Multiplication and Division menus).
-- Not tested: real phones/tablets, Safari/Firefox, screen readers (headless Chrome only).
+- Not tested: real phones/tablets, Safari/Firefox, screen readers (headless Chrome only, locally and on the public URL).
+
+## Deployment — GitHub Pages testing site (verified 2026-10-11)
+
+- **URL:** https://bazeocrisy.github.io/Galaxy-Math/
+- **Pages source:** `gh-pages` branch at `/ (root)`. It was already configured, so no settings change was needed (GitHub API: legacy build, public, HTTPS enforced).
+- **Published commit:** `gh-pages` `b5bd614` = Phase 1–2 app commit `2b8ad91` + empty `.nojekyll`. The diff against the feature branch at `2b8ad91` is only `.nojekyll`.
+- **Pages build:** `built` for `b5bd614` (2026-10-11 10:42 UTC).
+- **Live files:** `index.html`, `js/registry.js`, `assets/galaxy-math-logo.svg` and `assets/favicon.svg` match the commit byte-for-byte.
+- **Live browser suite** (`LIVE_URL=https://bazeocrisy.github.io/Galaxy-Math/ npm run test:browser`): **77/77 pass** on the public URL. It covers:
+  - the landing page at 320, 375, 390, 768 and 1280 px
+  - Addition and Subtraction showing Coming Soon and not opening
+  - all four Division activities being locked, including direct links
+  - Multiplication menu, Flashcards and Test
+  - Menu, Quit and browser Back navigation with no leftover timers
+  - no failed requests and no page errors
+- I reviewed the live screenshots of the landing page (phone and desktop) and the Division menu by eye.
+- **Repeatable process:** `npm run publish:pages` publishes an approved build. `npm run verify:pages` re-checks the live site. Both are documented in README.md. `verify:pages` was run against the live site and passed.
 
 ## Not yet implemented
 
@@ -47,7 +64,6 @@ The personal name from the original prototype does not appear anywhere in the pa
 - [ ] Unified Test: 10/20/36 questions, timed or untimed, unanswered counted, results by family (Phase 6).
 - [ ] Parent progress screen and local mastery (Phase 7).
 - [ ] Full accessibility / cross-device regression pass (Phase 8).
-- [ ] Deployment or GitHub Pages launch (needs owner authorization).
 
 ## Notes for the owner
 
@@ -55,4 +71,4 @@ The personal name from the original prototype does not appear anywhere in the pa
 
 ## Next Claude action
 
-Owner reviews Phase 1–2 (screenshots in `docs/screenshots/`). After approval, start Phase 3 (Multiplication Teach and Practice). Do not merge/publish without authorization.
+Owner tests Phase 1–2 on the live testing site (screenshots in `docs/screenshots/`). After approval, start Phase 3 (Multiplication Teach and Practice). Do not merge to `main` or publish to `gh-pages` without authorization. For approved builds, use `npm run publish:pages`.

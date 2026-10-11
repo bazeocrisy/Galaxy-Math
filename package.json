@@ -4,6 +4,8 @@
   "description": "Galaxy Math: space-themed third-grade math (static site for GitHub Pages). No dependencies.",
   "scripts": {
     "test": "node --test tests/registry.test.mjs tests/integrity.test.mjs",
-    "test:browser": "node tests/browser.test.mjs"
+    "test:browser": "node tests/browser.test.mjs",
+    "publish:pages": "node scripts/publish-gh-pages.mjs",
+    "verify:pages": "node scripts/publish-gh-pages.mjs --verify"
   }
 }
