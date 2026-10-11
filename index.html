@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Galaxy Math</title>
+<meta name="description" content="Galaxy Math: space-themed third-grade math. Learn, practice, think, flash and test multiplication.">
+<meta name="theme-color" content="#070B1F">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/galaxy.css">
+</head>
+<body>
+<div class="wrap on-landing" id="app">
+  <header class="topbar">
+    <a class="brand" href="#/" aria-label="Galaxy Math: all subjects"><img src="assets/galaxy-math-logo.svg" alt="" width="42" height="42"><span>Galaxy Math</span></a>
+    <span class="crumb" id="crumb"></span>
+  </header>
+
+  <!-- LANDING: four subjects -->
+  <section class="screen on" id="landing" aria-labelledby="landingTitle">
+    <div class="hero">
+      <img class="heroLogo" src="assets/galaxy-math-logo.svg" alt="" width="180" height="180">
+      <h1 id="landingTitle" tabindex="-1">Galaxy Math</h1>
+      <p class="sub">Choose your math mission!</p>
+    </div>
+    <div class="subjects" id="subjects"></div>
+    <p class="note" id="landingNote" role="status" aria-live="polite"></p>
+  </section>
+
+  <!-- MENU: Teach / Practice / Flashcards / Test -->
+  <section class="screen" id="menu" aria-labelledby="menuTitle">
+    <div class="menuHead"><span class="sym" id="menuSym" aria-hidden="true"></span><h2 id="menuTitle" tabindex="-1"></h2></div>
+    <p class="menuSub" id="menuSub"></p>
+    <div class="modes" id="modes"></div>
+    <p class="note" id="menuNote" role="status" aria-live="polite"></p>
+    <div class="menu-extra" id="menuExtra"></div>
+  </section>
+
+  <!-- Each activity screen is filled in by js/app.js -->
+  <section class="screen" id="teach" aria-labelledby="teachTitle"></section>
+  <section class="screen" id="lesson" aria-labelledby="lessonTitle"></section>
+  <section class="screen" id="practiceSetup" aria-labelledby="practiceSetupTitle"></section>
+  <section class="screen" id="practice" aria-labelledby="practiceTitle"></section>
+  <section class="screen" id="practiceDone" aria-labelledby="practiceDoneTitle"></section>
+  <section class="screen" id="labSetup" aria-labelledby="labSetupTitle"></section>
+  <section class="screen" id="lab" aria-labelledby="labTitle"></section>
+  <section class="screen" id="labDone" aria-labelledby="labDoneTitle"></section>
+  <section class="screen" id="fcSetup" aria-labelledby="fcSetupTitle"></section>
+  <section class="screen" id="fc" aria-labelledby="fcTitle"></section>
+  <section class="screen" id="fcDone" aria-labelledby="fcDoneTitle"></section>
+  <section class="screen" id="testSetup" aria-labelledby="testSetupTitle"></section>
+  <section class="screen" id="test" aria-labelledby="testTitle"></section>
+  <section class="screen" id="testDone" aria-labelledby="testDoneTitle"></section>
+  <section class="screen" id="progress" aria-labelledby="progressTitle"></section>
+  <section class="screen" id="settings" aria-labelledby="settingsTitle"></section>
+</div>
+
+<script src="js/registry.js"></script>
+<script src="js/mult-math.js"></script>
+<script src="js/visuals.js"></script>
+<script src="js/mult-lessons.js"></script>
+<script src="js/mult-bank.js"></script>
+<script src="js/progress.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

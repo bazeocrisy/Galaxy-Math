@@ -1,0 +1,90 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="240" height="240" role="img" aria-labelledby="gm-logo-title">
+  <title id="gm-logo-title">Galaxy Math: a friendly rocket orbiting a glowing planet</title>
+  <defs>
+    <radialGradient id="gm-halo" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#B266FF" stop-opacity=".6"/>
+      <stop offset=".6" stop-color="#4CC9F0" stop-opacity=".18"/>
+      <stop offset="1" stop-color="#4CC9F0" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="gm-planet" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#8A5CFF"/>
+      <stop offset=".5" stop-color="#5B2ABF"/>
+      <stop offset="1" stop-color="#1B4FBF"/>
+    </linearGradient>
+    <linearGradient id="gm-ring" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#3DDC97"/>
+      <stop offset=".5" stop-color="#4CC9F0"/>
+      <stop offset="1" stop-color="#FF5C8A"/>
+    </linearGradient>
+    <linearGradient id="gm-flame" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFD23F"/>
+      <stop offset="1" stop-color="#FF5C8A"/>
+    </linearGradient>
+  </defs>
+
+  <!-- glow behind the planet -->
+  <circle cx="116" cy="132" r="104" fill="url(#gm-halo)"/>
+
+  <!-- orbit path -->
+  <ellipse cx="116" cy="132" rx="104" ry="42" transform="rotate(-20 116 132)" fill="none" stroke="#F3F0FF" stroke-opacity=".45" stroke-width="3" stroke-linecap="round" stroke-dasharray="2 11"/>
+
+  <!-- planet ring, back half -->
+  <g transform="rotate(-20 116 132)">
+    <path d="M38 132 A78 17 0 0 1 194 132" fill="none" stroke="url(#gm-ring)" stroke-width="7" stroke-opacity=".55"/>
+  </g>
+
+  <!-- planet -->
+  <circle cx="116" cy="132" r="50" fill="url(#gm-planet)"/>
+  <circle cx="98" cy="114" r="9" fill="#F3F0FF" fill-opacity=".14"/>
+  <circle cx="134" cy="150" r="12" fill="#070B1F" fill-opacity=".18"/>
+  <circle cx="127" cy="110" r="5" fill="#070B1F" fill-opacity=".15"/>
+  <path d="M84 112 A40 40 0 0 1 112 88" fill="none" stroke="#F3F0FF" stroke-opacity=".55" stroke-width="5" stroke-linecap="round"/>
+
+  <!-- planet ring, front half -->
+  <g transform="rotate(-20 116 132)">
+    <path d="M38 132 A78 17 0 0 0 194 132" fill="none" stroke="url(#gm-ring)" stroke-width="7" stroke-linecap="round"/>
+  </g>
+
+  <!-- rocket -->
+  <g transform="translate(190 66) rotate(42)">
+    <path d="M-6 22 Q0 46 6 22 Z" fill="url(#gm-flame)"/>
+    <path d="M-12 6 L-23 22 L-11 19 Z" fill="#FF5C8A"/>
+    <path d="M12 6 L23 22 L11 19 Z" fill="#FF5C8A"/>
+    <path d="M0 -34 C12 -23 14 -4 12 18 L-12 18 C-14 -4 -12 -23 0 -34 Z" fill="#F3F0FF"/>
+    <path d="M0 -34 C6 -29 9.5 -23 11 -17 L-11 -17 C-9.5 -23 -6 -29 0 -34 Z" fill="#B266FF"/>
+    <circle cx="0" cy="-3" r="6.5" fill="#4CC9F0" stroke="#1B1F4B" stroke-width="3"/>
+    <rect x="-8" y="17" width="16" height="6" rx="2" fill="#1B1F4B"/>
+  </g>
+
+  <!-- + − × ÷ star motifs -->
+  <g stroke-linecap="round" fill="none" stroke-width="5">
+    <g transform="translate(36 46)">
+      <circle r="17" fill="#FFD23F" fill-opacity=".16" stroke="none"/>
+      <path d="M-9 0 H9 M0 -9 V9" stroke="#FFD23F"/>
+    </g>
+    <g transform="translate(108 30)">
+      <circle r="15" fill="#3DDC97" fill-opacity=".16" stroke="none"/>
+      <path d="M-7 -7 L7 7 M7 -7 L-7 7" stroke="#3DDC97"/>
+    </g>
+    <g transform="translate(212 190)">
+      <circle r="15" fill="#4CC9F0" fill-opacity=".16" stroke="none"/>
+      <path d="M-8 0 H8" stroke="#4CC9F0"/>
+    </g>
+    <g transform="translate(34 200)">
+      <circle r="17" fill="#FF5C8A" fill-opacity=".16" stroke="none"/>
+      <path d="M-9 0 H9" stroke="#FF5C8A"/>
+      <circle cy="-7.5" r="2.6" fill="#FF5C8A" stroke="none"/>
+      <circle cy="7.5" r="2.6" fill="#FF5C8A" stroke="none"/>
+    </g>
+  </g>
+
+  <!-- sparkles -->
+  <g fill="#F3F0FF">
+    <circle cx="70" cy="70" r="2"/>
+    <circle cx="168" cy="20" r="1.6"/>
+    <circle cx="222" cy="120" r="2"/>
+    <circle cx="150" cy="222" r="1.8"/>
+    <circle cx="16" cy="128" r="1.6"/>
+    <path d="M178 158 l2 5 5 2 -5 2 -2 5 -2 -5 -5 -2 5 -2 Z" fill="#FFE9A8"/>
+  </g>
+</svg>
