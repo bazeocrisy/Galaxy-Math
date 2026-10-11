@@ -2,7 +2,11 @@
 
 Updated: 2026-10-11 (branch `feature/galaxy-math-foundation`; not merged to `main`). Division has **not** been started.
 
-## UI redesign — awaiting owner approval (branch `review/ui-redesign`, NOT deployed)
+## UI redesign — approved and live (2026-10-11)
+
+The owner approved the merge and publication. `review/ui-redesign` was merged into `feature/galaxy-math-foundation` as `1d96297`, then published to `gh-pages` as `6b2dcdb` with `npm run publish:pages`. The Pages build finished, and all 11 app files on the public URL match the commit byte-for-byte. The **live browser suite passed 658/658** at https://bazeocrisy.github.io/Galaxy-Math/. `main` is untouched. The history of the review is kept below.
+
+### Review history (before approval)
 
 The owner did not approve the 2.0 interface ("small administrative forms floating on a large galaxy background"). This branch holds a focused visual redesign for review. The live testing site still runs the approved 2.0 build (`gh-pages` `330b045`). Nothing from this branch has been published, and `main` is untouched.
 
@@ -34,7 +38,7 @@ The owner did not approve the 2.0 interface ("small administrative forms floatin
 - On ≤420-px phones Practice hides its kind-of-problem badge so Submit stays on screen.
 - The Progress page was not redesigned (V-19).
 
-**Next step:** the owner reviews the screenshots. Only after approval: merge `review/ui-redesign` into the feature branch, publish to `gh-pages` with `npm run publish:pages`, and run the live suite.
+**Next step (done):** owner approved; merged, published and verified live (see above).
 
 ## Multiplication 2.0: summary
 
