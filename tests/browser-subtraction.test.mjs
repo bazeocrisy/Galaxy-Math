@@ -162,7 +162,11 @@ try {
   check('practice problem is 3-digit Easy (one exchange)', String(it.top).length === 3 && (await q(`SubtractKit.math.classify(${it.top}, ${it.bottom}).difficulty`)) === 'easy');
   await typeAns('#spWs', it.top - it.bottom); await click('#sub [data-act="check"]', 150);
   check('1: solved on own', /on your own/.test(await text('#spOutcome')) && (await visible('#spNext')) && !(await visible('#spSkip')));
-  await click('#spNext', 250);
+  // SI-01 / SI-04: reload (or Exit → Continue) on a problem that is already recorded
+  await b.reload(); await goto('#/subtraction/practice'); await click('#spContinue', 250);
+  check('reload on a finished problem: read-only worked answer, no Hint/Check, Next visible', (await exists('#spWs.sk-mode-view')) && !(await exists('#sub [data-act="hint"], #sub [data-act="check"]')) && (await visible('#spNext')) && /on your own/.test(await text('#spOutcome')));
+  await b.wait(450); await click('#spNext', 250);
+  check('reload on a finished problem: Next moves on to problem 2 (never stuck)', /Problem 2 of 10/.test(await text('#sub .act-count')) && (await subStore('activePractice().i')) === 1);
   // 2: hint, then right
   it = await practiceItem();
   await click('#sub [data-act="hint"]', 150);
@@ -182,8 +186,10 @@ try {
   await typeAns('#spWs', it.top - it.bottom + 1); await click('#sub [data-act="check"]', 150);
   check('4: wrong answer → specific feedback, digits kept', /Not yet|Look again|✗/.test(await text('#sub .sk-coach') + await text('#spWs')) && (await q(`document.querySelector('#spWs [data-k="a0"]').value`)) !== '');
   await click('#spSkip', 250);
-  // 5: skipped
-  await click('#spSkip', 250);
+  // 5: skipped, with a double tap: only problem 5 is skipped (SI-02)
+  await b.wait(450);
+  await b.js(`document.getElementById('spSkip').click(); document.getElementById('spSkip').click();`); await b.wait(250);
+  check('double tap on Skip skips one problem only', /Problem 6 of 10/.test(await text('#sub .act-count')) && Object.keys(await subStore('activePractice().results')).length === 5);
   // 6: a hint, then leave and come back (saved), then right → still "with hints"
   it = await practiceItem();
   await click('#sub [data-act="hint"]', 150);

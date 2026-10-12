@@ -102,7 +102,8 @@
 
   /** Practice outcome from what happened on one problem. Help is never counted as independent. */
   function outcomeOf({ correct, helped, hints, wrong }) {
-    if (helped) return 'shown';
+    if (helped && correct) return 'shown';   // Show me played to the end (or the full solution, then right)
+    if (helped) return wrong > 0 ? 'incorrect' : 'skipped';   // help opened but the problem was not finished: never independent (SI-07)
     if (correct) return hints > 0 ? 'hinted' : 'independent';
     return wrong > 0 ? 'incorrect' : 'skipped';
   }
@@ -110,9 +111,14 @@
   /** storage: a localStorage-like object (or null). opts: { lessonIds, math } (math = SubtractKit.math, for setups). */
   function createSubStore(storage, opts = {}) {
     const lessonIds = opts.lessonIds || [], M = opts.math || null;
-    let persistent = !!storage, data;
-    try { data = normalize(storage ? JSON.parse(storage.getItem(KEY) || 'null') : null, lessonIds, M); }
-    catch (e) { data = blank(); }
+    let persistent = !!storage, data, raw = null;
+    try { raw = storage ? storage.getItem(KEY) : null; } catch (e) { raw = null; persistent = false; }
+    let parsed = null, readable = true;
+    try { parsed = raw ? JSON.parse(raw) : null; } catch (e) { readable = false; }
+    if (parsed !== null && !(isObj(parsed) && parsed.v === VERSION)) readable = false;
+    data = readable ? normalize(parsed, lessonIds, M) : blank();
+    // A record we cannot read (bad JSON or another version) is kept as a backup before the next save replaces it (SI-09).
+    if (raw && !readable) { try { storage.setItem(KEY + '.unreadable', raw); } catch (e) { /* no room: nothing else to do */ } }
     function save() {
       if (!storage) return;
       try { storage.setItem(KEY, JSON.stringify(data)); } catch (e) { persistent = false; }
@@ -171,7 +177,7 @@
         a.i += 1; a.cur = null;
         if (a.i < a.length) { save(); return null; }
         const c = counts();
-        Object.values(a.results).forEach((r) => { c[r.outcome] += 1; });
+        for (let k = 0; k < a.length; k++) c[a.results[k] ? a.results[k].outcome : 'skipped'] += 1;   // a result lost to damaged data counts as skipped (SI-03)
         const session = { at: new Date().toISOString(), size: a.size, difficulty: a.difficulty, length: a.length, total: a.length, counts: c, results: copy(a.results), seed: a.seed };
         data.practice.sessions = data.practice.sessions.concat([{ at: session.at, size: a.size, difficulty: a.difficulty, length: a.length, total: a.length, counts: c }]).slice(-MAX_SESSIONS);
         data.practice.active = null;   // the session and the end of the active run are saved together, once

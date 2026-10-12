@@ -212,7 +212,7 @@
       const mainHelp = box.querySelectorAll('.sr-helprow:not(.sr-retry) [data-x="hint"], .sr-helprow:not(.sr-retry) [data-x="show"]');
       mainHelp.forEach((b) => { b.hidden = false; });
       if (x === 'retry') { area.innerHTML = ''; const i = box.querySelector('#srQ1'); if (i) { i.focus(); i.select(); } return; }
-      if (x === 'hint') { area.innerHTML = `<div class="feedback info"><span aria-hidden="true">💡 </span>${esc(Q.hint)}</div>`; return; }
+      if (x === 'hint') { area.innerHTML = `<div class="feedback info"><span aria-hidden="true">💡 </span>${esc(Q.hint)}</div>`; R0.hints = (R0.hints || 0) + 1; o.onChange(Object.assign({}, R0)); return; }
       if (x === 'show') { demoK = 0; R0.helped = true; R0.sp = 0; o.onChange(Object.assign({}, R0)); draw('.sr-showdemo-h'); announce(parts[0].say); return; }
       if (x === 'back' || x === 'next') {
         const cur = demoK >= 0 ? demoK : last;
@@ -415,7 +415,7 @@
     paint(head('subLessonTitle', `💡 ${esc(L.title)} <span class="h-sub">Lesson ${lessonNum(st.id)} of ${C.learn.length}</span>`, '#/subtraction/teach', '⬅ All lessons') +
       `<div class="panel lesson-panel${st.step === 0 ? ' cream' : ''}"><ol class="stepper" aria-hidden="true">${bar}</ol><p class="sr-only">Step ${st.step + 1} of ${STEPS.length}: ${STEPS[st.step]}</p>
         <div class="lesson-body">${body}</div>
-        ${st.step < 3 ? `<div class="btn-row between lesson-nav"><button class="btn btn-secondary" data-lact="back"${st.step === 0 ? ' disabled' : ''}>◀ Back</button>
+        ${st.step < 3 ? `<div class="btn-row between lesson-nav"><button class="btn btn-secondary" data-lact="back"${st.step === 0 ? ' disabled' : ''}>◀ ${st.step ? STEPS[st.step - 1] : 'Back'}</button>
           <span class="sr-locked muted" ${canNext ? 'hidden' : ''}>Finish your turn to go on.</span>
           <button class="btn btn-primary" data-lact="next"${canNext ? '' : ' disabled'}>${st.step === 2 ? 'Finish ▶' : `Next: ${STEPS[st.step + 1]} ▶`}</button></div>` : ''}</div>`);
     if (st.step === 1) {
@@ -444,10 +444,12 @@
     const item = L.yourTurn(M.rng(w.seed));
     const box = host.querySelector('#srTry');
     const save = () => store.setLessonWork(L.id, w);
+    let hinted = !!(w.resp && w.resp.hints) || !!(w.state && w.state.hint);   // a hint is help too (the same rule as Practice)
     /** restoring: the work was already finished and saved (only show it again; record nothing new). */
     const solved = (helped, restoring) => {
-      st.solved = true; st.helped = !!helped;
-      if (!restoring) store.completeLesson(L.id, !!helped);
+      helped = !!helped || hinted;
+      st.solved = true; st.helped = helped;
+      if (!restoring) store.completeLesson(L.id, helped);
       const nb = host.querySelector('[data-lact="next"]'); if (nb) nb.disabled = false;
       const note = host.querySelector('.sr-locked'); if (note) note.hidden = true;
       const a = host.querySelector('.sr-again');
@@ -460,15 +462,16 @@
       const ok = w.state && SK.validState(w.state, item.top, item.bottom);
       const inst = mount(box.querySelector('#srYt'), { top: item.top, bottom: item.bottom, mode: 'guided', state: ok ? w.state : null });
       inst.on('change', (d) => { w.state = d.state; save(); });
+      inst.on('hint', () => { hinted = true; });
       inst.on('complete', (d) => solved(!!d.helped));
       if (ok && w.state.guided && w.state.guided.stage === 'done') solved(!!w.state.helped, true);
     } else if (item.kind === 'exchange') {
       const resp = w.resp && validResponse(item, w.resp) ? w.resp : {};
-      exchangeTry(box, item, resp, { onChange: (r) => { w.resp = r; save(); }, onDone: (helped) => solved(helped) });
+      exchangeTry(box, item, resp, { onChange: (r) => { w.resp = r; save(); if (r.hints) hinted = true; }, onDone: (helped) => solved(helped) });
       if (resp.q === 2) solved(!!resp.helped, true);
     } else {
       const resp = w.resp && validResponse(item, w.resp) ? w.resp : {};
-      formItem(box, item, resp, { mode: 'learn', onChange: (r) => { w.resp = r; save(); }, onDone: (helped) => solved(helped) });
+      formItem(box, item, resp, { mode: 'learn', onChange: (r) => { w.resp = r; save(); if (r.hints) hinted = true; }, onDone: (helped) => solved(helped) });
       if (resp.sd) solved(true, true);
     }
   }
@@ -535,13 +538,28 @@
         <div class="sr-outcome" id="spOutcome" role="status">${recorded ? outcomeNote(recorded.outcome) : ''}</div>
         <div class="btn-row between sr-runnav"><button class="btn btn-secondary" id="spSkip"${recorded ? ' hidden' : ''}>Skip this one</button>
           <button class="btn btn-primary btn-lg" id="spNext"${recorded ? '' : ' hidden'}>${a.i + 1 < a.length ? 'Next problem ▶' : 'See my results ▶'}</button></div></div>`);
+    // A tap that lands on this screen's Skip/Next as part of a double tap on the previous screen is ignored (SI-02).
+    const shownAt = Date.now(), fresh = (e) => e.detail > 1 || Date.now() - shownAt < 400;
+    let moving = false;
+    function goNext(e) {
+      if (moving || (e && fresh(e))) return;
+      moving = true;
+      const session = store.nextProblem();
+      if (session) renderPracticeDone(session); else renderPracticeQ();
+      focusHead();
+    }
+    host.querySelector('#spNext').addEventListener('click', goNext);
+    if (recorded) {
+      // Already finished (e.g. after a reload): show the worked answer read-only, never a live workspace (SI-01, SI-04).
+      mount(host.querySelector('#spWs'), { top: q.top, bottom: q.bottom, mode: 'view', work: { ann: standardAnn(q.top, q.bottom), d: answerDigits(q.top, q.bottom) }, caption: 'Worked answer' });
+      return;
+    }
     const ok = cur.state && SK.validState(cur.state, q.top, q.bottom);
     const ws = mount(host.querySelector('#spWs'), { top: q.top, bottom: q.bottom, mode: 'independent', hints: true, feedback: true, solution: true, state: ok ? cur.state : null });
-    if (recorded) return;
     // Help is tracked as it happens and saved, so it stays recorded even if the right answer comes later or after a refresh.
     const track = () => store.updateCurrent(cur);
     ws.on('change', (d) => { cur.state = d.state; track(); });
-    ws.on('hint', (d) => { cur.hints += 1; if (d.solution || d.shown) cur.helped = true; track(); });
+    ws.on('hint', (d) => { if (d.solution || d.shown) cur.helped = true; else cur.hints += 1; track(); });   // Show me is help, not a hint (SI-05)
     ws.on('answer', (d) => {
       if (d.status === 'correct' || d.status === 'wrong') { cur.tries += 1; if (d.status === 'wrong') cur.wrong += 1; }
       if (d.helped) cur.helped = true;
@@ -555,13 +573,7 @@
       host.querySelector('#spSkip').hidden = true;
       const nb = host.querySelector('#spNext'); nb.hidden = false;
     }
-    host.querySelector('#spSkip').addEventListener('click', () => { finish({ correct: false, helped: cur.helped }); goNext(); });
-    host.querySelector('#spNext').addEventListener('click', goNext);
-    function goNext() {
-      const session = store.nextProblem();
-      if (session) renderPracticeDone(session); else renderPracticeQ();
-      focusHead();
-    }
+    host.querySelector('#spSkip').addEventListener('click', (e) => { if (moving || fresh(e)) return; finish({ correct: false, helped: cur.helped }); goNext(); });
   }
   /** Shown under the workspace once a problem's outcome is recorded. */
   function outcomeNote(o) {
@@ -674,11 +686,11 @@
     const val = (ws) => { const a = ws ? M.readAnswer(ws.d || []) : { status: 'empty' }; return a.status === 'ok' ? fmt(a.value) : a.status === 'empty' ? '—' : 'incomplete'; };
     if (it.kind === 'sub') return val(r.ws);
     if (it.kind === 'steps') return r.ws && Object.keys(r.ws.ann || {}).length ? 'regroup marks written' : 'no marks';
-    if (it.kind === 'decide') return `${r.c1 || '—'} · ${r.c2 || '—'}`;
-    if (it.kind === 'mistake') return `${r.c1 ? 'reason chosen' : 'no reason'} · answer ${val(r.ws2)}`;
+    if (it.kind === 'decide') return `regrouping needed: ${r.c1 || '—'} · first column: ${r.c2 || '—'}`;
+    if (it.kind === 'mistake') return `the mistake was: ${r.c1 ? r.c1.replace(/\.$/, '') : '—'}; the answer is ${val(r.ws2)}`;
     return '—';
   };
-  const rightAnswer = (it) => it.kind === 'decide' ? `${it.needs} · ${it.first}` : it.kind === 'steps' ? 'the regrouped top number (see the worked answer)' : it.kind === 'mistake' ? `${it.answer} Answer ${fmt(it.top - it.bottom)}` : fmt(it.top - it.bottom);
+  const rightAnswer = (it) => it.kind === 'decide' ? `regrouping needed: ${it.needs} · first column: ${it.first}` : it.kind === 'steps' ? 'the regrouped top number (see the worked answer)' : it.kind === 'mistake' ? `the mistake was: ${it.answer.replace(/\.$/, '')}; the answer is ${fmt(it.top - it.bottom)}` : fmt(it.top - it.bottom);
   function renderTestResults(res, rows) {
     const m = mastery(res.pct);
     const recs = res.missedSkills.filter((s) => SKILL[s]);
@@ -695,7 +707,7 @@
           : '<p class="muted" id="stRecs">Nothing missed. Keep it fresh with Mixed practice.</p>'}
         <h3 style="margin-top:16px">Every question</h3>
         <ol class="sr-review" id="stReview">${rows.map((x, k) => `<li class="${x.correct ? 'ok' : 'bad'}"><details data-k="${k}"><summary><span aria-hidden="true">${x.correct ? '✓' : x.unanswered ? '–' : '✗'}</span> ${probHTML(x.it)} <span class="badge">${esc(CAT_LABEL[x.it.cat])}</span> <span class="sr-sum-txt">${x.correct ? 'right' : x.unanswered ? 'unanswered' : 'not right'}</span></summary>
-          <p>Your answer: <b>${esc(yourAnswer(x.it, x.r))}</b>. Right answer: <b>${esc(rightAnswer(x.it))}</b></p><div class="sr-ws" data-review="${k}"></div></details></li>`).join('')}</ol>
+          <p>Your answer: <b>${esc(yourAnswer(x.it, x.r))}</b>.</p><p>Right answer: <b>${esc(rightAnswer(x.it))}</b>.</p><div class="sr-ws" data-review="${k}"></div></details></li>`).join('')}</ol>
         <div class="btn-row" style="margin-top:16px"><button class="btn btn-go" id="stAgain">Take a new test</button><button class="btn btn-secondary" data-nav="${MENU}">Subtraction menu</button></div></div>`);
     // Worked answers appear only now, after the test is finished: one demo workspace per opened question.
     host.querySelectorAll('details[data-k]').forEach((det) => det.addEventListener('toggle', () => {
@@ -722,7 +734,7 @@
         <ol class="sr-list">${C.learn.map((l) => { const r = store.lesson(l.id); return `<li>${esc(l.title)}: ${r ? (r.indep ? '✓ done on own' : 'done with help') : 'not yet'}</li>`; }).join('')}</ol></div>
        <div class="panel"><h3>Practice (${all} problems)</h3><div class="stats" id="sgPractice">${root.GalaxySubStore.OUTCOMES.map((o) => `<div class="stat"><b data-o="${o}">${tot[o]}</b>${esc(OUT_LABEL[o])}</div>`).join('')}</div>
         <p class="muted" style="margin-top:8px">Show me and hints are recorded as help and never counted as “on your own”.</p>
-        ${sessions.length ? `<div class="table-wrap"><table class="data" style="margin-top:8px"><thead><tr><th>Date</th><th>Practice</th><th>On own</th><th>Hints</th><th>Show me</th><th>Not right / skipped</th></tr></thead><tbody>${sessions.map((s) =>
+        ${sessions.length ? `<div class="table-wrap"><table class="data" style="margin-top:8px"><thead><tr><th>Date</th><th>Practice</th><th>On own</th><th>With hints</th><th>Show me</th><th>Not right / skipped</th></tr></thead><tbody>${sessions.map((s) =>
           `<tr><td>${date(s.at)}</td><td>${esc(sizeLabel(s.size))} · ${esc(diffLabel(s.difficulty))}</td><td>${s.counts.independent}/${s.total}</td><td>${s.counts.hinted}</td><td>${s.counts.shown}</td><td>${s.counts.incorrect} / ${s.counts.skipped}</td></tr>`).join('')}</tbody></table></div>` : '<p class="muted">No practice sessions yet.</p>'}</div>
        <div class="panel"><h3>Tests</h3>${tests.length ? `<div class="table-wrap"><table class="data" id="sgTests"><thead><tr><th>Date</th><th>Score</th><th>✓ / ✗ / blank</th></tr></thead><tbody>${tests.map((t) =>
           `<tr><td>${date(t.at)}</td><td>${t.pct}%</td><td>${t.correct} / ${t.incorrect} / ${t.unanswered} of ${t.total}</td></tr>`).join('')}</tbody></table></div>` : '<p class="muted" id="sgTests">No tests yet.</p>'}</div>
@@ -754,7 +766,7 @@
     store,
     get liveCount() { return live.length; },
     /** Review hooks for the browser tests and screenshots. */
-    _test: { startLesson: (id, step) => { startLesson(id); if (step) { lesson.step = step; renderLesson(); } }, items: (seed) => C.testItems(seed), grade, finishTest }
+    _test: { startLesson: (id, step) => { startLesson(id); if (step) { lesson.step = step; renderLesson(); } } }
   };
   root.GalaxySubtraction = api;
 })(window);

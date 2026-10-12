@@ -37,7 +37,9 @@ test('practice outcomes keep help apart: Show me and hints are never "independen
   assert.equal(S.outcomeOf({ correct: true, helped: false, hints: 0, wrong: 2 }), 'independent', 'fixing a wrong check on your own is still on your own');
   assert.equal(S.outcomeOf({ correct: true, helped: false, hints: 1, wrong: 0 }), 'hinted');
   assert.equal(S.outcomeOf({ correct: true, helped: true, hints: 0, wrong: 0 }), 'shown');
-  assert.equal(S.outcomeOf({ correct: false, helped: true, hints: 3, wrong: 1 }), 'shown', 'help stays recorded');
+  assert.equal(S.outcomeOf({ correct: true, helped: true, hints: 3, wrong: 1 }), 'shown', 'help stays recorded when the right answer comes later');
+  assert.equal(S.outcomeOf({ correct: false, helped: true, hints: 0, wrong: 1 }), 'incorrect', 'Show me opened but not finished, then a wrong answer (SI-07)');
+  assert.equal(S.outcomeOf({ correct: false, helped: true, hints: 0, wrong: 0 }), 'skipped', 'Show me opened, then skipped: not "completed with Show me" (SI-07)');
   assert.equal(S.outcomeOf({ correct: false, helped: false, hints: 0, wrong: 1 }), 'incorrect');
   assert.equal(S.outcomeOf({ correct: false, helped: false, hints: 2, wrong: 0 }), 'skipped');
 });
@@ -142,4 +144,24 @@ test('a test is recorded once per attempt, and its draft is cleared in the same 
   const t = make(st).tests();
   assert.equal(t.length, 1); assert.equal(t[0].pct, 67); assert.deepEqual(t[0].missedSkills, ['zeros2']);
   assert.throws(() => s.recordTest({ seed: 5, total: 15, correct: 10, incorrect: 10, unanswered: 0 }));
+});
+
+test('a damaged result in the active run never makes the finished session disappear (SI-03)', () => {
+  const raw = { v: 1, practice: { sessions: [], active: { seed: 5, size: 3, difficulty: 'easy', length: 10, i: 9, results: Object.fromEntries(Array.from({ length: 9 }, (_, k) => [k, k === 4 ? { outcome: 'magic', tries: 1, hints: 0 } : { outcome: 'independent', tries: 1, hints: 0 }])) } } };
+  const st = mem({ 'galaxy-math.subtraction': JSON.stringify(raw) }), s = make(st);
+  assert.equal(s.recordProblem(9, { correct: true, helped: false, hints: 0, wrong: 0 }), 'independent');
+  const done = s.nextProblem();
+  assert.deepEqual(done.counts, { independent: 9, hinted: 0, shown: 0, incorrect: 0, skipped: 1 });
+  assert.equal(make(st).sessions().length, 1, 'the session survives the next load');
+});
+
+test('an unreadable record is backed up before it is replaced (SI-09)', () => {
+  for (const bad of ['{not json', JSON.stringify({ v: 2, lessons: { one: 1 } })]) {
+    const st = mem({ 'galaxy-math.subtraction': bad }), s = make(st);
+    s.completeLesson('one', false);
+    assert.equal(st.getItem('galaxy-math.subtraction.unreadable'), bad);
+    assert.equal(JSON.parse(st.getItem('galaxy-math.subtraction')).v, 1);
+  }
+  const st = mem({ 'galaxy-math.subtraction': JSON.stringify({ v: 1, lessons: {} }) }); make(st).completeLesson('one', false);
+  assert.equal(st.getItem('galaxy-math.subtraction.unreadable'), null, 'a readable record is not backed up');
 });

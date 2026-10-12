@@ -4,7 +4,7 @@ A space-themed, third-grade math learning application. This repository starts fr
 
 ## Current status
 
-**Multiplication 2.0 and Division 1.0.** Each subject has the same five activities, its own question bank of 12 kinds of problems, its own Parent Settings and its own Progress page. Addition and Subtraction are Coming Soon. See `STATUS.md` for what was tested and `AUDIT-REPORT.md` for the independent audit.
+**Multiplication 2.0, Division 1.0 and Subtraction with regrouping (integration branch).** Multiplication and Division each have the same five activities, their own question bank of 12 kinds of problems, their own Parent Settings and their own Progress page. Subtraction reuses Mathbook's SubtractKit and has Teach, Practice and Test; its Lab and Flashcards are Coming soon. Addition is Coming Soon. See `STATUS.md` for what was tested and `AUDIT-REPORT.md` for the independent audit.
 
 | Activity | Purpose | What the child does |
 |---|---|---|
@@ -88,9 +88,32 @@ The bank follows these rules:
 - Fact-family distractors are true facts from other families.
 - `js/bank-kit.js` holds the session, unlock and scoring logic that both banks share.
 
+## Subtraction with regrouping (Mathbook SubtractKit)
+
+Subtraction is not a second engine. It reuses Mathbook's SubtractKit **unchanged**, copied byte-for-byte from `bazeocrisy/Mathbook` @ `55b51bd`. See `docs/subtraction/SOURCE-AUDIT.md` for the hashes.
+
+| Folder | What it is |
+|---|---|
+| `js/subtractkit/` and `css/subtractkit/` | The math (`sub-math.js`), the vertical workspace (`sub-workspace.js`) and its styles. **Do not edit**: `tests/subtraction.test.mjs` checks their SHA-256, and `.gitattributes` stops line-ending conversion. |
+| `js/subtraction-vendor/` | Mathbook's teaching content (`content.js`: lessons, worked examples, Your Turn generators, skills, test blueprint, practice setup) and block pictures (`place-value.js`), also unchanged. |
+| `js/sub-galaxy.js` | The Galaxy adapter. It handles navigation, the Teach, Practice, Test and Progress screens, and saving. It mounts workspaces with `SubtractKit.mount(el, options)` and destroys them on every route change. The Learn question forms are adapted from Mathbook's section adapter. |
+| `js/sub-store.js` | Subtraction progress under its own key, `galaxy-math.subtraction` (v1). Each record is cleaned on its own. It never touches `galaxy-math.progress` (Multiplication and Division). |
+
+- **Teach:** 9 lessons in three units.
+  - The lessons are: Regrouping keeps the value (base-ten blocks), One exchange (52 − 27, 463 − 128), More than one exchange (532 − 168), Four-digit numbers (4,532 − 1,768), Across a zero, Across zeros next to each other (3,002 − 1,578), Do I need to regroup?, Find and fix mistakes, and Check with addition.
+  - Each lesson goes Goal → See it (step-by-step demos with Back and Next, old digits crossed out and new values written above) → Your turn (guided decisions or a question with Hint and Show me) → Finish.
+- **Practice:** 2, 3 or 4 digits, or Mixed; Easy, Medium, Hard or Mixed; 10, 25 or 50 problems.
+  - These are the source generator's own definitions. 2-digit Medium and Hard are not possible, and the screen says why.
+  - The workspace has regroup marks, Undo, Clear work, Check, specific feedback, Hints 1–4 and Show me. Work is kept after help.
+  - **Each problem's outcome is recorded once** as one of: on your own, right after hints, completed with Show me, not right, or skipped. **Help is never counted as independent.**
+- **Test:** Mathbook's 15-question blueprint (new numbers each time), in SubtractKit **test mode**: no Hint, Check, feedback or solution.
+  - Questions can be answered in any order and are saved as you go.
+  - Grading happens at Finish. The report gives correct, not right and unanswered; accuracy by kind of question and by difficulty; recommended lessons and practice; and worked answers, available only after finishing.
+- **Progress** (for grown-ups): lessons (on own versus with help), the five practice outcomes, tests, and a Reset that clears Subtraction only.
+
 ## Tests
 
-`npm test` (unit, Node 22+) and `npm run test:browser` (headless Chrome or Edge; set `CHROME_PATH` if needed). The browser command runs the Multiplication suite (`tests/browser.test.mjs`) and then the Division suite (`tests/browser-division.test.mjs`). No dependencies to install.
+`npm test` (unit, Node 22+) and `npm run test:browser` (headless Chrome or Edge; set `CHROME_PATH` if needed). The browser command runs the Multiplication suite (`tests/browser.test.mjs`), the Division suite (`tests/browser-division.test.mjs`) and the Subtraction suite (`tests/browser-subtraction.test.mjs`). No dependencies to install.
 
 Run the browser suite in Edge: `CHROME_PATH="C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe" npm run test:browser`.
 
@@ -138,7 +161,7 @@ The script authenticates with the same GitHub login `git push` uses (`git creden
 | Subject | Status |
 |---|---|
 | Addition (+) | Coming Soon placeholder |
-| Subtraction (−) | Coming Soon placeholder |
+| Subtraction (−) | **Regrouping (Mathbook SubtractKit):** Teach (9 lessons), Practice, Test, Progress. Lab and Flashcards Coming soon. |
 | Multiplication (×) | **2.0:** Teach, Practice, Math Thinking Lab, Flashcards, Test, Parent Settings, Progress |
 | Division (÷) | **1.0:** Teach (15 lessons), Practice, Math Thinking Lab, Flashcards, Test, Parent Settings, Progress |
 
@@ -157,6 +180,8 @@ The script authenticates with the same GitHub login `git push` uses (`git creden
 | `js/div-lessons.js` | The 15 division Teach lessons |
 | `js/visuals.js` | Equal groups, arrays, number-line jumps, sharing plates, circled groups, the division bracket and labelled equations as inline SVG |
 | `js/mult-lessons.js` | The 13 Teach lessons |
+| `js/subtractkit/`, `css/subtractkit/`, `js/subtraction-vendor/` | Mathbook SubtractKit and its teaching content, vendored unchanged (hash-checked) |
+| `js/sub-galaxy.js`, `js/sub-store.js` | Subtraction adapter and its storage (`galaxy-math.subtraction`) |
 | `js/progress.js` | Local progress (versioned `localStorage` key `galaxy-math.progress`, v3 per subject, v1/v2 data migrated, in-memory fallback) |
 | `js/app.js` | Router, shared components and the activity screens |
 | `tests/` | Unit tests (`node --test`) and the headless-Chrome browser suite |
