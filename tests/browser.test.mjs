@@ -65,12 +65,12 @@ try {
   await b.viewport(1280, 800);
   await freshStart();
   const cards = await q(`[...document.querySelectorAll('#subjects .subject')].map(e => [e.querySelector('.sName').textContent, e.getAttribute('aria-disabled')])`);
-  check('card states', J(cards) === J([['Addition', 'true'], ['Subtraction', 'true'], ['Multiplication', null], ['Division', null]]), J(cards));
-  check('addition/subtraction say Coming Soon', (await q(`[...document.querySelectorAll('.subject.soon .badge')].map(e => e.textContent).join()`)) === 'Coming Soon,Coming Soon');
+  check('card states', J(cards) === J([['Addition', 'true'], ['Subtraction', null], ['Multiplication', null], ['Division', null]]), J(cards));
+  check('addition says Coming Soon', (await q(`[...document.querySelectorAll('.subject.soon .badge')].map(e => e.textContent).join()`)) === 'Coming Soon');
   await click('[data-subject=addition]');
   check('addition stays on landing', (await visible('landing')) && /coming soon/i.test(await text('#landingNote')));
-  await goto('#/subtraction/practice');
-  check('#/subtraction/practice → landing', (await visible('landing')) && (await q('location.hash')) === '#/');
+  await goto('#/addition/practice');
+  check('#/addition/practice → landing', (await visible('landing')) && (await q('location.hash')) === '#/');
   await goto('#/division');
   check('division menu: all five activities open', (await q(`[...document.querySelectorAll('#modes .mode')].filter(e => !e.getAttribute('aria-disabled')).length`)) === 5);
   for (const a of ['teach', 'practice', 'lab', 'flashcards', 'test', 'progress', 'settings']) {

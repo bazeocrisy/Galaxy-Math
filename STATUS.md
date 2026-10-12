@@ -1,6 +1,56 @@
 # Galaxy Math — Development Status
 
-Updated: 2026-10-11 (branch `feature/division`, built on `feature/galaxy-math-foundation`; not merged to `main`). Addition and Subtraction have **not** been started.
+Updated: 2026-10-11 (branch `feature/subtraction-regrouping-integration`, built on `feature/division` `706b972`; not merged to `main`, **not published**). Addition has **not** been started.
+
+## Subtraction with regrouping: integration of Mathbook SubtractKit (2026-10-11), awaiting owner approval
+
+**Not published.** The live site still runs Division 1.0 (`gh-pages` `f1aafd4`), and `main` is untouched. The navigation redesign (`review/nav-redesign`) is still awaiting approval and is **not** included here.
+
+**Source**
+- `Downloads/Mathbook-main.zip` = `bazeocrisy/Mathbook` @ `55b51bdda5a81ed00838433603bfa20daeb10efb`. The archive's commit comment matches GitHub `main`.
+- Mathbook was only read, never written to.
+- Mathbook's own subtraction tests, run on the untouched source: unit 19/19, browser 94/94.
+- Details and hashes: `docs/subtraction/SOURCE-AUDIT.md`.
+
+**Reused unchanged** (SHA-256 and Git blob IDs equal to GitHub, checked in `tests/subtraction.test.mjs`, and protected by `.gitattributes`):
+- `js/subtractkit/sub-math.js`, `sub-workspace.js`, `css/subtractkit/subtract-workspace.css`;
+- `js/subtraction-vendor/content.js` and `place-value.js`.
+
+**Added**
+- **`js/sub-galaxy.js` (adapter)**
+  - **Teach:** 9 lessons, each Goal → See it → Your turn → Finish. The worked examples are the original demos: 52 − 27, 463 − 128, 532 − 168, 4,532 − 1,768 and 3,002 − 1,578 (across both zeros).
+  - **Practice:** 2/3/4-digit or Mixed × Easy/Medium/Hard/Mixed × 10/25/50. 2-digit Medium and Hard are unavailable and explained. There are hints, Show me, Undo and Clear work, and five recorded outcomes.
+  - **Test:** Mathbook's 15-question blueprint in SubtractKit test mode, with grading at the end and a report.
+  - **Progress:** a Subtraction-only Reset.
+- **`js/sub-store.js` (storage):** its own key, `galaxy-math.subtraction` (v1).
+- **Small additive changes:**
+  - `js/app.js`: the router hands Subtraction routes to the adapter, `stopAll()` destroys the workspaces, the menu shows only the views a subject has, and the landing label lists the ready activities.
+  - `js/registry.js`: Subtraction is open with Teach, Practice and Test. Lab and Flashcards are Coming soon.
+
+**Independent QA:** a separate subagent wrote `docs/subtraction/SUBTRACTION-INTEGRATION-AUDIT.md`.
+- **First pass:** 1 Critical, 2 Medium, 9 Low. The Critical was SI-01: Practice got stuck after a reload on a recorded problem.
+- **All fixed, with new tests.** The auditor's recheck found 0 Critical and 0 High: approval-ready.
+- **Afterwards:** I fixed the remaining Lows SI-06, SI-09 (nit) and SI-12. These were not re-inspected by the auditor.
+- **Still open (Low):** SI-08 (the console can rebuild test questions through the vendored global), the SI-11 polish items, and no first-try credit.
+
+**Tests (this branch)**
+
+| Suite | Chrome | Edge |
+|---|---|---|
+| `npm test` | 107/107 | — |
+| Subtraction browser suite (`tests/browser-subtraction.test.mjs`) | 143/143 | 143/143 |
+| Multiplication (`tests/browser.test.mjs`) | 656/656 | 654/654 (count varies with generated problems) |
+| Division (`tests/browser-division.test.mjs`) | 180/180 | 180/180 |
+
+- **Changed checks (none weakened).** Three Multiplication checks and two registry tests assumed Subtraction was locked. They now check that Addition is locked, and the registry test also checks that Subtraction's Lab and Flashcards stay locked.
+- **Devices:** all of this is headless-browser simulation. **No physical devices, and no Safari or Firefox.**
+
+**Screenshots:** `docs/review/subtraction/shots/`, 27 screens at each of 320, 375, 390, 768, 1280 and 1366 (162 in all).
+
+**Known gaps**
+- Mathbook's Practice Together, Practice One Skill and Parent Guide pages were not brought over.
+- Subtraction has no Parent Settings page; the practice choices are on the Practice screen.
+- If the navigation redesign is approved, merging it with this branch needs a small manual merge in `renderMenu` and the landing code.
 
 ## Division 1.0 (2026-10-11)
 
@@ -31,6 +81,8 @@ Division now has the same five activities as Multiplication. It uses the same sc
   - D-11 Low: the grouping pile is laid out in rows of 10.
   - D-17 Low: the equation and the bracket use different colours for the same part.
   - D-18/D-19 Low: on phones the Progress status pills wrap onto more than one line.
+
+**Published (2026-10-11):** after QA passed, `feature/division` (`c8be657`) was published to `gh-pages` as `f1aafd4`. The Pages build finished and all 15 app files on the public URL match byte-for-byte. **Live browser suites:** Division 181/181 and Multiplication 657/657 at https://bazeocrisy.github.io/Galaxy-Math/. `main` is untouched.
 
 **Tests**
 

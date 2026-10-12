@@ -8,7 +8,9 @@
   // views: extra screens under the subject (e.g. the parent progress page).
   const SUBJECTS = [
     { id: 'addition', name: 'Addition', symbol: '+', status: 'coming-soon', ready: [], views: [] },
-    { id: 'subtraction', name: 'Subtraction', symbol: '−', status: 'coming-soon', ready: [], views: [] },
+    // Subtraction reuses Mathbook's SubtractKit (js/sub-galaxy.js). The Lab and Flashcards have no verified
+    // subtraction implementation yet, so they stay Coming soon.
+    { id: 'subtraction', name: 'Subtraction', symbol: '−', status: 'open', ready: ['teach', 'practice', 'test'], views: ['progress'] },
     { id: 'multiplication', name: 'Multiplication', symbol: '×', status: 'open', ready: ['teach', 'practice', 'lab', 'flashcards', 'test'], views: ['progress', 'settings'] },
     { id: 'division', name: 'Division', symbol: '÷', status: 'open', ready: ['teach', 'practice', 'lab', 'flashcards', 'test'], views: ['progress', 'settings'] }
   ];

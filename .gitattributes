@@ -1,0 +1,4 @@
+# SubtractKit is vendored byte-for-byte from Mathbook (see docs/subtraction/SOURCE-AUDIT.md): never convert line endings.
+js/subtractkit/** -text
+css/subtractkit/** -text
+js/subtraction-vendor/** -text

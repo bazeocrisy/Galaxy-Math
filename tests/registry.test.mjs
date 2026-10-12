@@ -9,12 +9,17 @@ test('landing has exactly four subjects in order', () => {
   assert.deepEqual(GM.SUBJECTS.map((s) => s.symbol), ['+', '−', '×', '÷']);
 });
 
-test('addition and subtraction are Coming Soon and cannot be opened', () => {
-  for (const id of ['addition', 'subtraction']) {
-    assert.equal(GM.getSubject(id).status, 'coming-soon');
-    assert.equal(GM.isSubjectOpen(id), false);
-    for (const a of GM.ACTIVITIES) assert.equal(GM.isActivityReady(id, a.id), false);
-  }
+test('addition is Coming Soon and cannot be opened', () => {
+  assert.equal(GM.getSubject('addition').status, 'coming-soon');
+  assert.equal(GM.isSubjectOpen('addition'), false);
+  for (const a of GM.ACTIVITIES) assert.equal(GM.isActivityReady('addition', a.id), false);
+});
+
+test('subtraction is open with only its verified activities (Teach, Practice, Test); the Lab and Flashcards stay locked', () => {
+  assert.equal(GM.getSubject('subtraction').status, 'open');
+  assert.deepEqual(GM.ACTIVITIES.filter((a) => GM.isActivityReady('subtraction', a.id)).map((a) => a.id), ['teach', 'practice', 'test']);
+  assert.equal(GM.hasView('subtraction', 'progress'), true);
+  assert.equal(GM.hasView('subtraction', 'settings'), false);
 });
 
 test('every open subject offers the five activities in order', () => {
@@ -56,7 +61,8 @@ test('resolveRoute sends valid hashes to the right screen', () => {
 
 test('resolveRoute never opens locked subjects or unfinished activities', () => {
   assert.equal(GM.resolveRoute('#/addition').view, 'landing');
-  assert.equal(GM.resolveRoute('#/subtraction/flashcards').view, 'landing');
+  assert.equal(GM.resolveRoute('#/subtraction/flashcards').view, 'menu');   // open subject, activity not ready → its menu
+  assert.equal(GM.resolveRoute('#/subtraction/lab').view, 'menu');
   assert.equal(GM.resolveRoute('#/nope').view, 'landing');
   assert.equal(GM.resolveRoute('#/division/flashcards').view, 'setup');
   assert.equal(GM.resolveRoute('#/division/test').view, 'setup');
