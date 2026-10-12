@@ -48,13 +48,13 @@ test('the vendored SubtractKit and Mathbook teaching files are byte-for-byte the
   for (const p of ['js/subtractkit/**', 'css/subtractkit/**', 'js/subtraction-vendor/**']) assert.match(attrs, new RegExp(`${p.replace(/[*]/g, '\\*')} -text`), `${p} is protected from line-ending conversion`);
 });
 
-test('Subtraction is open with only its verified activities; Lab and Flashcards stay Coming soon', () => {
+test('Subtraction is open with all five activities, Progress and Parent Settings; Addition stays locked', () => {
   assert.equal(GM.isSubjectOpen('subtraction'), true);
-  assert.deepEqual(['teach', 'practice', 'lab', 'flashcards', 'test'].map((a) => GM.isActivityReady('subtraction', a)), [true, true, false, false, true]);
-  assert.deepEqual(GM.resolveRoute('#/subtraction/lab'), { view: 'menu', subject: 'subtraction', hash: '#/subtraction' });
-  assert.deepEqual(GM.resolveRoute('#/subtraction/flashcards'), { view: 'menu', subject: 'subtraction', hash: '#/subtraction' });
+  assert.deepEqual(['teach', 'practice', 'lab', 'flashcards', 'test'].map((a) => GM.isActivityReady('subtraction', a)), [true, true, true, true, true]);
+  assert.deepEqual(GM.resolveRoute('#/subtraction/lab'), { view: 'setup', subject: 'subtraction', activity: 'lab', hash: '#/subtraction/lab' });
+  assert.deepEqual(GM.resolveRoute('#/subtraction/flashcards'), { view: 'setup', subject: 'subtraction', activity: 'flashcards', hash: '#/subtraction/flashcards' });
   assert.deepEqual(GM.resolveRoute('#/subtraction/progress'), { view: 'progress', subject: 'subtraction', hash: '#/subtraction/progress' });
-  assert.equal(GM.resolveRoute('#/subtraction/settings').view, 'menu');
+  assert.equal(GM.resolveRoute('#/subtraction/settings').view, 'settings');
   assert.equal(GM.isSubjectOpen('addition'), false);
   assert.equal(GM.SUBJECTS.length, 4, 'no new subject card');
 });

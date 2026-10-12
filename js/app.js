@@ -250,15 +250,23 @@
   /** One question: problem → picture → answer → feedback (that order on phones; picture beside the answer on desktop).
       q: { format: 'number'|'choice', prompt, sub?, big?, answer, options?, visual?, hints: [{ text, visual? }], explain: { text, visual? }, typeName? }
       opts: { tries, allowHint, allowSkip, revealType, onDone({ firstTry, hinted, given, skipped }), nextLabel, onNext } */
+  /**
+   * One question: prompt, picture, answer dock (number pad, choices, or a host-provided workspace), feedback.
+   * Optional hooks (used by Subtraction): q.visualHtml (a ready picture), opts.mountVisual(el, q) (mount a model into the
+   * picture area), q.format 'workspace' with opts.mountAnswer(el, q) → { value() } (the answer is written in that
+   * workspace), q.maxDigits (number pad length), opts.onFinished(el, result) (after the answer is shown).
+   */
   function askQuestion(el, q, opts) {
     const tries = opts.tries || 1, hints = q.hints || [];
-    el.innerHTML = `<div class="qa${q.visual ? '' : ' no-visual'}${q.format === 'choice' ? ' is-choice' : ''}">
+    const hasVisual = !!(q.visual || q.visualHtml || (opts.mountVisual && q.sk));
+    el.innerHTML = `<div class="qa${hasVisual ? '' : ' no-visual'}${q.format === 'choice' ? ' is-choice' : ''}${q.format === 'workspace' ? ' is-workspace' : ''}">
         <div class="qa-q"><p class="q-prompt${q.big ? ' big' : ''}${q.big && q.prompt.length > 22 ? ' long' : ''}" id="qPrompt">${exprHtml(q.prompt)}</p>${q.expr ? `<p class="q-prompt big q-expr${q.expr.length > 22 ? ' long' : ''}">${exprHtml(q.expr)}</p>` : ''}${q.sub && !(opts.hideHintSub && q.subIsHint) ? `<p class="q-sub">${esc(q.sub)}</p>` : ''}</div>
-        <div class="qa-visual">${viz(hideTotals(q.visual))}</div>
+        <div class="qa-visual">${q.visualHtml ? `<div class="viz-wrap">${q.visualHtml}</div>` : viz(hideTotals(q.visual))}</div>
         <div class="qa-feedback"><div id="qHintBox"></div><div class="feedback" id="qFeedback" role="status" aria-live="polite"></div></div>
         <div class="qa-dock">
           ${q.format === 'choice'
             ? `<div class="choices" role="group" aria-labelledby="qPrompt">${q.options.map((o) => `<button type="button" data-opt="${esc(o)}" aria-pressed="false">${esc(o)}</button>`).join('')}</div>`
+            : q.format === 'workspace' ? '<div class="qa-ws" id="qWs"></div>'
             : '<div class="answer" id="qAnswer" role="textbox" aria-readonly="true" aria-label="Your answer (use the number keys)"></div><p class="q-status" id="qStatus" aria-hidden="true"></p><div class="numpad" id="qPad"></div>'}
           <div class="dock-actions" id="qButtons">
             ${opts.allowHint && hints.length ? '<button type="button" class="btn btn-secondary" id="qHint">💡 Hint</button>' : ''}
@@ -270,8 +278,10 @@
       </div>`;
     let attempts = 0, hintLevel = 0, done = false, choice = null, firstTry = null;
     const fb = el.querySelector('#qFeedback');
-    const pad = q.format === 'number' ? numPad(el.querySelector('#qPad'), el.querySelector('#qAnswer')) : null;
-    const value = () => (pad ? pad.value : choice);
+    const pad = q.format === 'number' ? numPad(el.querySelector('#qPad'), el.querySelector('#qAnswer'), { max: q.maxDigits || 3 }) : null;
+    if (opts.mountVisual && q.sk) opts.mountVisual(el.querySelector('.qa-visual'), q);
+    const ws = q.format === 'workspace' && opts.mountAnswer ? opts.mountAnswer(el.querySelector('#qWs'), q) : null;
+    const value = () => (pad ? pad.value : ws ? ws.value() : choice);
     if (q.format === 'choice') el.querySelector('.choices').addEventListener('click', (e) => {
       const b = e.target.closest('[data-opt]'); if (!b || done) return;
       choice = b.dataset.opt;
@@ -307,6 +317,7 @@
       row.innerHTML = `<button type="button" class="btn btn-go btn-lg" id="qNext">${opts.nextLabel || 'Next →'}</button>`;
       row.querySelector('#qNext').addEventListener('click', () => opts.onNext());
       opts.onDone({ firstTry: !!firstTry, hinted: requested, given, skipped: !!skipped });
+      if (opts.onFinished) opts.onFinished(el, { correct: !!firstTry, given, skipped: !!skipped });
       setTimeout(() => {
         const n = el.querySelector('#qNext'); if (!n) return;
         n.focus({ preventScroll: true });
@@ -354,9 +365,12 @@
     onKey = (e) => {
       if (done) { if (e.key === 'Enter' && !onButton(e)) { e.preventDefault(); opts.onNext(); } return; }
       if (pad && pad.key(e)) { e.preventDefault(); return; }
+      // In a workspace, Enter belongs to the workspace (it commits a regroup mark); Submit is a button.
+      if (ws && e.target && e.target.closest && e.target.closest('.sk')) return;
       if (e.key === 'Enter' && !onButton(e)) { e.preventDefault(); check(); }
     };
   }
+  window.GalaxyUI = { askQuestion, actHead: (...a) => actHead(...a) };   // shared with the Subtraction adapter (js/sub-galaxy.js)
 
   /* ---------- landing ---------- */
   GM.SUBJECTS.forEach((s) => {

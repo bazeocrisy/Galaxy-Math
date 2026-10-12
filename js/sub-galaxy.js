@@ -24,7 +24,8 @@
   const THEME = { accent: '#6A35D9', focus: '#6A35D9', 'box-line': '#6A35D9', 'btn-line': '#6A35D9', 'primary-bg': '#6A35D9', ink: '#1B1F4B', line: '#1B1F4B', 'btn-ink': '#1B1F4B', 'ui-font': 'var(--font)' };
 
   function safeStorage() { try { const k = '__gm_sub_test'; localStorage.setItem(k, '1'); localStorage.removeItem(k); return localStorage; } catch (e) { return null; } }
-  const store = root.GalaxySubStore.createSubStore(safeStorage(), { lessonIds: LESSON_IDS, math: M });
+  const SB = root.GalaxySubBank, UI = () => root.GalaxyUI;
+  const store = root.GalaxySubStore.createSubStore(safeStorage(), { lessonIds: LESSON_IDS, math: M, labTypes: SB.TYPES.map((t) => t.id) });
 
   /* ---------- mounted workspaces: every instance is kept here and destroyed when the screen changes ---------- */
   let live = [];
@@ -372,6 +373,8 @@
   }
   function startLesson(id) { lesson = { id, step: 0, ex: 0, part: 0, solved: !!store.lesson(id), helped: false }; renderLesson(); }
 
+  /** An addition written in columns (the check for a subtraction). */
+  const addStack = (a, b, sum) => `<div class="sr-addstack" role="img" aria-label="${fmt(a)} plus ${fmt(b)} equals ${fmt(sum)}"><span>${fmt(a)}</span><span><b aria-hidden="true">+</b> ${fmt(b)}</span><span class="sum">${fmt(sum)}</span></div>`;
   function exampleHTML(ex) {
     if (ex.kind === 'blocks') {
       const parts = blockParts(ex.n), k = Math.min(lesson.part, parts.length - 1);
@@ -381,6 +384,7 @@
     if (ex.kind === 'mistake') { const w = M.buggyWork(ex.top, ex.bottom, ex.bug); return `<p class="lede"><b>${esc(ex.who)}'s work:</b> ${probHTML(ex)} = ${fmt(w.answer)}?</p><div class="sr-ws" id="srExWs"></div><p class="sr-why">${esc(ex.note)}</p>`; }
     if (ex.kind === 'check') {
       return `<p class="lede">${probHTML(ex)} = ${fmt(ex.top - ex.bottom)}. Check it: add the answer to the number you took away.</p><div class="sr-ws" id="srExWs"></div>` +
+        addStack(ex.top - ex.bottom, ex.bottom, ex.top) +
         `<p class="sr-why">${fmt(ex.top - ex.bottom)} + ${fmt(ex.bottom)} = ${fmt(ex.top)}. It matches the top number, so the subtraction is right. If it does not match, look for the column that went wrong.</p>`;
     }
     return '';
@@ -589,7 +593,7 @@
     paint(head('subPracticeDoneTitle', '✏️ Practice results') +
       `<div class="panel workspace"><h3 class="big-title">${c.independent === session.total ? 'All on your own! ⭐' : 'Practice complete!'}</h3>
         <div class="stats sr-outcomes">${root.GalaxySubStore.OUTCOMES.map((o) => `<div class="stat sr-o-${o}"><b id="spc-${o}">${c[o]}</b>${esc(OUT_LABEL[o])}</div>`).join('')}</div>
-        <p class="muted" style="margin-top:10px">Only problems solved without hints or Show me count as “on your own”.</p>
+        <p class="muted" style="margin-top:10px" id="spFirst">Only problems solved without hints or Show me count as “on your own”. ${session.firstTry} of them ${session.firstTry === 1 ? 'was' : 'were'} right on the first try.</p>
         <div class="table-wrap"><table class="data" id="spList"><thead><tr><th>#</th><th>Problem</th><th>How it went</th></tr></thead><tbody>${items.map((q, i) => {
           const r = session.results[i];
           return `<tr><td>${i + 1}</td><td class="sr-nowrap">${probHTML(q)} = ${fmt(q.top - q.bottom)}</td><td>${esc(OUT_LABEL[r ? r.outcome : 'skipped'])}${r && r.helped && r.outcome !== 'shown' ? ' (after Show me)' : ''}${r && r.hints ? ` (${r.hints} hint${r.hints === 1 ? '' : 's'})` : ''}</td></tr>`;
@@ -725,8 +729,343 @@
   }
 
   /* =====================================================================================
+     MATH THINKING LAB — the shared Galaxy question screen (GalaxyUI.askQuestion) with the subtraction reasoning bank
+     (js/sub-bank.js). One try each, no hints before answering, Skip allowed; the kind is named only afterwards.
+     Regrouping problems are answered in SubtractKit's test-mode workspace; worked answers use its demo mode.
+     ===================================================================================== */
+  const LAB_SIZES = [{ n: 10, name: 'Quick Challenge', icon: '🚀' }, { n: 25, name: 'Thinking Workout', icon: '🪐' }, { n: 50, name: 'Big Challenge', icon: '🌌' }];
+  const LEVEL_TEXT = { 1: '2- and 3-digit problems with one exchange', 2: 'up to 4 digits, with more exchanges and across one zero (3-digit)', 3: 'up to 4 digits, including across zeros next to each other' };
+  /**
+   * How big Lab problems may be. "Grows with my child": level 2 after the "More than one exchange" lesson, a 3-digit
+   * practice session with 7+ on their own, a test of 70%+, or two Lab sessions of 80%+ at level 1; level 3 after the
+   * "Four-digit" and an "across zeros" lesson, a 4-digit/mixed practice session with 7+ on their own, a test of 80%+,
+   * or two Lab sessions of 80%+ at level 2. A parent can fix the level in Parent Settings.
+   */
+  function autoLevel() {
+    const done = (id) => !!store.lesson(id);
+    const best = Math.max(0, ...store.tests().map((t) => t.pct));
+    const prac = (sizes) => store.sessions().some((s) => sizes.includes(s.size) && s.counts.independent >= 7);
+    const labOk = (lv) => store.labSessions().filter((s) => s.level === lv && s.total >= 10 && s.pct >= 80).length >= 2;
+    let lv = 1;
+    if (done('multi') || prac([3]) || best >= 70 || labOk(1)) lv = 2;
+    if (lv === 2 && ((done('four') && (done('zero1') || done('zeros2'))) || prac([4, 'mixed']) || best >= 80 || labOk(2))) lv = 3;
+    return lv;
+  }
+  const labLevel = () => { const s = store.settings().lab.level; return s === 'auto' ? autoLevel() : s; };
+  let labQs = null;   // the questions of the active Lab session (rebuilt from its seed)
+  const labQuestions = (a) => SB.makeSession({ seed: a.seed, count: a.count, level: a.level, types: a.types });
+
+  function renderLabSetup() {
+    const a = store.activeLab(), lv = labLevel(), auto = store.settings().lab.level === 'auto';
+    const answered = a ? Object.keys(a.answers).length : 0;
+    paint(head('subLabTitle', '🧪 Math Thinking Lab') +
+      `<p class="screen-sub">Different problems. Different ways to think.</p>
+       ${a ? `<div class="panel cream"><div class="panel-head"><h3>Keep going</h3><span class="badge">${answered} of ${a.count} answered</span></div>
+          <div class="btn-row"><button class="btn btn-go btn-lg" id="labContinue">▶ Continue the challenge</button><button class="btn btn-secondary" id="labDrop">Start a new one</button></div></div>` : ''}
+       <div class="lab-sizes">${LAB_SIZES.map((s) => `<button class="lab-size" data-size="${s.n}"><span class="ls-icon" aria-hidden="true">${s.icon}</span><span class="ls-n">${s.n}</span><span class="ls-unit">problems</span><span class="ls-name">${s.name}</span></button>`).join('')}</div>
+       <div class="panel ice lab-info"><p><b>No timer.</b> One try for each problem, then you'll see how to think about it.</p>
+         <p>Twelve kinds of thinking: regrouping, missing numbers, checking with addition, estimating, finding mistakes, comparing strategies and more.</p>
+         <p class="muted" id="labLevel">Your problems: ${esc(LEVEL_TEXT[lv])}${auto ? ' (they grow as you learn)' : ' (set by a grown-up)'}.</p></div>`);
+    host.querySelectorAll('[data-size]').forEach((b) => b.addEventListener('click', () => startLab({ count: +b.dataset.size })));
+    if (a) {
+      host.querySelector('#labContinue').addEventListener('click', () => renderLabQ());
+      host.querySelector('#labDrop').addEventListener('click', () => { store.quitLab(); renderLabSetup(); focusHead(); });
+    }
+  }
+  function startLab({ count, kind = 'challenge', types = null }) {
+    store.startLab({ seed: newSeed(), count, level: labLevel(), kind, types });
+    labQs = null;
+    renderLabQ();
+  }
+  /** Mount a SubtractKit model of the problem in the picture area (view mode: someone's work, or the problem only). */
+  function mountModel(el, q) {
+    const s = q.sk, box = document.createElement('div');
+    box.className = 'sr-ws sr-model'; el.appendChild(box);
+    mount(box, { top: s.top, bottom: s.bottom, mode: 'view', work: s.work || { ann: {}, d: [] }, answer: s.answer !== false && !!s.work, caption: s.caption, answerLabel: s.caption ? s.caption.replace(/work$/, 'answer') : undefined });
+  }
+  /** "See it worked": SubtractKit's own demo of the problem, step by step (after answering only). */
+  function seeItWorked(container, q, label = '▶ See it worked') {
+    if (!q.top || !q.bottom) return;
+    const wrap = document.createElement('div'); wrap.className = 'sr-seeit';
+    wrap.innerHTML = `<button type="button" class="btn btn-secondary btn-sm" data-seeit>${label}</button><div class="sr-ws" hidden></div>`;
+    container.appendChild(wrap);
+    wrap.querySelector('[data-seeit]').addEventListener('click', (e) => {
+      const box = wrap.querySelector('.sr-ws');
+      if (!box.childElementCount) mount(box, { top: q.top, bottom: q.bottom, mode: 'demo', caption: `Worked: ${problemText(q)}` });
+      box.hidden = !box.hidden; e.currentTarget.textContent = box.hidden ? label : '▲ Hide the worked answer';
+    });
+  }
+  function renderLabQ() {
+    const a = store.activeLab();
+    if (!a) { renderLabSetup(); focusHead(); return; }
+    if (!labQs || labQs.seed !== a.seed) labQs = { seed: a.seed, qs: labQuestions(a) };
+    const qs = labQs.qs, n = qs.length;
+    const i = qs.findIndex((_, k) => !a.answers[k]);
+    if (i < 0 || !qs.length) { finishLab(); return; }
+    const q = qs[i], last = qs.slice(i + 1).every((_, k) => a.answers[i + 1 + k]);
+    const right = Object.values(a.answers).filter((x) => x.correct).length;
+    paint(`<div class="panel workspace">${UI().actHead({ id: 'subLabQ', title: '🧪 Math Thinking Lab', count: `<span class="act-count" id="lCount">Problem ${i + 1} of ${n}</span>`,
+        right: `<span class="muted" id="lScore">${right} right so far</span>`, exit: '<button class="btn btn-ghost-light" id="labExit">✕ Exit</button>', now: i, max: n, label: 'Challenge progress' })}
+        <div class="feedback info lab-leave" id="labLeave" hidden><strong>Leave the challenge?</strong> Your place is saved, so you can come back.
+          <div class="btn-row" style="margin-top:8px"><button class="btn btn-primary" id="labFinishNow">Finish now and see my report</button><button class="btn btn-secondary" id="labStay">Keep going</button><button class="btn btn-secondary" data-nav="${MENU}" id="labQuit">Leave for now</button></div></div>
+        <div id="lQ" class="q-host"></div></div>`);
+    let wsInst = null;
+    UI().askQuestion(host.querySelector('#lQ'), q, { tries: 1, allowHint: false, allowSkip: true, revealType: true, hideHintSub: true, checkLabel: 'Submit', nextLabel: last ? 'See my report →' : 'Next problem →',
+      mountVisual: mountModel,
+      mountAnswer: (el, qq) => {
+        wsInst = mount(el, { top: qq.top, bottom: qq.bottom, mode: 'test' });
+        return { value: () => { const r = wsInst.result(); return r && r.status !== 'empty' && r.value !== null && r.value !== undefined ? String(r.value) : ''; } };
+      },
+      onDone: (r) => { store.recordLabAnswer(i, { typeId: q.typeId, correct: !r.skipped && !!r.firstTry, skipped: !!r.skipped }); },
+      onFinished: (el) => {
+        if (wsInst) {   // lock the child's work: the same grid, read-only
+          const st = wsInst.getState(), box = el.querySelector('#qWs');
+          box.innerHTML = ''; const v = document.createElement('div'); box.appendChild(v);
+          mount(v, { top: q.top, bottom: q.bottom, mode: 'view', work: { ann: st.ann, d: st.d }, caption: 'Your work', answerLabel: 'Your answer' });
+        }
+        seeItWorked(el.querySelector('.qa-feedback'), q);
+      },
+      onNext: () => { if (store.activeLab() && Object.keys(store.activeLab().answers).length >= n) finishLab(); else { renderLabQ(); focusHead(); } } });
+    const leave = host.querySelector('#labLeave');
+    host.querySelector('#labExit').addEventListener('click', () => { host.querySelector('#labFinishNow').hidden = !Object.keys(store.activeLab().answers).length; leave.hidden = false; host.querySelector('#labStay').focus(); });
+    host.querySelector('#labStay').addEventListener('click', () => { leave.hidden = true; });
+    host.querySelector('#labFinishNow').addEventListener('click', () => finishLab());
+  }
+  function finishLab() {
+    const a = store.activeLab();
+    if (!a) { renderLabSetup(); return; }
+    const qs = labQs && labQs.seed === a.seed ? labQs.qs : labQuestions(a);
+    const rows = Object.keys(a.answers).map(Number).sort((x, y) => x - y).map((k) => ({ q: qs[k], a: a.answers[k] })).filter((x) => x.q);
+    const s = store.finishLab();
+    labQs = null;
+    if (!s) { renderLabSetup(); focusHead(); return; }
+    const missed = rows.filter((x) => !x.a.correct);
+    const byType = {};
+    rows.forEach((x) => { const t = (byType[x.q.typeId] = byType[x.q.typeId] || { c: 0, t: 0 }); t.t++; if (x.a.correct) t.c++; });
+    const order = SB.TYPES.map((t) => t.id).filter((id) => byType[id]);
+    const recs = [...new Set(missed.map((x) => x.q.lesson))].slice(0, 3);
+    paint(head('subLabDoneTitle', '🧪 Lab report') +
+      `<div class="panel"><div class="results-top"><div><div class="pct" id="ldPct">${s.pct}%</div><p class="center muted">${s.correct} of ${s.total} right</p></div>
+          <div class="tally"><div class="c"><b id="ldC">${s.correct}</b>correct</div><div class="i"><b id="ldI">${s.incorrect}</b>incorrect</div><div class="u"><b id="ldU">${s.skipped}</b>skipped</div></div></div>
+        <p class="center" style="margin-top:10px">${s.pct >= 90 ? 'Brilliant thinking!' : s.pct >= 70 ? 'Great thinking. Look at the problems below to grow even more.' : 'Good effort. Every problem you look at again makes your brain stronger.'}</p></div>
+       <div class="panel"><h3>How you did with each kind of problem</h3><div class="table-wrap"><table class="data" id="ldTypes"><thead><tr><th>Kind of problem</th><th>Right</th></tr></thead><tbody>
+         ${order.map((id) => `<tr><td>${esc(SB.TYPE[id].name)}</td><td>${byType[id].c} of ${byType[id].t}</td></tr>`).join('')}</tbody></table></div></div>
+       ${missed.length ? `<div class="panel cream"><h3>Problems to look at again</h3><ul class="missed-list" id="ldMissed">${missed.map((x, k) => `<li><details data-m="${k}"><summary><span class="badge type">${esc(x.q.typeName)}</span> ${esc(x.q.prompt)} → <b>${esc(typeof x.q.answer === 'number' ? fmt(x.q.answer) : x.q.answer)}</b>${x.a.skipped ? ' <span class="muted">(skipped)</span>' : ''}</summary>
+           <p style="margin-top:6px">${esc(x.q.explain.text)}</p><div class="sr-review-host"></div></details></li>`).join('')}</ul></div>` : ''}
+       ${recs.length ? `<div class="panel ice"><h3>Recommended lessons</h3><div class="btn-row" style="margin-top:8px" id="ldRecs">${recs.map((id) => `<button class="btn btn-secondary" data-rec="${id}">💡 ${esc(lessonOf(id).title)}</button>`).join('')}</div></div>` : ''}
+       <div class="btn-row center" style="margin-top:16px">
+         ${missed.length ? '<button class="btn btn-primary" id="ldMisses">Practice my misses</button>' : ''}
+         <button class="btn btn-go btn-lg" id="ldAgain">Start another challenge</button>
+         <button class="btn btn-ghost" data-nav="${MENU}">⬅ Subtraction</button></div>`);
+    host.querySelectorAll('details[data-m]').forEach((d) => d.addEventListener('toggle', () => { const h = d.querySelector('.sr-review-host'); if (d.open && !h.childElementCount) seeItWorked(h, missed[+d.dataset.m].q); }));
+    host.querySelectorAll('[data-rec]').forEach((b) => b.addEventListener('click', () => { pendingLesson = b.dataset.rec; ctx.nav('#/subtraction/teach'); }));
+    if (host.querySelector('#ldMisses')) host.querySelector('#ldMisses').addEventListener('click', () => {
+      // New problems of the same kinds that were missed (never the same numbers again).
+      startLab({ count: Math.min(10, Math.max(3, missed.length)), kind: 'misses', types: [...new Set(missed.map((x) => x.q.typeId))] }); focusHead();
+    });
+    host.querySelector('#ldAgain').addEventListener('click', () => { renderLabSetup(); focusHead(); });
+    focusHead();
+  }
+
+  /* =====================================================================================
+     FLASHCARDS — Galaxy's flashcard screen for subtraction facts. The answer shows after a delay suited to the size of
+     the numbers (or on tap); the next card comes only when the child is ready (no time pressure). "See the regrouping"
+     opens SubtractKit's demo mode. Records exposure and the child's own "I knew it / Not yet", never mastery.
+     ===================================================================================== */
+  const FLASH_AUTO = { 2: 8, 3: 12, 4: 15 };   // seconds before the answer shows, by number of digits (Parent Settings can change it)
+  const FLASH_MIX = { gentle: ['none', 'easy'], standard: ['none', 'easy', 'medium'], challenge: ['easy', 'medium', 'hard'] };
+  const FLASH_SIZES = [{ v: 2, label: '2-digit' }, { v: 3, label: '3-digit' }, { v: 4, label: '4-digit' }, { v: 'mixed', label: '🔀 Mixed' }];
+  let fc = null, fcTimers = new Set(), fcKeys = null;
+  const fcAfter = (fn, ms) => { const id = setTimeout(() => { fcTimers.delete(id); fn(); }, ms); fcTimers.add(id); return id; };
+  function fcStopTimers() { fcTimers.forEach((id) => clearTimeout(id)); fcTimers = new Set(); }
+  /** A deck of subtraction facts from SubtractKit's generator: the chosen size, a sensible mix of difficulties, no repeats. */
+  function flashDeck(size, n, mix, seed) {
+    const r = M.rng(seed), avoid = new Set(), deck = [];
+    for (let k = 0; deck.length < n && k < n * 6; k++) {
+      const sz = size === 'mixed' ? [2, 3, 4][k % 3] : size;
+      const diffs = FLASH_MIX[mix].filter((d) => d === 'none' || M.supported(sz).includes(d));
+      const d = diffs[k % diffs.length], spec = { size: sz, difficulty: d, avoid };
+      if (d === 'none' && sz > 2 && k % 2) spec.equal = false;
+      const q = M.generateOne(r, spec);
+      if (q && q.top !== q.bottom) deck.push({ top: q.top, bottom: q.bottom });
+    }
+    return M.shuffle(r, deck);
+  }
+  const revealFor = (card) => { const s = store.settings().flash.reveal; return s === 'auto' ? FLASH_AUTO[M.lengthOf(card.top)] : s; };
+  function renderFlashSetup() {
+    const f = store.settings().flash;
+    paint(head('subFlashTitle', '🃏 Flashcards <span class="h-sub">Help me remember</span>') +
+      `<div class="panel start-panel fc-setup"><h3 class="center">Which numbers?</h3><p class="muted center">Tap one to start.</p>
+        <div class="table-pick sr-fc-pick" id="sfPick">${FLASH_SIZES.map((s) => `<button type="button" data-fsize="${s.v}" aria-label="Start ${s.v === 'mixed' ? 'mixed sizes' : s.label + ' subtraction'}">${s.label}</button>`).join('')}</div>
+        <p class="muted center" id="sfInfo">${f.reveal === 0 ? 'Tap the card to see each answer.' : f.reveal === 'auto' ? 'Each answer shows after a while: longer for bigger numbers (8, 12 or 15 seconds). Tap the card to see it sooner.' : `Each answer shows after ${f.reveal} seconds. Tap the card to see it sooner.`} The next card comes when you are ready.</p></div>
+       <p class="grownup-note">Grown-ups: timing and kinds of problems are in <a href="${MENU}/settings" data-nav="${MENU}/settings">Parent Settings</a>.</p>`);
+    host.querySelector('#sfPick').addEventListener('click', (e) => { const b = e.target.closest('[data-fsize]'); if (!b) return; const v = b.dataset.fsize; startFlash(v === 'mixed' ? 'mixed' : +v); });
+  }
+  function startFlash(size) {
+    const f = store.settings().flash;
+    store.setSettings({ flash: { size } });
+    fcStopTimers();
+    fc = { size, deck: flashDeck(size, f.cards, f.mix, newSeed()), i: 0, flipped: false, paused: false, startedAt: Date.now(), activeMs: 0, resumedAt: Date.now(), knew: 0, notYet: 0, shown: 0, seen: 1, deadline: 0, left: 0, showing: false };
+    const title = size === 'mixed' ? 'Mixed' : `${size}-digit`;
+    paint(`<div class="panel workspace fc-space sr-fc">${UI().actHead({ id: 'subFlashQ', title: `🃏 ${title} subtraction`, count: '<span class="act-count" id="sfCount"></span>', right: '', exit: `<button class="btn btn-ghost-light" id="sfExit">✕ Exit</button>`, now: 0, max: fc.deck.length, label: 'Cards', spanId: 'sfBar' })}
+        <div class="fc-stage"><button class="fc" id="sfCard" aria-label=""><div class="fc-face fc-front" id="sfFront"></div><div class="fc-face fc-back" id="sfBack"></div></button></div>
+        <p class="fc-status" id="sfStatus" aria-live="polite"></p>
+        <div class="fc-controls-row" id="sfMain"><button class="btn btn-primary btn-lg" id="sfFlip">👀 Show answer</button><button class="btn btn-secondary btn-lg" id="sfPause">⏸ Pause</button><button class="btn btn-ghost-light btn-lg" id="sfEnd">✓ I'm done</button></div>
+        <div class="fc-controls-row sr-fc-after" id="sfAfter" hidden><button class="btn btn-ok btn-lg" data-conf="knew">😊 I knew it</button><button class="btn btn-secondary btn-lg" data-conf="notYet">🤔 Not yet</button><button class="btn btn-secondary btn-lg" id="sfSee">🔍 See the regrouping</button><button class="btn btn-primary btn-lg" id="sfNext">Next card ➜</button></div>
+        <div class="sr-fc-demo" id="sfDemo" hidden><div class="sr-ws" id="sfDemoWs"></div><button class="btn btn-secondary" id="sfDemoClose">Back to the cards</button></div></div>`);
+    host.querySelector('#sfCard').addEventListener('click', () => flashFlip());
+    host.querySelector('#sfFlip').addEventListener('click', () => flashFlip());
+    host.querySelector('#sfPause').addEventListener('click', flashPause);
+    host.querySelector('#sfEnd').addEventListener('click', flashFinish);
+    host.querySelector('#sfExit').addEventListener('click', flashFinish);
+    host.querySelector('#sfNext').addEventListener('click', () => flashNext());
+    host.querySelectorAll('[data-conf]').forEach((b) => b.addEventListener('click', () => flashNext(b.dataset.conf)));
+    host.querySelector('#sfSee').addEventListener('click', flashSee);
+    host.querySelector('#sfDemoClose').addEventListener('click', flashSeeClose);
+    fcKeys = (e) => {
+      if (!fc || e.ctrlKey || e.metaKey || e.altKey || (e.target && e.target.closest && e.target.closest('.sk'))) return;
+      if (e.key === ' ' && !(e.target.closest && e.target.closest('button'))) { e.preventDefault(); flashFlip(); }
+      else if (e.key === 'ArrowRight' && fc.flipped) { e.preventDefault(); flashNext(); }
+      else if (e.key === 'p' || e.key === 'P') flashPause();
+    };
+    document.addEventListener('keydown', fcKeys);
+    flashShow();
+  }
+  const cardFace = (c) => {
+    const w = Math.max(String(c.top).length, String(c.bottom).length) + 1;
+    return `<div class="sr-fc-vert" style="--w:${w}ch" aria-hidden="true"><div>${fmt(c.top)}</div><div><b>−</b>${fmt(c.bottom)}</div></div>`;
+  };
+  function flashShow() {
+    const c = fc.deck[fc.i];
+    fc.flipped = false; fc.showing = false;
+    host.querySelector('#sfCard').classList.remove('flip');
+    host.querySelector('#sfFront').innerHTML = cardFace(c);
+    host.querySelector('#sfBack').innerHTML = `<div><span class="fc-ans">${fmt(c.top - c.bottom)}</span><span class="fc-eq">${fmt(c.top)} − ${fmt(c.bottom)} = ${fmt(c.top - c.bottom)}</span></div>`;
+    host.querySelector('#sfCard').setAttribute('aria-label', `Flash card: ${fmt(c.top)} minus ${fmt(c.bottom)}. Tap to see the answer.`);
+    host.querySelector('#sfCount').textContent = `Card ${fc.i + 1} of ${fc.deck.length}`;
+    host.querySelector('#sfBar').style.width = `${(fc.i / fc.deck.length) * 100}%`;
+    host.querySelector('#sfMain').hidden = false; host.querySelector('#sfAfter').hidden = true;
+    host.querySelector('#sfSee').textContent = M.classify(c.top, c.bottom).exchanges ? '🔍 See the regrouping' : '🔍 See it worked';
+    fc.left = revealFor(c) * 1000;
+    flashSchedule();
+    flashStatus();
+  }
+  function flashStatus() {
+    const s = host.querySelector('#sfStatus'), c = fc.deck[fc.i];
+    s.textContent = fc.paused ? 'Paused' : fc.flipped ? 'How did it go? Then go on when you are ready.' : revealFor(c) ? `Work it out. The answer shows in ${revealFor(c)} seconds, or tap the card.` : 'Work it out, then tap the card.';
+  }
+  function flashSchedule() {
+    fcStopTimers();
+    if (fc.flipped || fc.paused || !revealFor(fc.deck[fc.i])) return;
+    fc.deadline = Date.now() + fc.left;
+    fcAfter(() => flashSetFlip(true), fc.left);
+  }
+  function flashSetFlip(on) {
+    fc.flipped = on; fcStopTimers();
+    const c = fc.deck[fc.i];
+    host.querySelector('#sfCard').classList.toggle('flip', on);
+    host.querySelector('#sfCard').setAttribute('aria-label', on ? `Answer: ${fmt(c.top)} minus ${fmt(c.bottom)} equals ${fmt(c.top - c.bottom)}` : `Flash card: ${fmt(c.top)} minus ${fmt(c.bottom)}. Tap to see the answer.`);
+    host.querySelector('#sfMain').hidden = on; host.querySelector('#sfAfter').hidden = !on;
+    flashStatus();
+    if (on) { const k = host.querySelector('[data-conf="knew"]'); if (k) k.focus({ preventScroll: true }); }
+  }
+  function flashFlip() { if (!fc || fc.paused || fc.showing) return; if (!fc.flipped) flashSetFlip(true); }
+  function flashNext(conf) {
+    if (!fc || !fc.flipped || fc.paused) return;
+    if (conf === 'knew') fc.knew++; else if (conf === 'notYet') fc.notYet++;
+    if (fc.i + 1 >= fc.deck.length) { flashFinish(); return; }
+    fc.i++; fc.seen++;
+    flashShow();
+    host.querySelector('#sfFlip').focus({ preventScroll: true });
+  }
+  function flashPause() {
+    if (!fc || fc.showing) return;
+    if (!fc.paused) { fc.activeMs += Date.now() - fc.resumedAt; if (!fc.flipped && fc.deadline) fc.left = Math.max(0, fc.deadline - Date.now()); fcStopTimers(); fc.paused = true; }
+    else { fc.paused = false; fc.resumedAt = Date.now(); flashSchedule(); }
+    host.querySelector('.sr-fc').classList.toggle('paused', fc.paused);
+    host.querySelector('#sfPause').textContent = fc.paused ? '▶ Resume' : '⏸ Pause';
+    host.querySelector('#sfFlip').disabled = fc.paused;
+    flashStatus();
+  }
+  /** SubtractKit's demo of this card's subtraction (supplemental, after the answer shows). */
+  function flashSee() {
+    if (!fc || !fc.flipped) return;
+    const c = fc.deck[fc.i], box = host.querySelector('#sfDemoWs');
+    fc.shown++; fc.showing = true;
+    box.innerHTML = ''; const v = document.createElement('div'); box.appendChild(v);
+    mount(v, { top: c.top, bottom: c.bottom, mode: 'demo', caption: `${fmt(c.top)} − ${fmt(c.bottom)}: ${M.classify(c.top, c.bottom).exchanges ? 'see the regrouping' : 'no regrouping needed'}` });
+    host.querySelector('#sfDemo').hidden = false; host.querySelector('#sfAfter').hidden = true;
+    const n = host.querySelector('#sfDemo [data-act="next"]'); if (n) n.focus({ preventScroll: true });
+  }
+  function flashSeeClose() {
+    fc.showing = false;
+    host.querySelector('#sfDemo').hidden = true; host.querySelector('#sfAfter').hidden = false;
+    host.querySelector('#sfDemoWs').innerHTML = '';
+    host.querySelector('[data-conf="knew"]').focus({ preventScroll: true });
+  }
+  function flashFinish() {
+    if (!fc) return;
+    const s = fc; fc = null; fcStopTimers();
+    if (fcKeys) { document.removeEventListener('keydown', fcKeys); fcKeys = null; }
+    const seconds = Math.round((s.activeMs + (s.paused ? 0 : Date.now() - s.resumedAt)) / 1000);
+    store.recordFlash({ size: s.size, cards: s.seen, seconds, knew: s.knew, notYet: s.notYet, shown: s.shown });
+    const mins = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+    paint(head('subFlashDoneTitle', '🃏 Great flying!') +
+      `<div class="panel center"><p class="stars" aria-hidden="true">🚀⭐🚀</p>
+        <div class="stats" style="margin-top:8px"><div class="stat"><b id="sfdSeen">${s.seen}</b>cards seen</div><div class="stat"><b>${mins}</b>time practiced</div><div class="stat"><b id="sfdKnew">${s.knew}</b>“I knew it”</div><div class="stat"><b id="sfdNot">${s.notYet}</b>“Not yet”</div></div>
+        <p class="muted" style="margin-top:12px">Flashcards are practice. To show what you have mastered, take the Test.</p>
+        <div class="btn-row center" style="margin-top:16px"><button class="btn btn-go btn-lg" id="sfdAgain">Flashcards again</button>
+          <button class="btn btn-secondary" id="sfdPick">Pick other numbers</button><button class="btn btn-secondary" data-nav="${MENU}">⬅ Subtraction</button></div></div>`);
+    host.querySelector('#sfdAgain').addEventListener('click', () => { startFlash(s.size); focusHead(); });
+    host.querySelector('#sfdPick').addEventListener('click', () => { renderFlashSetup(); focusHead(); });
+    focusHead();
+  }
+
+  /* =====================================================================================
+     PARENT SETTINGS (Subtraction only; saved in galaxy-math.subtraction, never in the other subjects' settings)
+     ===================================================================================== */
+  function renderSettings() {
+    const S = store.settings();
+    const seg = (key, legend, options, value) => `<fieldset class="field"><legend>${legend}</legend><div class="seg" data-set="${key}">${options.map((o) => `<button type="button" data-v="${o.v}" aria-pressed="${String(String(value) === String(o.v))}">${esc(o.label)}</button>`).join('')}</div></fieldset>`;
+    paint(head('subSettingsTitle', '⚙️ Parent Settings · Subtraction') +
+      `<p class="settings-note">For grown-ups. Settings are saved on this device as soon as you tap them. They are <b>not locked</b>, so a child could change them.</p>
+       <div class="settings-grid">
+        <section class="panel settings-card"><h3>🃏 Flashcards</h3>
+          <div class="set-row">${seg('flash.reveal', 'Show the answer after', [{ v: 'auto', label: 'Auto by size' }, { v: 0, label: 'Tap only' }, { v: 5, label: '5 s' }, { v: 10, label: '10 s' }, { v: 15, label: '15 s' }, { v: 20, label: '20 s' }, { v: 30, label: '30 s' }], S.flash.reveal)}
+            <p class="set-help">Auto: 8 seconds for 2-digit, 12 for 3-digit and 15 for 4-digit numbers. Cards never move on by themselves, and a slow answer is never counted as wrong.</p></div>
+          <div class="set-row">${seg('flash.cards', 'Cards per session', [{ v: 10, label: '10' }, { v: 20, label: '20' }, { v: 30, label: '30' }], S.flash.cards)}</div>
+          <div class="set-row">${seg('flash.mix', 'Kinds of problems', [{ v: 'gentle', label: 'Gentle' }, { v: 'standard', label: 'Standard' }, { v: 'challenge', label: 'Challenge' }], S.flash.mix)}
+            <p class="set-help"><b>Gentle:</b> no regrouping or one exchange. <b>Standard:</b> adds two or more exchanges. <b>Challenge:</b> always regrouping, including across zeros. 2-digit cards only use no regrouping or one exchange.</p></div></section>
+        <section class="panel settings-card"><h3>🧪 Math Thinking Lab</h3>
+          <div class="set-row">${seg('lab.level', 'Problem size', [{ v: 'auto', label: 'Grow with my child' }, { v: 1, label: 'Small' }, { v: 2, label: 'Medium' }, { v: 3, label: 'Full' }], S.lab.level)}
+            <p class="set-help" id="ssLevel">Grow with my child: now <b>${esc(LEVEL_TEXT[autoLevel()])}</b>. It moves up after the matching lessons, strong Practice or Test results, or two strong Lab challenges. Small: ${esc(LEVEL_TEXT[1])}. Medium: ${esc(LEVEL_TEXT[2])}. Full: ${esc(LEVEL_TEXT[3])}.</p></div>
+          <p class="set-help">The Lab has no timer and no hints before answering. Its results are kept apart from Practice and the Test.</p></section>
+       </div>`);
+    host.querySelectorAll('.seg[data-set]').forEach((s) => s.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-v]'); if (!b) return;
+      const [grp, key] = s.dataset.set.split('.'), raw = b.dataset.v, v = /^\d+$/.test(raw) ? Number(raw) : raw;
+      store.setSettings({ [grp]: { [key]: v } });
+      s.querySelectorAll('[data-v]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+    }));
+  }
+
+  /* =====================================================================================
      PROGRESS (grown-ups)
      ===================================================================================== */
+  function labPanel() {
+    const ls = store.labSessions().slice(-8).reverse(), bt = store.labByType(), date = (s) => new Date(s).toLocaleDateString();
+    const kinds = SB.TYPES.filter((t) => bt[t.id]);
+    return `<div class="panel"><h3>Math Thinking Lab</h3><p class="muted">Reasoning challenges: no hints, one try each. Kept apart from Practice and the Test.</p>
+      ${ls.length ? `<div class="table-wrap"><table class="data" id="sgLab" style="margin-top:8px"><thead><tr><th>Date</th><th>Problems</th><th>Score</th><th>✓ / ✗ / skipped</th></tr></thead><tbody>${ls.map((s) =>
+        `<tr><td>${date(s.at)}</td><td>${s.total}${s.kind === 'misses' ? ' (misses)' : ''}</td><td>${s.pct}%</td><td>${s.correct} / ${s.incorrect} / ${s.skipped}</td></tr>`).join('')}</tbody></table></div>
+        <div class="table-wrap"><table class="data" id="sgLabKinds" style="margin-top:8px"><thead><tr><th>Kind of problem</th><th>Right</th></tr></thead><tbody>${kinds.map((t) => `<tr><td>${esc(t.name)}</td><td>${bt[t.id].c} of ${bt[t.id].t} (${Math.round((100 * bt[t.id].c) / bt[t.id].t)}%)</td></tr>`).join('')}</tbody></table></div>`
+        : '<p class="muted" id="sgLab">No Lab challenges yet.</p>'}</div>`;
+  }
+  function flashPanel() {
+    const t = store.flashTotals();
+    return `<div class="panel"><h3>Flashcards</h3>${t.sessions ? `<div class="stats" id="sgFlash"><div class="stat"><b>${t.cards}</b>cards seen</div><div class="stat"><b>${Math.round(t.seconds / 60)}</b>minutes</div><div class="stat"><b>${t.knew}</b>“I knew it”</div><div class="stat"><b>${t.notYet}</b>“Not yet”</div></div>` : '<p class="muted" id="sgFlash">No flashcards yet.</p>'}
+      <p class="muted" style="margin-top:8px">Flashcards show practice and how sure your child felt. They are not counted as mastery; the Test is.</p></div>`;
+  }
   function renderProgress() {
     const ls = store.lessonsSummary(), tot = store.practiceTotals(), sessions = store.sessions().slice(-8).reverse(), tests = store.tests().slice(-8).reverse();
     const date = (s) => new Date(s).toLocaleDateString();
@@ -736,8 +1075,10 @@
         <ol class="sr-list">${C.learn.map((l) => { const r = store.lesson(l.id); return `<li>${esc(l.title)}: ${r ? (r.indep ? '✓ done on own' : 'done with help') : 'not yet'}</li>`; }).join('')}</ol></div>
        <div class="panel"><h3>Practice (${all} problems)</h3><div class="stats" id="sgPractice">${root.GalaxySubStore.OUTCOMES.map((o) => `<div class="stat"><b data-o="${o}">${tot[o]}</b>${esc(OUT_LABEL[o])}</div>`).join('')}</div>
         <p class="muted" style="margin-top:8px">Show me and hints are recorded as help and never counted as “on your own”.</p>
-        ${sessions.length ? `<div class="table-wrap"><table class="data" style="margin-top:8px"><thead><tr><th>Date</th><th>Practice</th><th>On own</th><th>With hints</th><th>Show me</th><th>Not right / skipped</th></tr></thead><tbody>${sessions.map((s) =>
-          `<tr><td>${date(s.at)}</td><td>${esc(sizeLabel(s.size))} · ${esc(diffLabel(s.difficulty))}</td><td>${s.counts.independent}/${s.total}</td><td>${s.counts.hinted}</td><td>${s.counts.shown}</td><td>${s.counts.incorrect} / ${s.counts.skipped}</td></tr>`).join('')}</tbody></table></div>` : '<p class="muted">No practice sessions yet.</p>'}</div>
+        ${sessions.length ? `<div class="table-wrap"><table class="data" style="margin-top:8px"><thead><tr><th>Date</th><th>Practice</th><th>On own (first try)</th><th>With hints</th><th>Show me</th><th>Not right / skipped</th></tr></thead><tbody>${sessions.map((s) =>
+          `<tr><td>${date(s.at)}</td><td>${esc(sizeLabel(s.size))} · ${esc(diffLabel(s.difficulty))}</td><td>${s.counts.independent}/${s.total} (${s.firstTry || 0})</td><td>${s.counts.hinted}</td><td>${s.counts.shown}</td><td>${s.counts.incorrect} / ${s.counts.skipped}</td></tr>`).join('')}</tbody></table></div>` : '<p class="muted">No practice sessions yet.</p>'}</div>
+       ${labPanel()}
+       ${flashPanel()}
        <div class="panel"><h3>Tests</h3>${tests.length ? `<div class="table-wrap"><table class="data" id="sgTests"><thead><tr><th>Date</th><th>Score</th><th>✓ / ✗ / blank</th></tr></thead><tbody>${tests.map((t) =>
           `<tr><td>${date(t.at)}</td><td>${t.pct}%</td><td>${t.correct} / ${t.incorrect} / ${t.unanswered} of ${t.total}</td></tr>`).join('')}</tbody></table></div>` : '<p class="muted" id="sgTests">No tests yet.</p>'}</div>
        <div class="panel"><h3>Start over</h3><p class="muted">Erases Subtraction progress on this device. Multiplication and Division progress are kept.</p>
@@ -757,13 +1098,22 @@
     render(r, hostEl, c) {
       host = hostEl; ctx = c;
       if (r.view === 'progress') { renderProgress(); return 'Progress'; }
+      if (r.view === 'settings') { renderSettings(); return 'Parent Settings'; }
+      if (r.activity === 'lab') { renderLabSetup(); return 'Math Thinking Lab'; }
+      if (r.activity === 'flashcards') { renderFlashSetup(); return 'Flashcards'; }
       if (r.activity === 'teach') { renderTeach(); if (pendingLesson && LESSON_IDS.includes(pendingLesson)) startLesson(pendingLesson); pendingLesson = null; return 'Teach'; }
       if (r.activity === 'practice') { renderPracticeSetup(); return 'Practice'; }
       if (r.activity === 'test') { renderTestSetup(); return 'Test'; }
       return '';
     },
     /** Leave the subtraction screen: destroy every workspace (their listeners go with them). */
-    stop() { destroyAll(); lesson = null; },
+    stop() {
+      destroyAll(); lesson = null; labQs = null;
+      if (fc) { const s = fc; fc = null; store.recordFlash({ size: s.size, cards: s.seen, seconds: Math.round((s.activeMs + (s.paused ? 0 : Date.now() - s.resumedAt)) / 1000), knew: s.knew, notYet: s.notYet, shown: s.shown }); }
+      fcStopTimers();
+      if (fcKeys) { document.removeEventListener('keydown', fcKeys); fcKeys = null; }
+    },
+    get timerCount() { return fcTimers.size; },
     menuMeta: () => { const s = store.lessonsSummary(); return { lessonsDone: s.done, lessonsTotal: s.total }; },
     store,
     get liveCount() { return live.length; },
