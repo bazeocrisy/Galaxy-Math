@@ -1,0 +1,149 @@
+/*
+ * SubtractKit workspace styles (scoped to .sk). Hosts theme it with the --sk-* variables below (Mathbook defaults);
+ * nothing here depends on the host's stylesheet. Design: docs/supplemental/subtract-regrouping/design-review.md.
+ * .sk is a size container: the layout follows the component's own width, not the window (review SR-D07).
+ */
+.sk {
+  container-type: inline-size;
+  --sk-op: 1.2rem; --sk-comma: 6px; --sk-digit: 1.6rem;
+  --sk-col: clamp(44px, calc((100cqi - var(--sk-op) - var(--sk-comma) - 12px) / 4), 60px);
+  --sk-font: ui-monospace, "Cascadia Mono", Consolas, Menlo, monospace;
+  --sk-ui-font: inherit;
+  --sk-ink: #1f2370; --sk-muted: #4f5a7a; --sk-accent: #5236c9; --sk-line: #1f2370;
+  --sk-bg: transparent; --sk-box-bg: #ffffff; --sk-box-line: #6a58c8; --sk-cross: #1b2440;
+  --sk-active-bg: #fff3c9; --sk-active-line: #9a7000; --sk-focus: #5236c9; --sk-ok: #157347; --sk-no: #b3261e;
+  --sk-tag-th: #134677; --sk-tag-h: #135c33; --sk-tag-t: #5f4500; --sk-tag-o: #8a1f34;
+  --sk-btn-bg: #ffffff; --sk-btn-ink: #1f2370; --sk-btn-line: #6a58c8; --sk-primary-bg: #5236c9; --sk-primary-ink: #ffffff;
+  --sk-radius: 10px;
+  display: block; min-width: 0; color: var(--sk-ink); background: var(--sk-bg); font-family: var(--sk-ui-font);
+}
+@media (max-width: 899px) { .sk { --sk-digit: 1.5rem; } }
+@media (max-width: 400px) { .sk { --sk-digit: 1.35rem; } }
+.sk *, .sk *::before, .sk *::after { box-sizing: border-box; }
+.sk-sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+/* Layout: the problem, then the coach panel; side by side when the component is at least 560px wide. */
+.sk-wrap { display: grid; gap: 0.75rem 1.5rem; }
+@container (min-width: 560px) { .sk-wrap.has-coach { grid-template-columns: max-content minmax(0, 1fr); align-items: start; } }
+.sk-main { min-width: 0; }
+.sk-caption { margin: 0 0 0.25rem; font-weight: 800; }
+.sk-coach[hidden] { display: none; }
+
+/* The grid: minus track, place columns (comma track after the thousands). It never scrolls sideways. */
+.sk-grid {
+  display: grid; width: max-content; max-width: 100%; column-gap: 2px; row-gap: 4px;
+  grid-template-rows: 20px 20px 24px 44px 44px 44px 3px 52px; position: relative;
+  font-family: var(--sk-font); font-size: var(--sk-digit); font-weight: 800; line-height: 1;
+}
+.sk-grid:not(.has-chips) { grid-template-rows: 20px 0 24px 44px 44px 44px 3px 52px; }
+.sk-grid:not(.has-chips) .sk-chipcell { display: none; }
+.sk-grid.no-answer { grid-template-rows: 20px 0 24px 44px 44px 44px 3px; }
+.sk-cell { position: relative; z-index: 1; display: flex; align-items: center; justify-content: center; min-width: 0; }
+.sk-band { z-index: 0; border-radius: 10px; border: 3px solid transparent; margin: -2px -1px; }
+.sk-band.is-active { background: var(--sk-active-bg); border-color: var(--sk-active-line); }
+.sk-band.is-giver { border-style: dashed; border-color: var(--sk-accent); }
+.sk-band.is-getter { border-color: var(--sk-accent); }
+.sk-band.is-active.is-getter { border-color: var(--sk-active-line); }
+
+.sk-tagcell { font-family: var(--sk-ui-font); font-size: 0.8rem; font-weight: 800; flex-direction: column; }
+.sk-tag { text-decoration: none; letter-spacing: 0.02em; }
+.sk-tag-Th { color: var(--sk-tag-th); } .sk-tag-H { color: var(--sk-tag-h); } .sk-tag-T { color: var(--sk-tag-t); } .sk-tag-O { color: var(--sk-tag-o); }
+.sk-tagcell.is-active .sk-tag { text-decoration: underline 2px; }
+.sk-here { position: absolute; top: -14px; font-size: 0.7rem; color: var(--sk-active-line); }
+.sk-chip { font-family: var(--sk-ui-font); font-size: 0.75rem; font-weight: 800; padding: 1px 6px; border-radius: 999px; border: 2px solid var(--sk-accent); color: var(--sk-accent); background: var(--sk-box-bg); }
+
+/* States without colour: original digit · crossed-out top digit (diagonal slash, lighter) · earlier value (struck,
+   above the box) · current (box + bold) · answer (larger box below the line). */
+.sk-d { font-weight: 800; color: var(--sk-ink); }
+.sk-x { position: relative; color: var(--sk-muted); font-weight: 600; display: inline-block; padding: 0 2px; }
+.sk-x::after {
+  content: ""; position: absolute; inset: 10% -2%; pointer-events: none;
+  background: linear-gradient(to top right, transparent calc(50% - 1px), var(--sk-muted) calc(50% - 1px), var(--sk-muted) calc(50% + 1px), transparent calc(50% + 1px));
+}
+.sk-hist { font-size: 1.05rem; font-weight: 700; line-height: 1; padding: 0 3px; color: var(--sk-muted); text-decoration: line-through 2px var(--sk-cross); }
+.sk-cur {
+  display: grid; place-items: center; width: 100%; max-width: 44px; height: 44px; padding: 0; margin: 0;
+  font: 800 1.15rem var(--sk-font); text-align: center; color: var(--sk-accent); background: var(--sk-box-bg);
+  border: 2px solid var(--sk-box-line); border-radius: 8px;
+}
+input.sk-cur:placeholder-shown { border-style: dashed; }
+.sk-op { font-weight: 800; }
+.sk-comma { font-size: 0.9em; align-self: flex-end; }
+.sk-commacell { justify-content: flex-start; }
+.sk-rule { z-index: 1; border-top: 3px solid var(--sk-line); align-self: center; }
+.sk-ans {
+  display: grid; place-items: center; width: 100%; max-width: 48px; height: 52px; padding: 0; margin: 0;
+  font: 800 1.5rem var(--sk-font); text-align: center; color: var(--sk-ink); background: var(--sk-box-bg);
+  border: 2px solid var(--sk-box-line); border-radius: var(--sk-radius);
+}
+.sk-ans-read { border-style: solid; }
+.sk-mode-view .sk-ans-read, .sk-mode-demo .sk-ans-read { border-color: transparent; background: transparent; }
+.sk-mode-demo .sk-ans-read:not(:empty) { border-color: var(--sk-box-line); background: var(--sk-box-bg); }
+/* Someone's work is printed, not typed: a light fill and no input-style border, so it never looks tappable (SR-D17). */
+.sk-mode-view .sk-ans-read:not(:empty) { border-color: transparent; background: #eef0f7; }
+.sk-ans.is-ok { border-color: var(--sk-ok); border-width: 3px; }
+.sk-ans.is-no { border-color: var(--sk-no); border-width: 3px; border-style: dashed; }
+.sk-mark {
+  position: absolute; top: -8px; right: -6px; z-index: 2; display: grid; place-items: center; width: 1.3rem; height: 1.3rem;
+  border-radius: 50%; border: 2px solid currentColor; background: #fff; font: 900 0.8rem var(--sk-ui-font);
+}
+.sk-mark.is-ok { color: var(--sk-ok); } .sk-mark.is-no { color: var(--sk-no); }
+.sk-botcell.is-shifted { outline: 2px dashed var(--sk-no); outline-offset: -2px; border-radius: 6px; }
+.sk-in:focus, .sk-btn:focus-visible, .sk [tabindex="-1"]:focus { outline: 3px solid var(--sk-focus); outline-offset: 2px; position: relative; z-index: 2; }
+
+/* Toolbar, coach panel, hints. */
+.sk-toolbar { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; margin-top: 0.75rem; max-width: 520px; }
+.sk-tl, .sk-tr, .sk-choices, .sk-democtl { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.sk-btn {
+  min-height: 48px; min-width: 48px; padding: 0.55rem 1rem; border-radius: 12px; border: 2px solid var(--sk-btn-line);
+  background: var(--sk-btn-bg); color: var(--sk-btn-ink); font: 700 1rem var(--sk-ui-font); cursor: pointer;
+}
+.sk-btn:disabled { opacity: 0.45; cursor: default; }
+.sk-btn-primary { background: var(--sk-primary-bg); color: var(--sk-primary-ink); border-color: var(--sk-primary-bg); }
+.sk-btn-ghost { background: transparent; }
+.sk-btn-outline { border-style: double; border-width: 4px; }
+.sk-coach { min-width: 0; font-size: 1rem; line-height: 1.45; }
+.sk-coach p { margin: 0 0 0.6rem; }
+.sk-coach > .sk-democtl { margin-bottom: 0.6rem; }
+.sk-working { font-weight: 800; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--sk-active-line); }
+.sk-q { font-weight: 700; font-size: 1.05rem; }
+.sk-prev { color: var(--sk-muted); font-size: 0.95rem; }
+.sk-fb { margin-top: 0.5rem; }
+.sk-help { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 0.5rem; }
+.sk-fb:empty { display: none; }
+.sk-ok-note { color: var(--sk-ok); font-weight: 700; }
+.sk-no-note { color: var(--sk-no); font-weight: 700; }
+.sk-info-note { color: var(--sk-ink); font-weight: 700; border-left: 4px solid var(--sk-active-line); padding-left: 0.5rem; }
+.sk-note { font-weight: 600; }
+.sk-topnow-h { font-weight: 800; margin-bottom: 0.25rem; }
+.sk-topnow { margin: 0 0 0.75rem; padding-left: 1.4rem; }
+.sk-topnow li.is-now, .sk-topnow-cur { font-weight: 800; }
+.sk-partof { font-weight: 700; color: var(--sk-muted); min-width: 5.5em; text-align: center; }
+.sk-hint { border-left: 4px solid var(--sk-active-line); padding-left: 0.6rem; }
+.sk-older summary { cursor: pointer; font-weight: 700; min-height: 44px; display: flex; align-items: center; }
+.sk-older ul, .sk-older ol { margin: 0.25rem 0 0.5rem; padding-left: 1.2rem; }
+.sk-solution { border: 2px solid var(--sk-box-line); border-radius: 12px; padding: 0.6rem; margin-top: 0.5rem; }
+.sk-solution-h { font-weight: 800; }
+.sk-steps { margin: 0.5rem 0 0; padding-left: 1.3rem; }
+.sk-steps li { margin: 0.15rem 0; }
+.sk-mini { --sk-col: 40px; }
+.sk-mini .sk-grid { --sk-digit: 1.2rem; grid-template-rows: 16px 0 20px 36px 36px 36px 3px 40px; }
+.sk-mini .sk-cur, .sk-mini .sk-ans { height: 36px; max-width: 38px; font-size: 1rem; }
+.sk-mini .sk-ans { height: 40px; }
+.sk-mini .sk-hist { font-size: 0.95rem; }
+/* "Top number now": the whole list when wide; the current line and folded earlier lines when narrow. */
+.sk-narrow-only { display: none; }
+@container (max-width: 559px) { .sk-wide-only { display: none; } .sk-narrow-only { display: block; } }
+
+@media (max-height: 600px) {
+  /* Short screens (200% zoom): shrink the label rows and digit rows, never the boxes a child taps (≥ 44 px). */
+  .sk { --sk-digit: 1.3rem; }
+  .sk-grid { grid-template-rows: 16px 16px 20px 44px 36px 36px 3px 44px; }
+  .sk-grid:not(.has-chips) { grid-template-rows: 16px 0 20px 44px 36px 36px 3px 44px; }
+  .sk-grid.no-answer { grid-template-rows: 16px 0 20px 44px 36px 36px 3px; }
+  .sk-ans { height: 44px; }
+}
+@media (forced-colors: active) { .sk-x::after { display: none; } .sk-x { text-decoration: line-through 3px; } .sk-band.is-active { border-color: Highlight; } }
+/* Show me player inside the coach panel; the completion note and written steps appear only when it finishes. */
+.sk-solution-end:empty { display: none; }
+.sk-shown-done:focus { outline: 3px solid var(--sk-focus, #5236c9); outline-offset: 2px; }

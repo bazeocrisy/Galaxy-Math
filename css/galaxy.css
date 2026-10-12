@@ -672,3 +672,80 @@ table.data th { font-size: .88rem; color: var(--navy-2); }
 
 /* Progress: keep short statuses on one line where there is room (phones wrap them so nothing is cut off). */
 @media (min-width: 480px) { #pgTypes td:last-child { white-space: nowrap; } }
+
+/* ======================= Subtraction (SubtractKit adapter, js/sub-galaxy.js) =======================
+   Everything is scoped to #sub. The workspace keeps its own grid (css/subtractkit/subtract-workspace.css, unchanged);
+   Galaxy only sets its --sk-* colours and font through the mount theme. Light panels on the galaxy background. */
+#sub .panel { color: var(--navy); }
+#sub [hidden] { display: none !important; }   /* the hidden attribute wins over .btn and other display rules */
+#sub .sr-ws { margin: 8px 0 12px; }
+#sub .sk { --sk-ui-font: var(--font); }
+#sub .q-prompt { margin: 0 0 8px; }
+#sub .sr-explain { margin-top: 8px; }
+#sub .sr-why { border-left: 4px solid #9A7000; background: #FFF8DE; padding: 8px 12px; border-radius: 8px; color: #3D3000; margin: 8px 0; }
+#sub .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+#sub .sr-nowrap { white-space: nowrap; }
+#sub .big-title { font-size: clamp(1.5rem, 4vw, 2rem); margin-bottom: 8px; }
+/* base-ten blocks (Mathbook's place colours) */
+#sub .place-tens { --pb: #FFF3C9; --pl: #9A7000; --pi: #5F4500; } #sub .place-ones { --pb: #FFE3E7; --pl: #B3304A; --pi: #8A1F34; }
+#sub .blocks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; max-width: 440px; margin: 8px 0; }
+#sub .blocks-col { background: var(--pb); border: 2px solid var(--pl); border-radius: 16px; padding: 8px; text-align: center; min-width: 0; display: flex; flex-direction: column; }
+#sub .blocks-col.is-hi { outline: 4px solid #9A7000; outline-offset: -2px; }
+#sub .blocks-label { font-weight: 700; color: var(--pi); }
+#sub .blocks-art { flex: 1; display: flex; align-items: center; justify-content: center; padding: 6px 0; min-height: 90px; }
+#sub .blocks-art svg { max-width: 100%; height: auto; }
+#sub .blocks figcaption { font-weight: 700; color: var(--pi); }
+#sub .sr-chip { display: inline-block; font-size: .8rem; font-weight: 700; padding: 0 6px; border-radius: 999px; border: 2px solid var(--grape-d); color: var(--grape-d); background: #fff; }
+#sub .sr-swap { display: flex; gap: 8px; align-items: center; font-weight: 700; margin: 4px 0; }
+#sub .sr-swap span:not([aria-hidden]) { border: 2px dashed #9A7000; border-radius: 10px; padding: 2px 10px; background: #FFF8DE; }
+#sub .sr-say { font-weight: 600; margin: 8px 0; }
+#sub .demo-controls { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+#sub .demo-count { font-weight: 700; color: var(--navy-2); }
+#sub .sr-exnav { margin-top: 12px; }
+/* Your Turn questions */
+#sub .sr-q1 { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 12px 0 6px; }
+#sub .sr-q1-label { font-weight: 700; font-size: 1.15rem; }
+#sub .sr-num { width: 4.5rem; min-height: 48px; font: inherit; font-size: 1.4rem; text-align: center; border: 2px solid var(--grape-d); border-radius: var(--r-sm); }
+#sub .sr-helprow { margin: 10px 0 4px; }
+#sub .sr-fb .feedback, #sub .sr-complete, #sub .sr-shown-done { margin-top: 8px; }
+#sub .sr-done-line { margin: 6px 0; font-weight: 700; color: var(--grass-d); }
+#sub .sr-helped-tag, #sub .sr-helped { color: var(--navy-2); font-weight: 600; }
+#sub .sr-shown { border-left: 4px solid #9A7000; padding-left: 10px; margin: 8px 0; }
+#sub .sr-after-h { font-weight: 700; margin: 12px 0 0; }
+#sub .sr-showdemo, #sub .sr-worked { border: 2px solid #9A7000; border-radius: 12px; padding: 10px; margin: 12px 0; background: #fff; }
+#sub .sr-worked:empty, #sub .sr-shown-end:empty, #sub .sr-again:empty { display: none; }
+#sub .sr-showdemo-h, #sub .sr-shown-h { margin: 0 0 8px; }
+#sub .sr-again { margin-top: 12px; }
+#sub [tabindex="-1"]:focus-visible { outline: 3px solid var(--grape-d); outline-offset: 2px; }
+#sub .sr-fs { border: 0; padding: 0; margin: 12px 0; min-width: 0; }
+#sub .sr-fs legend { font-weight: 700; margin-bottom: 6px; padding: 0; }
+#sub .sr-radios { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr)); }
+#sub .sr-radios-wide { grid-template-columns: 1fr; }
+#sub .sr-choice { text-align: left; display: flex; align-items: center; gap: 10px; border: 2px solid var(--line); border-radius: var(--r-md); padding: 8px 12px; min-height: 52px; cursor: pointer; background: var(--paper); font-weight: 600; overflow-wrap: anywhere; }
+#sub .sr-choice input { width: 1.3rem; height: 1.3rem; accent-color: var(--grape-d); flex: none; margin: 0; }
+#sub .sr-choice:has(input:checked) { background: var(--lav); border-color: var(--grape-d); }
+#sub .sr-choice:has(input:focus-visible) { outline: 3px solid var(--grape-d); outline-offset: 2px; }
+#sub .lesson-nav { margin-top: 16px; }
+/* practice and test */
+#sub .sr-setup .field { border: 0; padding: 0; margin: 0 0 12px; }
+#sub .sr-setup legend { font-weight: 700; margin-bottom: 6px; }
+#sub .sr-diff-desc { margin: -4px 0 12px; min-height: 1.4em; }
+#sub .sr-runnav { margin-top: 12px; }
+#sub .sr-outcome-note { font-weight: 700; margin: 8px 0 0; }
+#sub .sr-o-independent { color: var(--grass-d); }
+#sub .sr-qnav { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
+#sub .sr-qdot { width: 44px; height: 44px; border-radius: 50%; border: 2px solid var(--line); background: var(--paper); color: var(--navy); font: inherit; font-weight: 700; cursor: pointer; }
+#sub .sr-qdot.has { background: var(--lav); border-color: var(--grape-d); }
+#sub .sr-qdot.on { box-shadow: 0 0 0 3px var(--grape-d); }
+#sub .sr-confirm { margin-top: 12px; }
+#sub .score-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+#sub .sr-results-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); margin-top: 12px; }
+#sub .sr-recs { padding-left: 1.2rem; display: grid; gap: 8px; }
+#sub .sr-recs .btn-row { margin-top: 4px; }
+#sub .sr-review { list-style: none; padding: 0; display: grid; gap: 6px; }
+#sub .sr-review > li { border: 2px solid var(--line); border-radius: var(--r-md); background: var(--paper); padding: 4px 12px; }
+#sub .sr-review > li.ok { border-color: #A9E8CF; } #sub .sr-review > li.bad { border-color: #F2B6C9; }
+#sub .sr-review summary { min-height: 44px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; cursor: pointer; font-weight: 700; }
+#sub .sr-sum-txt { font-weight: 500; color: var(--navy-2); }
+#sub .sr-list { padding-left: 1.2rem; } #sub .sr-list li { margin: 4px 0; }
+@media (max-width: 420px) { #sub .panel { padding: 14px; } #sub .blocks-art { min-height: 70px; } }

@@ -9,6 +9,7 @@
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/subtractkit/subtract-workspace.css">
 <link rel="stylesheet" href="css/galaxy.css">
 </head>
 <body>
@@ -28,6 +29,9 @@
     <div class="subjects" id="subjects"></div>
     <p class="note" id="landingNote" role="status" aria-live="polite"></p>
   </section>
+
+  <!-- SUBTRACTION: every Subtraction screen (Teach, Practice, Test, Progress), drawn by js/sub-galaxy.js -->
+  <section class="screen" id="sub" aria-label="Subtraction"></section>
 
   <!-- MENU: Teach / Practice / Flashcards / Test -->
   <section class="screen" id="menu" aria-labelledby="menuTitle">
@@ -67,6 +71,13 @@
 <script src="js/div-lessons.js"></script>
 <script src="js/div-bank.js"></script>
 <script src="js/progress.js"></script>
+<!-- Subtraction: Mathbook SubtractKit and its teaching content, copied unchanged, then the Galaxy adapter -->
+<script src="js/subtractkit/sub-math.js"></script>
+<script src="js/subtractkit/sub-workspace.js"></script>
+<script src="js/subtraction-vendor/place-value.js"></script>
+<script src="js/subtraction-vendor/content.js"></script>
+<script src="js/sub-store.js"></script>
+<script src="js/sub-galaxy.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

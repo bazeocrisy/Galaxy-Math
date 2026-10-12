@@ -110,7 +110,7 @@
 
   /* ---------- screens and routing ---------- */
   const SCREENS = ['landing', 'menu', 'teach', 'lesson', 'practiceSetup', 'practice', 'practiceDone', 'labSetup', 'lab', 'labDone',
-    'fcSetup', 'fc', 'fcDone', 'testSetup', 'test', 'testDone', 'progress', 'settings'];
+    'fcSetup', 'fc', 'fcDone', 'testSetup', 'test', 'testDone', 'progress', 'settings', 'sub'];
   let firstShow = true;
   function show(id, crumb = '') {
     SCREENS.forEach((s) => {
@@ -128,13 +128,21 @@
   function stopAll() {
     if (fcState) store.recordFlash(Math.round(Math.min(fcElapsed(), fcState.totalMs) / 1000), fcState.seen);
     T.clearAll(); onKey = null; fcState = null; testState = null; practiceState = null; lessonState = null; labState = null;
+    if (window.GalaxySubtraction) window.GalaxySubtraction.stop();   // destroys every subtraction workspace
   }
   function route() {
     stopAll();
     const r = GM.resolveRoute(location.hash);
     if (r.hash !== location.hash && !(location.hash === '' && r.hash === '#/')) history.replaceState(null, '', r.hash);
-    if (r.subject) useSubject(r.subject);
     const s = r.subject && GM.getSubject(r.subject);
+    // Subtraction screens come from the SubtractKit adapter (js/sub-galaxy.js); its menu uses the shared menu below.
+    if (r.subject === 'subtraction' && r.view !== 'menu') {
+      const label = window.GalaxySubtraction.render(r, $('sub'), { nav });
+      document.title = `${s.name} ${label} · Galaxy Math`;
+      show('sub', `${s.symbol} ${s.name} · ${label}`);
+      return;
+    }
+    if (r.subject) useSubject(r.subject);
     if (r.view === 'landing') { $('landingNote').textContent = ''; document.title = 'Galaxy Math'; show('landing'); return; }
     if (r.view === 'menu') { renderMenu(r.subject); document.title = `${s.name} · Galaxy Math`; show('menu', `${s.symbol} ${s.name}`); return; }
     if (r.view === 'progress') { renderProgress(); document.title = `${s.name} progress · Galaxy Math`; return; }
@@ -356,7 +364,8 @@
     const open = s.status === 'open';
     b.className = `subject s-${s.id} ${open ? 'open' : 'soon'}`;
     b.dataset.subject = s.id;
-    const label = !open ? 'Coming Soon' : GM.readyCount(s.id) === GM.ACTIVITIES.length ? 'Learn · Practice · Think · Flash · Test' : 'Lessons on the way';
+    const readyNames = GM.ACTIVITIES.filter((a) => GM.isActivityReady(s.id, a.id)).map((a) => a.name);
+    const label = !open ? 'Coming Soon' : readyNames.length === GM.ACTIVITIES.length ? 'Learn · Practice · Think · Flash · Test' : readyNames.length ? readyNames.join(' · ') : 'Lessons on the way';
     b.innerHTML = `<span class="sym" aria-hidden="true">${s.symbol}</span><span class="sName">${s.name}</span>` +
       (open ? `<span class="go">${label} →</span>` : `<span class="badge soon">${label}</span>`);
     if (open) { b.setAttribute('aria-label', `${s.name}. ${label}`); b.onclick = () => nav('#/' + s.id); }
@@ -375,21 +384,23 @@
     $('menu').style.setProperty('--accent', `var(--${ACCENT[sid]})`);
     const ready = GM.ACTIVITIES.filter((a) => GM.isActivityReady(sid, a.id));
     $('menuSub').textContent = ready.length === GM.ACTIVITIES.length ? 'What would you like to do?'
-      : ready.length ? `${ready.map((a) => a.name).join(' and ')} ${ready.length > 1 ? 'are' : 'is'} ready. The others are coming soon.` : `${s.name} lessons and cards are being built. Check back soon!`;
+      : ready.length ? `${ready.length > 1 ? `${ready.slice(0, -1).map((a) => a.name).join(', ')} and ${ready[ready.length - 1].name} are` : `${ready[0].name} is`} ready. The others are coming soon.` : `${s.name} lessons and cards are being built. Check back soon!`;
     $('menuNote').textContent = '';
-    const done = sid === SUBJ ? store.summary().lessonsDone : 0;
+    const sub = sid === 'subtraction' && window.GalaxySubtraction ? window.GalaxySubtraction.menuMeta() : null;
+    const done = sub ? sub.lessonsDone : sid === SUBJ ? store.summary().lessonsDone : 0;
     const box = $('modes'); box.innerHTML = '';
     GM.ACTIVITIES.forEach((a) => {
       const ok = GM.isActivityReady(sid, a.id), b = document.createElement('button');
       b.className = `mode m-${a.id} ${ok ? 'ready' : 'soon'}`; b.dataset.activity = a.id;
-      const extra = ok && a.id === 'teach' && sid === SUBJ ? `<span class="mMeta">${done} of ${L.LESSONS.length} lessons done</span>` : '';
+      const extra = ok && a.id === 'teach' && (sub || sid === SUBJ) ? `<span class="mMeta">${done} of ${sub ? sub.lessonsTotal : L.LESSONS.length} lessons done</span>` : '';
       b.innerHTML = `<span class="mIcon" aria-hidden="true">${a.icon}</span><span class="mText"><span class="mName">${a.name}</span>` +
         (ok ? `<span class="mBlurb">${a.blurb}</span>${extra}` : '<span class="badge soon">Coming soon</span>') + '</span>';
       if (ok) b.onclick = () => nav(`#/${sid}/${a.id}`);
       else { b.setAttribute('aria-disabled', 'true'); b.setAttribute('aria-label', `${a.name}. Coming soon`); b.onclick = () => { $('menuNote').textContent = `${s.name} ${a.name} is coming soon!`; }; }
       box.appendChild(b);
     });
-    $('menuExtra').innerHTML = (GM.hasView(sid, 'settings') ? `<span class="grownups">For grown-ups:</span><button class="btn btn-ghost" data-nav="#/${sid}/progress">📊 Progress</button><button class="btn btn-ghost" data-nav="#/${sid}/settings">⚙️ Parent Settings</button>` : '') +
+    const grown = (GM.hasView(sid, 'progress') ? `<button class="btn btn-ghost" data-nav="#/${sid}/progress">📊 Progress</button>` : '') + (GM.hasView(sid, 'settings') ? `<button class="btn btn-ghost" data-nav="#/${sid}/settings">⚙️ Parent Settings</button>` : '');
+    $('menuExtra').innerHTML = (grown ? `<span class="grownups">For grown-ups:</span>${grown}` : '') +
       '<button class="btn btn-ghost" data-nav="#/">⬅ All subjects</button>';
   }
 
