@@ -1,10 +1,24 @@
 # Galaxy Math — Development Status
 
-Updated: 2026-10-12 (branch `feature/subtraction-2.0`, built on the live `feature/subtraction-regrouping-integration` `c8a45d8`; **not published**, not merged to `main`). Addition has **not** been started.
+Updated: 2026-10-12 (branch `feature/subtraction-2.0`; **published** to gh-pages `ea09362`; not merged to `main`). Addition has **not** been started.
 
-## Subtraction 2.0: Math Thinking Lab and Flashcards (2026-10-12), awaiting owner approval
+## Subtraction 2.0: Math Thinking Lab and Flashcards: live (2026-10-12)
 
-**Not published.** The live site still runs the Subtraction integration (`gh-pages` `97c5759`), and `main` is untouched.
+**Published (2026-10-12).** `feature/subtraction-2.0` (`2dc0ad6`) was published to `gh-pages` as `ea09362` with `scripts/publish-gh-pages.mjs` (no force push).
+- **Pages build:** finished. All 23 app files on the public URL match byte for byte.
+- **Live suites at https://bazeocrisy.github.io/Galaxy-Math/:**
+
+  | Suite | Result |
+  |---|---|
+  | Subtraction 2.0 | 383/383 |
+  | Subtraction 1 | 144/144 |
+  | Multiplication | 655/655 |
+  | Division | 181/181 |
+
+- **Live menu:** all five Subtraction activities are open.
+- **Not changed:** `main`, and the unapproved navigation redesign (still unpublished).
+
+**History before approval.** At first this build was not published, and the live site ran the Subtraction integration (`gh-pages` `97c5759`).
 
 Subtraction now has all five activities: Teach, Practice, Math Thinking Lab, Flashcards and Test, plus Parent Settings and Progress.
 - **SubtractKit and the copied Mathbook files are unchanged.** The hash test passes, and there is no diff since `c8a45d8`.
