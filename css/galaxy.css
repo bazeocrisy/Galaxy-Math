@@ -716,7 +716,9 @@ table.data th { font-size: .88rem; color: var(--navy-2); }
 #sub .sr-worked:empty, #sub .sr-shown-end:empty, #sub .sr-again:empty { display: none; }
 #sub .sr-showdemo-h, #sub .sr-shown-h { margin: 0 0 8px; }
 #sub .sr-again { margin-top: 12px; }
-#sub [tabindex="-1"]:focus-visible { outline: 3px solid var(--grape-d); outline-offset: 2px; }
+#sub :is(.sr-complete, .sr-shown-done, .sr-showdemo-h, .sr-shown-h, .sr-confirm):focus { outline: 3px solid var(--grape-d); outline-offset: 2px; }
+#sub h2[tabindex="-1"]:focus { outline: none; }   /* headings get focus for screen readers when a screen opens */
+#sub .big-score { font-size: clamp(2.6rem, 10vw, 3.6rem); font-weight: 700; color: var(--grape-d); line-height: 1; }
 #sub .sr-fs { border: 0; padding: 0; margin: 12px 0; min-width: 0; }
 #sub .sr-fs legend { font-weight: 700; margin-bottom: 6px; padding: 0; }
 #sub .sr-radios { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr)); }
