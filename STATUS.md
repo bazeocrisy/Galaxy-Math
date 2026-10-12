@@ -1,10 +1,16 @@
 # Galaxy Math — Development Status
 
-Updated: 2026-10-11 (branch `feature/subtraction-regrouping-integration`, built on `feature/division` `706b972`; not merged to `main`, **not published**). Addition has **not** been started.
+Updated: 2026-10-12 (branch `feature/subtraction-regrouping-integration`; **published** to gh-pages `97c5759`; not merged to `main`). Addition has **not** been started.
 
-## Subtraction with regrouping: integration of Mathbook SubtractKit (2026-10-11), awaiting owner approval
+## Subtraction with regrouping: integration of Mathbook SubtractKit: approved and live (2026-10-12)
 
-**Not published.** The live site still runs Division 1.0 (`gh-pages` `f1aafd4`), and `main` is untouched. The navigation redesign (`review/nav-redesign`) is still awaiting approval and is **not** included here.
+**Published (2026-10-12).** The owner approved, and `feature/subtraction-regrouping-integration` (`cd47f84`) was published to `gh-pages` as `97c5759` with `scripts/publish-gh-pages.mjs` (no force push).
+- **Before publishing:** `npm test` 107/107; Chrome Multiplication 653/653, Division 180/180, Subtraction 143/143.
+- **Pages build:** finished. All 22 app files on the public URL, including the five SubtractKit files, match the commit byte for byte.
+- **Live suites at https://bazeocrisy.github.io/Galaxy-Math/:** Subtraction 144/144, Multiplication 655/655, Division 181/181.
+- **Not changed:** `main`. The navigation redesign (`review/nav-redesign`) is still unpublished.
+
+**History before approval.** At first this build was not published, and the live site ran Division 1.0 (`gh-pages` `f1aafd4`). The navigation redesign (`review/nav-redesign`) is still awaiting approval and is **not** included here.
 
 **Source**
 - `Downloads/Mathbook-main.zip` = `bazeocrisy/Mathbook` @ `55b51bdda5a81ed00838433603bfa20daeb10efb`. The archive's commit comment matches GitHub `main`.
