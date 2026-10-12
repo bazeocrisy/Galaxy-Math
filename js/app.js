@@ -249,13 +249,10 @@
 
   /** One question: problem → picture → answer → feedback (that order on phones; picture beside the answer on desktop).
       q: { format: 'number'|'choice', prompt, sub?, big?, answer, options?, visual?, hints: [{ text, visual? }], explain: { text, visual? }, typeName? }
-      opts: { tries, allowHint, allowSkip, revealType, onDone({ firstTry, hinted, given, skipped }), nextLabel, onNext } */
-  /**
-   * One question: prompt, picture, answer dock (number pad, choices, or a host-provided workspace), feedback.
-   * Optional hooks (used by Subtraction): q.visualHtml (a ready picture), opts.mountVisual(el, q) (mount a model into the
-   * picture area), q.format 'workspace' with opts.mountAnswer(el, q) → { value() } (the answer is written in that
-   * workspace), q.maxDigits (number pad length), opts.onFinished(el, result) (after the answer is shown).
-   */
+      opts: { tries, allowHint, allowSkip, revealType, onDone({ firstTry, hinted, given, skipped }), nextLabel, onNext }
+      Optional hooks (used by Subtraction): q.answerText (how the answer is shown), q.visualHtml (a ready picture),
+      opts.mountVisual(el, q) (mount a model into the picture area), q.format 'workspace' with opts.mountAnswer(el, q) →
+      { value() } (the answer is written in that workspace), q.maxDigits (number pad length), opts.onFinished(el, result). */
   function askQuestion(el, q, opts) {
     const tries = opts.tries || 1, hints = q.hints || [];
     const hasVisual = !!(q.visual || q.visualHtml || (opts.mountVisual && q.sk));
@@ -312,7 +309,7 @@
       el.querySelectorAll('[data-opt]').forEach((b) => { b.disabled = true; if (b.dataset.opt === String(q.answer)) b.classList.add('right'); else if (b.dataset.opt === given) b.classList.add('wrong'); });
       const qb = el.querySelector('#qButtons'); if (qb) qb.remove();
       el.querySelector('.qa').classList.add('done');   // the pad folds away; feedback sits next to Next
-      const box = el.querySelector('#qAnswer'); if (box) { box.textContent = String(q.answer); box.classList.add('shown'); }
+      const box = el.querySelector('#qAnswer'); if (box) { box.textContent = String(q.answerText || q.answer); box.classList.add('shown'); }
       const row = el.querySelector('#qNextRow');
       row.innerHTML = `<button type="button" class="btn btn-go btn-lg" id="qNext">${opts.nextLabel || 'Next →'}</button>`;
       row.querySelector('#qNext').addEventListener('click', () => opts.onNext());
@@ -351,7 +348,7 @@
       }
       el.querySelector('#qHintBox').innerHTML = '';
       fb.className = 'feedback bad';
-      fb.innerHTML = `<strong>The answer is ${esc(q.answer)}.</strong> ${rich(q.explain.text)}${viz(q.explain.visual)}${typeLine()}`;
+      fb.innerHTML = `<strong>The answer is ${esc(q.answerText || q.answer)}.</strong> ${rich(q.explain.text)}${viz(q.explain.visual)}${typeLine()}`;
       finish(given);
     }
     el.querySelector('#qCheck').addEventListener('click', check);
@@ -359,7 +356,7 @@
       if (done) return;
       firstTry = false;
       fb.className = 'feedback info';
-      fb.innerHTML = `<strong>Skipped. The answer is ${esc(q.answer)}.</strong> ${rich(q.explain.text)}${viz(q.explain.visual)}${typeLine()}`;
+      fb.innerHTML = `<strong>Skipped. The answer is ${esc(q.answerText || q.answer)}.</strong> ${rich(q.explain.text)}${viz(q.explain.visual)}${typeLine()}`;
       finish(null, true);
     });
     onKey = (e) => {

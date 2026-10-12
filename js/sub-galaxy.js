@@ -32,6 +32,8 @@
   const keep = (inst) => { live.push(inst); return inst; };
   function destroyAll() { live.forEach((i) => { try { i.destroy(); } catch (e) { /* already gone */ } }); live = []; }
   const mount = (el, o) => keep(SK.mount(el, Object.assign({ theme: THEME }, o)));
+  /** Destroy one workspace now (when it is replaced on the same screen). */
+  const unmount = (inst) => { if (!inst) return; try { inst.destroy(); } catch (e) { /* already gone */ } live = live.filter((x) => x !== inst); };
 
   let host = null, ctx = null;
   /** Replace the subtraction screen's content (destroying the old workspaces first). */
@@ -742,10 +744,12 @@
    * or two Lab sessions of 80%+ at level 2. A parent can fix the level in Parent Settings.
    */
   function autoLevel() {
-    const done = (id) => !!store.lesson(id);
+    // Only work done without help counts (S2-03): lessons done on their own, practice sessions of 10+ with at least 70%
+    // on their own, tests, and regular Lab challenges (not "Practice my misses").
+    const done = (id) => { const l = store.lesson(id); return !!(l && l.indep); };
     const best = Math.max(0, ...store.tests().map((t) => t.pct));
-    const prac = (sizes) => store.sessions().some((s) => sizes.includes(s.size) && s.counts.independent >= 7);
-    const labOk = (lv) => store.labSessions().filter((s) => s.level === lv && s.total >= 10 && s.pct >= 80).length >= 2;
+    const prac = (sizes) => store.sessions().some((s) => sizes.includes(s.size) && s.total >= 10 && s.counts.independent / s.total >= 0.7);
+    const labOk = (lv) => store.labSessions().filter((s) => s.kind === 'challenge' && s.level === lv && s.total >= 10 && s.pct >= 80).length >= 2;
     let lv = 1;
     if (done('multi') || prac([3]) || best >= 70 || labOk(1)) lv = 2;
     if (lv === 2 && ((done('four') && (done('zero1') || done('zeros2'))) || prac([4, 'mixed']) || best >= 80 || labOk(2))) lv = 3;
@@ -772,8 +776,8 @@
       host.querySelector('#labDrop').addEventListener('click', () => { store.quitLab(); renderLabSetup(); focusHead(); });
     }
   }
-  function startLab({ count, kind = 'challenge', types = null }) {
-    store.startLab({ seed: newSeed(), count, level: labLevel(), kind, types });
+  function startLab({ count, kind = 'challenge', types = null, level = null }) {
+    store.startLab({ seed: newSeed(), count, level: level || labLevel(), kind, types });
     labQs = null;
     renderLabQ();
   }
@@ -820,6 +824,7 @@
       onFinished: (el) => {
         if (wsInst) {   // lock the child's work: the same grid, read-only
           const st = wsInst.getState(), box = el.querySelector('#qWs');
+          unmount(wsInst); wsInst = null;
           box.innerHTML = ''; const v = document.createElement('div'); box.appendChild(v);
           mount(v, { top: q.top, bottom: q.bottom, mode: 'view', work: { ann: st.ann, d: st.d }, caption: 'Your work', answerLabel: 'Your answer' });
         }
@@ -851,7 +856,7 @@
        <div class="panel"><h3>How you did with each kind of problem</h3><div class="table-wrap"><table class="data" id="ldTypes"><thead><tr><th>Kind of problem</th><th>Right</th></tr></thead><tbody>
          ${order.map((id) => `<tr><td>${esc(SB.TYPE[id].name)}</td><td>${byType[id].c} of ${byType[id].t}</td></tr>`).join('')}</tbody></table></div></div>
        ${missed.length ? `<div class="panel cream"><h3>Problems to look at again</h3><ul class="missed-list" id="ldMissed">${missed.map((x, k) => `<li><details data-m="${k}"><summary><span class="badge type">${esc(x.q.typeName)}</span> ${esc(x.q.prompt)} → <b>${esc(typeof x.q.answer === 'number' ? fmt(x.q.answer) : x.q.answer)}</b>${x.a.skipped ? ' <span class="muted">(skipped)</span>' : ''}</summary>
-           <p style="margin-top:6px">${esc(x.q.explain.text)}</p><div class="sr-review-host"></div></details></li>`).join('')}</ul></div>` : ''}
+           <p style="margin-top:6px">${esc(x.q.explain.text)}</p>${x.q.explain.lines ? `<ol class="sk-steps">${x.q.explain.lines.map((l) => `<li>${esc(l)}</li>`).join('')}</ol>` : ''}<div class="sr-review-host"></div></details></li>`).join('')}</ul></div>` : ''}
        ${recs.length ? `<div class="panel ice"><h3>Recommended lessons</h3><div class="btn-row" style="margin-top:8px" id="ldRecs">${recs.map((id) => `<button class="btn btn-secondary" data-rec="${id}">💡 ${esc(lessonOf(id).title)}</button>`).join('')}</div></div>` : ''}
        <div class="btn-row center" style="margin-top:16px">
          ${missed.length ? '<button class="btn btn-primary" id="ldMisses">Practice my misses</button>' : ''}
@@ -861,7 +866,7 @@
     host.querySelectorAll('[data-rec]').forEach((b) => b.addEventListener('click', () => { pendingLesson = b.dataset.rec; ctx.nav('#/subtraction/teach'); }));
     if (host.querySelector('#ldMisses')) host.querySelector('#ldMisses').addEventListener('click', () => {
       // New problems of the same kinds that were missed (never the same numbers again).
-      startLab({ count: Math.min(10, Math.max(3, missed.length)), kind: 'misses', types: [...new Set(missed.map((x) => x.q.typeId))] }); focusHead();
+      startLab({ count: Math.min(10, Math.max(3, missed.length)), kind: 'misses', types: [...new Set(missed.map((x) => x.q.typeId))], level: s.level }); focusHead();
     });
     host.querySelector('#ldAgain').addEventListener('click', () => { renderLabSetup(); focusHead(); });
     focusHead();
@@ -884,8 +889,7 @@
     for (let k = 0; deck.length < n && k < n * 6; k++) {
       const sz = size === 'mixed' ? [2, 3, 4][k % 3] : size;
       const diffs = FLASH_MIX[mix].filter((d) => d === 'none' || M.supported(sz).includes(d));
-      const d = diffs[k % diffs.length], spec = { size: sz, difficulty: d, avoid };
-      if (d === 'none' && sz > 2 && k % 2) spec.equal = false;
+      const d = diffs[Math.floor(r() * diffs.length)], spec = { size: sz, difficulty: d, avoid };   // independent of size (S2-02)
       const q = M.generateOne(r, spec);
       if (q && q.top !== q.bottom) deck.push({ top: q.top, bottom: q.bottom });
     }
@@ -985,6 +989,7 @@
     host.querySelector('.sr-fc').classList.toggle('paused', fc.paused);
     host.querySelector('#sfPause').textContent = fc.paused ? '▶ Resume' : '⏸ Pause';
     host.querySelector('#sfFlip').disabled = fc.paused;
+    host.querySelectorAll('#sfAfter button').forEach((x) => { x.disabled = fc.paused; });
     flashStatus();
   }
   /** SubtractKit's demo of this card's subtraction (supplemental, after the answer shows). */
@@ -993,12 +998,13 @@
     const c = fc.deck[fc.i], box = host.querySelector('#sfDemoWs');
     fc.shown++; fc.showing = true;
     box.innerHTML = ''; const v = document.createElement('div'); box.appendChild(v);
-    mount(v, { top: c.top, bottom: c.bottom, mode: 'demo', caption: `${fmt(c.top)} − ${fmt(c.bottom)}: ${M.classify(c.top, c.bottom).exchanges ? 'see the regrouping' : 'no regrouping needed'}` });
+    fc.demo = mount(v, { top: c.top, bottom: c.bottom, mode: 'demo', caption: `${fmt(c.top)} − ${fmt(c.bottom)}: ${M.classify(c.top, c.bottom).exchanges ? 'see the regrouping' : 'no regrouping needed'}` });
     host.querySelector('#sfDemo').hidden = false; host.querySelector('#sfAfter').hidden = true;
     const n = host.querySelector('#sfDemo [data-act="next"]'); if (n) n.focus({ preventScroll: true });
   }
   function flashSeeClose() {
     fc.showing = false;
+    unmount(fc.demo); fc.demo = null;
     host.querySelector('#sfDemo').hidden = true; host.querySelector('#sfAfter').hidden = false;
     host.querySelector('#sfDemoWs').innerHTML = '';
     host.querySelector('[data-conf="knew"]').focus({ preventScroll: true });
@@ -1063,7 +1069,7 @@
   }
   function flashPanel() {
     const t = store.flashTotals();
-    return `<div class="panel"><h3>Flashcards</h3>${t.sessions ? `<div class="stats" id="sgFlash"><div class="stat"><b>${t.cards}</b>cards seen</div><div class="stat"><b>${Math.round(t.seconds / 60)}</b>minutes</div><div class="stat"><b>${t.knew}</b>“I knew it”</div><div class="stat"><b>${t.notYet}</b>“Not yet”</div></div>` : '<p class="muted" id="sgFlash">No flashcards yet.</p>'}
+    return `<div class="panel"><h3>Flashcards</h3>${t.sessions ? `<div class="stats" id="sgFlash"><div class="stat"><b>${t.cards}</b>cards seen</div><div class="stat"><b>${Math.floor(t.seconds / 60)}:${String(t.seconds % 60).padStart(2, '0')}</b>time practiced</div><div class="stat"><b>${t.knew}</b>“I knew it”</div><div class="stat"><b>${t.notYet}</b>“Not yet”</div></div>` : '<p class="muted" id="sgFlash">No flashcards yet.</p>'}
       <p class="muted" style="margin-top:8px">Flashcards show practice and how sure your child felt. They are not counted as mastery; the Test is.</p></div>`;
   }
   function renderProgress() {

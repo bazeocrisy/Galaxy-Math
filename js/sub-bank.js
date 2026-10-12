@@ -76,7 +76,12 @@
     const top = q.top, bottom = q.bottom, diff = top - bottom, p = M.plan(top, bottom), cls = M.classify(top, bottom);
     const base = { typeId, typeName: t.name, skill: t.skill, lesson: t.lesson, top, bottom, size: sizeOf(top), difficulty: cls.difficulty, chain: cls.chain, level: lv,
       key: `${typeId}:${top}-${bottom}`, sk: null, visualHtml: null };
-    const done = (o) => { avoid.add(`${top}-${bottom}`); return Object.assign(base, o, { maxDigits: 4 }); };
+    const done = (o) => {
+      avoid.add(`${top}-${bottom}`);
+      const out = Object.assign(base, o, { maxDigits: 4 });
+      out.answerText = typeof out.answer === 'number' ? fmt(out.answer) : String(out.answer).replace(/\.$/, '');   // how the answer is shown (S2-06)
+      return out;
+    };
     const choice = (prompt, correct, distractors, extra) => {
       const opts = [...new Set([correct, ...distractors.filter((d) => d !== correct)])];
       if (opts.length < 3) return null;
@@ -113,9 +118,10 @@
         const sk = { top, bottom, view: true, work, caption: `${who}'s work` };
         if (r() < 0.5) {
           // Which mistake? Only mistakes that would NOT give the same wrong answer are offered, so one choice is right.
-          const others = Object.keys(C.BUG_TEXT).filter((b) => b !== bug && b !== 'misaligned').filter((b) => { const w = M.buggyWork(top, bottom, b); return !w || w.answer !== work.answer; });
+          // A "zero" mistake is only offered when the problem has a zero to pass through (S2-08).
+          const others = Object.keys(C.BUG_TEXT).filter((b) => b !== bug && b !== 'misaligned' && (b !== 'zero-ten' || cls.chain > 0)).filter((b) => { const w = M.buggyWork(top, bottom, b); return !w || w.answer !== work.answer; });
           return choice(`${who} worked ${fmt(top)} − ${fmt(bottom)} and got ${fmt(work.answer)}. What went wrong?`, C.BUG_TEXT[bug], shuffle(r, others).slice(0, 3).map((b) => C.BUG_TEXT[b]),
-            { sk, variant: 'why', explain: { text: `${C.BUG_TEXT[bug]} The right answer is ${fmt(diff)}.`, lines: workLines(top, bottom) } });
+            { sk, variant: 'why', explain: { text: `That mistake gives ${fmt(work.answer)}. The right answer is ${fmt(diff)}: ${shortExplain(top, bottom)}`, lines: workLines(top, bottom) } });
         }
         return done({ format: 'number', variant: 'fix', prompt: `${who} worked ${fmt(top)} − ${fmt(bottom)} and got ${fmt(work.answer)}. That is not right. What is the right answer?`, answer: diff, sk,
           explain: { text: `${who}'s mistake: ${C.BUG_TEXT[bug]} Worked correctly: ${shortExplain(top, bottom)}`, lines: workLines(top, bottom) } });
@@ -139,24 +145,28 @@
           { variant: 'judge', explain: { text: right ? `${fmt(claim)} + ${fmt(bottom)} = ${fmt(top)}, the starting number, so ${fmt(claim)} is right.` : `${fmt(claim)} + ${fmt(bottom)} = ${fmt(sum)}, not ${fmt(top)}, so ${fmt(claim)} is not right. ${fmt(top)} − ${fmt(bottom)} = ${fmt(diff)}.` } });
       }
       case 'word': {
+        const n = (k, one, many) => `${fmt(k)} ${k === 1 ? one : many}`;   // "1 point", "45 points"
         const stories = [
-          [`A school library has ${fmt(top)} books. ${fmt(bottom)} books are checked out. How many books are still on the shelves?`, 'books'],
-          [`The rocket must fly ${fmt(top)} miles to reach the space station. It has flown ${fmt(bottom)} miles. How many miles are left?`, 'miles'],
-          [`Ava wants to collect ${fmt(top)} stickers. She has ${fmt(bottom)} stickers. How many more stickers does she need?`, 'stickers'],
-          [`A video game level is worth ${fmt(top)} points. Leo has scored ${fmt(bottom)} points so far. How many more points can he score?`, 'points']
+          [`A school library has ${n(top, 'book', 'books')}. ${n(bottom, 'book is', 'books are')} checked out. How many books are still on the shelves?`, 'books'],
+          [`Ava wants to collect ${n(top, 'sticker', 'stickers')}. She has ${n(bottom, 'sticker', 'stickers')}. How many more stickers does she need?`, 'stickers'],
+          [`A video game level is worth ${n(top, 'point', 'points')}. Leo has scored ${n(bottom, 'point', 'points')} so far. How many more points can he score?`, 'points']
         ];
-        // Heights of hills only make sense with big numbers.
-        if (top >= 1000) stories.push([`Pine Mountain is ${fmt(top)} feet tall. Cedar Hill is ${fmt(bottom)} feet tall. How much taller is Pine Mountain?`, 'feet']);
+        // Distances to space and heights of hills only make sense with big numbers (S2-07).
+        if (top >= 1000 && bottom >= 100) {
+          stories.push([`The rocket must fly ${fmt(top)} miles to reach the space station. It has flown ${fmt(bottom)} miles. How many miles are left?`, 'miles']);
+          stories.push([`Pine Mountain is ${fmt(top)} feet tall. Cedar Hill is ${fmt(bottom)} feet tall. How much taller is Pine Mountain?`, 'feet']);
+        }
         const [prompt, unit] = pick(r, stories);
         return done({ format: 'number', prompt, answer: diff, unit,
           explain: { text: `${fmt(top)} − ${fmt(bottom)} = ${fmt(diff)} ${unit}. ${shortExplain(top, bottom)}`, lines: workLines(top, bottom) } });
       }
       case 'estimate': {
-        const u = sizeOf(top) <= 2 ? 10 : 100, word = u === 10 ? 'ten' : 'hundred';
+        // 2- and 3-digit numbers round to the nearest ten, 4-digit numbers to the nearest hundred (S2-04).
+        const u = sizeOf(top) <= 3 ? 10 : 100, word = u === 10 ? 'ten' : 'hundred';
         const half = (n) => (n % u) === u / 2;   // avoid numbers exactly halfway (no rounding-rule surprises)
         if (half(top) || half(bottom) || bottom < u / 2) return null;
         const est = roundTo(top, u) - roundTo(bottom, u);
-        if (est <= 0) return null;
+        if (est < 3 * u || diff < 3 * u) return null;   // an estimate is only useful when the answer is not tiny
         if (r() < 0.5) {
           return choice(`Round each number to the nearest ${word} to estimate ${fmt(top)} − ${fmt(bottom)}. What is the estimate?`, fmt(est),
             [est + u, est - u, est + 2 * u, roundTo(top, u) + roundTo(bottom, u)].filter((x) => x > 0 && x !== est).map(fmt),
@@ -173,8 +183,10 @@
       }
       case 'place': {
         if (!p.exchanges.length) return null;
-        if (r() < 0.5) {
-          return done({ format: 'number', variant: 'value', prompt: `${fmt(top)} is regrouped as ${M.describe(p.final)}. What number is that?`, answer: top,
+        // "0 tens, 15 ones" would show the answer itself, so that case asks the other question (S2-01).
+        const shows = new RegExp(`(^|\\D)${top}(\\D|$)`).test(M.describe(p.final));
+        if (r() < 0.5 && !shows) {
+          return done({ format: 'number', variant: 'value', prompt: `A number is regrouped as ${M.describe(p.final)}. What is the number?`, answer: top,
             explain: { text: `${p.final.map((a, i) => a * 10 ** i).filter(Boolean).reverse().map(fmt).join(' + ')} = ${fmt(top)}. Regrouping never changes the value.` } });
         }
         const changed = [...new Set(p.exchanges.flatMap((e) => [e.from, e.to]))];
@@ -189,26 +201,30 @@
           return done({ format: 'workspace', prompt: `Subtract ${fmt(top)} − ${fmt(bottom)}. Watch out for the zeros.`, answer: diff,
             explain: { text: shortExplain(top, bottom), lines: workLines(top, bottom) } });
         }
-        const orig = M.digitsOf(top, p.size), zs = p.exchanges.map((e) => e.from).filter((k) => orig[k] === 0);
+        // Any zero place that regrouping changes: one passed through ends with 9; one that only receives ends with 10 (S2-08).
+        const orig = M.digitsOf(top, p.size), zs = [...new Set(p.exchanges.flatMap((e) => [e.from, e.to]))].filter((k) => orig[k] === 0);
         if (!zs.length) return null;
-        const i = pick(r, zs);
+        const i = pick(r, zs), gave = p.exchanges.some((e) => e.from === i);
         return done({ format: 'number', variant: 'zero', prompt: `In ${fmt(top)} − ${fmt(bottom)}, the ${P[i].name} place has 0. After all the regrouping, what number is in the ${P[i].name} place?`, answer: p.final[i],
           sk: { top, bottom, view: true, answer: false },
-          explain: { text: `The ${P[i].name} gets 10 from the place on its left, then gives 1 to the place on its right: 10 − 1 = ${p.final[i]}. ${workLines(top, bottom).filter((l) => /^Exchange/.test(l)).join(' ')}` } });
+          explain: { text: gave ? `The ${P[i].name} gets 10 from the place on its left, then gives 1 to the place on its right: 10 − 1 = ${p.final[i]}. ${workLines(top, bottom).filter((l) => /^Exchange/.test(l)).join(' ')}`
+            : `The ${P[i].name} gets 10 from the place on its left and keeps them: 0 + 10 = ${p.final[i]}. ${workLines(top, bottom).filter((l) => /^Exchange/.test(l)).join(' ')}` } });
       }
       case 'strategy': {
         if (r() < 0.5) {
           const u = sizeOf(bottom) >= 3 ? 100 : 10, m = (Math.floor(bottom / u) + 1) * u;
           if (m >= top) return null;
           const who = pick(r, NAMES);
-          return done({ format: 'number', variant: 'countup', prompt: `${who} finds ${fmt(top)} − ${fmt(bottom)} by counting up: from ${fmt(bottom)} to ${fmt(m)} is ${fmt(m - bottom)}, then from ${fmt(m)} to ${fmt(top)} is ${fmt(top - m)}. What is ${fmt(top)} − ${fmt(bottom)}?`, answer: diff,
+          // The first jump is given; the child finds the second jump and adds (S2-08).
+          return done({ format: 'number', variant: 'countup', prompt: `${who} finds ${fmt(top)} − ${fmt(bottom)} by counting up. From ${fmt(bottom)} to ${fmt(m)} is ${fmt(m - bottom)}. Then ${who} counts up from ${fmt(m)} to ${fmt(top)}. What is ${fmt(top)} − ${fmt(bottom)}?`, answer: diff,
             explain: { text: `Add the two jumps: ${fmt(m - bottom)} + ${fmt(top - m)} = ${fmt(diff)}. Counting up and regrouping give the same answer.` } });
         }
         if (!p.exchanges.length) return null;
         const w = M.buggyWork(top, bottom, 'smaller-from-larger');
         if (!w || w.answer === diff) return null;
         const [a, b2, c] = shuffle(r, NAMES).slice(0, 3);
-        return choice(`${a} regrouped in columns and got ${fmt(diff)}. ${b2} counted up from ${fmt(bottom)} to ${fmt(top)} and got ${fmt(diff)}. ${c} subtracted the smaller digit from the larger digit in each column and got ${fmt(w.answer)}. Whose strategy does NOT work?`,
+        // Short sentences for a third grader (S2-09).
+        return choice(`${fmt(top)} − ${fmt(bottom)}: ${a} regrouped and got ${fmt(diff)}. ${b2} counted up and got ${fmt(diff)}. ${c} took the smaller digit from the bigger one in each column and got ${fmt(w.answer)}. Whose way does NOT work?`,
           c, [a, b2, 'They all work'], { variant: 'whose', explain: { text: `${c} cannot turn a column around: when the top digit is smaller, exchange first. Regrouping and counting up both give ${fmt(diff)}.` } });
       }
       case 'model': {

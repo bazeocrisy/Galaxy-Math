@@ -39,6 +39,7 @@ function verify(q, where) {
   assert.ok(q.typeId && q.typeName && q.skill && q.lesson && q.key && q.explain && q.explain.text.length > 10, `${where}: metadata`);
   assert.ok(['none', 'easy', 'medium', 'hard'].includes(q.difficulty), `${where}: difficulty`);
   assert.ok(C.learn.some((l) => l.id === q.lesson), `${where}: related lesson exists`);
+  assert.equal(q.answerText, typeof q.answer === 'number' ? fmt(q.answer) : q.answer.replace(/\.$/, ''), `${where}: answer shown with commas, no double period`);
   if (q.format === 'choice') {
     assert.ok(q.options.length >= 3 && q.options.length <= 4, `${where}: 3–4 options`);
     assert.equal(new Set(q.options).size, q.options.length, `${where}: options unique`);
@@ -71,6 +72,7 @@ function verify(q, where) {
       const wrong = num(/got ([\d,]+)/.exec(q.prompt)[1]);
       assert.notEqual(wrong, diff, `${where}: the shown work is wrong`);
       if (q.format === 'number') { assert.equal(q.answer, diff); break; }
+      if (!o.chain) assert.ok(!q.options.includes(C.BUG_TEXT['zero-ten']), `${where}: no zero mistake without a zero`);
       const fits = q.options.filter((t) => { const w = BUG_OF[t] && M.buggyWork(top, bottom, BUG_OF[t]); return w && w.answer === wrong; });
       assert.deepEqual(fits, [q.answer], `${where}: exactly one mistake explains ${wrong}`);
       break;
@@ -80,10 +82,17 @@ function verify(q, where) {
       else if (q.variant === 'how') assert.equal(q.answer, `Add your answer to ${fmt(bottom)}. You should get ${fmt(top)}.`);
       else { const claim = num(/= ([\d,]+)\. /.exec(q.prompt)[1]); assert.equal(q.answer, claim === diff ? 'Yes' : 'No'); assert.ok(q.prompt.includes(`${fmt(claim)} + ${fmt(bottom)} = ${fmt(claim + bottom)}`)); }
       break;
-    case 'word': assert.equal(q.answer, diff); assert.ok(q.prompt.includes(fmt(top)) && q.prompt.includes(fmt(bottom))); break;
+    case 'word':
+      assert.equal(q.answer, diff); assert.ok(q.prompt.includes(fmt(top)) && q.prompt.includes(fmt(bottom)));
+      assert.doesNotMatch(q.prompt, /(^|\D)1 (points|books|stickers)\b/, `${where}: one point, one book`);
+      if (/miles|feet/.test(q.prompt)) assert.ok(top >= 1000 && bottom >= 100, `${where}: plausible distances and heights`);
+      break;
     case 'estimate': {
-      const u = String(top).length <= 2 ? 10 : 100, R = (x) => Math.round(x / u) * u, est = R(top) - R(bottom);
+      const u = String(top).length <= 3 ? 10 : 100, R = (x) => Math.round(x / u) * u, est = R(top) - R(bottom);
       assert.ok(top % u !== u / 2 && bottom % u !== u / 2, `${where}: no halfway numbers`);
+      assert.ok(q.prompt.includes(u === 10 ? 'nearest ten' : 'nearest hundred'), `${where}: 2- and 3-digit round to tens, 4-digit to hundreds`);
+      assert.ok(est >= 3 * u && diff >= 3 * u, `${where}: the estimate is meaningful`);
+      if (q.variant !== 'round' && q.answer.startsWith('Yes')) assert.ok(Math.abs(diff - est) <= u, `${where}: a reasonable answer is close to the estimate`);
       if (q.variant === 'round') { assert.equal(q.answer, fmt(est)); assert.equal(q.options.filter((x) => num(x) === est).length, 1); }
       else {
         const claim = num(/= ([\d,]+)\. Estimate/.exec(q.prompt)[1]);
@@ -92,15 +101,19 @@ function verify(q, where) {
       break;
     }
     case 'place':
-      if (q.variant === 'value') { assert.equal(q.answer, top); assert.deepEqual(parseAmounts(q.prompt.split(' is regrouped as ')[1], String(top).length), o.final); }
+      if (q.variant === 'value') { assert.equal(q.answer, top); assert.ok(!q.prompt.includes(fmt(top)), `${where}: the prompt does not show the answer`); assert.deepEqual(parseAmounts(q.prompt.split(' is regrouped as ')[1], String(top).length), o.final); }
       else { const p = PLACE[/how many (\w+) does/.exec(q.prompt)[1]]; assert.equal(q.answer, o.final[p]); }
       break;
     case 'strategy':
       if (q.variant === 'countup') {
-        const [a, b] = [...q.prompt.matchAll(/is ([\d,]+)/g)].map((m) => num(m[1]));
-        assert.equal(a + b, diff); assert.equal(q.answer, diff);
+        // One jump is given; the child finds the second jump and adds.
+        const m = /From ([\d,]+) to ([\d,]+) is ([\d,]+)\. Then \w+ counts up from ([\d,]+) to ([\d,]+)\./.exec(q.prompt);
+        assert.ok(m, `${where}: ${q.prompt}`);
+        assert.equal(num(m[2]) - num(m[1]), num(m[3]), `${where}: the given jump is right`);
+        assert.deepEqual([num(m[1]), num(m[4]), num(m[5])], [bottom, num(m[2]), top]);
+        assert.ok(num(m[3]) + (top - num(m[2])) === diff && q.answer === diff, `${where}: the jumps add up to the difference`);
       } else {
-        const claims = [...q.prompt.matchAll(/(\w+) (?:regrouped|counted|subtracted)[^.]*?got ([\d,]+)/g)].map((m) => [m[1], num(m[2])]);
+        const claims = [...q.prompt.matchAll(/(\w+) (?:regrouped|counted|took)[^.]*?got ([\d,]+)/g)].map((m) => [m[1], num(m[2])]);
         assert.equal(claims.length, 3);
         assert.deepEqual(claims.filter(([, v]) => v !== diff).map(([n]) => n), [q.answer], `${where}: only one strategy fails`);
       }

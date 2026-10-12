@@ -101,7 +101,7 @@ try {
   check('lab: ten different kinds in a 10-question challenge', kinds.size === 10, J([...kinds]));
   check('lab: level 1 never shows 4-digit numbers', sizes.every((n) => n <= 3), J(sizes));
   check('lab report: 70%, 7 / 1 / 2', (await text('#ldPct')) === '70%' && J([await text('#ldC'), await text('#ldI'), await text('#ldU')]) === J(['7', '1', '2']));
-  check('lab report: by kind, missed problems, recommended lessons', (await q(`document.querySelectorAll('#ldTypes tbody tr').length`)) === 10 && (await q(`document.querySelectorAll('#ldMissed li').length`)) === 3 && (await exists('#ldRecs [data-rec]')));
+  check('lab report: by kind, missed problems, recommended lessons', (await q(`document.querySelectorAll('#ldTypes tbody tr').length`)) === 10 && (await q(`document.querySelectorAll('#ldMissed > li').length`)) === 3 && (await exists('#ldRecs [data-rec]')));
   await b.js(`const d = document.querySelector('#ldMissed details'); d.open = true; d.dispatchEvent(new Event('toggle'));`); await b.wait(100);
   check('lab report: a missed problem can be worked again', await exists('#ldMissed [data-seeit]'));
   check('lab saved once, apart from Practice, Test and Teach', (await sub('labSessions().length')) === 1 && (await sub('sessions().length')) === 0 && (await sub('tests().length')) === 0 && (await sub('lessonsSummary().done')) === 0 && (await sub('activeLab()')) === null);
@@ -152,6 +152,10 @@ try {
   check('resume: not yet (about 7 s were left)', !(await q(`document.getElementById('sfCard').classList.contains('flip')`)));
   await b.wait(2200);
   check('resume: the answer shows when the remaining time is up', await q(`document.getElementById('sfCard').classList.contains('flip')`));
+  await click('#sfPause', 60);
+  check('paused after the answer: its buttons are disabled too', await q(`[...document.querySelectorAll('#sfAfter button')].every(x => x.disabled)`));
+  await click('#sfPause', 60);
+  check('resumed: the buttons work again', await q(`[...document.querySelectorAll('#sfAfter button')].every(x => !x.disabled)`));
   // See the regrouping
   await click('#sfSee', 250);
   check('"See it worked": SubtractKit demo of this card, step by step', (await exists('#sfDemo .sk-mode-demo')) && (await visible('#sfDemo')) && /Part 1 of/.test(await text('#sfDemo .sk-democtl')));
