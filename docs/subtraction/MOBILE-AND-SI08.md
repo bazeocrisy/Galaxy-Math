@@ -37,7 +37,9 @@ After the band was removed, some long questions still ran past one phone screen.
   - if the answer grid is still empty, it scrolls to the grid ("Find and fix mistakes");
   - otherwise it scrolls to Check Answer (Teach) or the question's Next / Finish button (Test).
 
-**Verified at 320, 375 and 390** (`tests/browser-subtraction2.test.mjs`, "phones" section):
+- **Number pad and workspace questions** (S2-16, the same shared screen): once the child starts typing, Submit scrolls into view if it is below the screen. After Submit, Next is brought into view if the feedback left it off screen.
+
+**Verified at 320, 375 and 390, with the test doing no scrolling of its own** (`tests/browser-subtraction2.test.mjs`, "phones" section):
 - Teach, the Test (all 4 question kinds) and all 12 Lab kinds start their answer area on the first screen. The top of the choices, number pad or answer grid is visible, so the child can see where to go.
 - After answering, Submit and then Next are fully on screen, inside the page width, and not covered: the element at their centre is the button itself.
 - No page has sideways scrolling.

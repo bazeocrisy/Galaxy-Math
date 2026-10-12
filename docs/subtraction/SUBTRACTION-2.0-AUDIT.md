@@ -238,3 +238,108 @@ Same rules as the first pass: one headless browser at a time, in the foreground.
 **Open: Critical 0, High 0.** Medium 0. Low 3: S2-12 and S2-13 (both accepted) and S2-15 (stale screenshots).
 
 **Approval-ready.** All math checks are clean and the fixes are verified independently. The only remaining step is to refresh the review screenshots before publishing.
+
+## 7. Final pre-publication recheck at `a041d51`
+
+Same rules as before: one headless Chromium at a time, in the foreground. These are simulated viewports, not physical devices. Mathbook was read only, and only this report was edited.
+
+### What was run
+
+| What | Result |
+|------|--------|
+| `npm test` | 116/116 pass, including the VENDORED hash test |
+| `git diff --stat c8a45d8 a041d51 -- js/subtractkit css/subtractkit js/subtraction-vendor` | Empty |
+| Mathbook `main` (`git ls-remote https://github.com/bazeocrisy/Mathbook refs/heads/main`, read-only) | `55b51bdda5a81ed00838433603bfa20daeb10efb`, i.e. **55b51bd** |
+| `node tests/browser-subtraction2.test.mjs` (once) | **382/382** pass |
+| Independent CDP probe (scratch `qa-sub2/probe3.mjs`): read-only grids at 320×640, 390×844, 768×1024, 1280×800, 1366×768 and 1280×560 (the max-height 600 rule); natural visibility of Submit and Next with **no scrolling by the probe** for all 12 Lab kinds at 320×640, 375×812 and 390×844; a Multiplication Lab choice question at 1280×800 and 320×640 | See below |
+| Independent migration check in Node (scratch `qa-sub2/migrate.cjs`). It runs the fixture through the **live store code** (`git show c8a45d8:js/sub-store.js`) and through the new store. | See below |
+| Regenerated screenshots spot-checked: 320-06, 390-07b | The band is gone, the zero-ten option is no longer offered without a zero, and the feedback has a single period |
+
+### 1. The 84 px band: verified
+
+| Grid | Computed rows | Gap from labels to digits | Columns aligned |
+|------|---------------|---------------------------|-----------------|
+| Read-only, no marks (Lab "Correct exchanges"), 320 / 390 / 768 / 1280 / 1366 | `20px 0 0 0 44px 44px 3px 0` | **16 px** at every width | yes |
+| Same, at 1280×560 (max-height 600) | `16px 0 0 0 36px 36px 3px 0` | 16 px | yes |
+| Someone's work **with** marks (Lab "Find and fix mistakes", 3 current marks, 1 earlier value, 3 crossed digits) | Unchanged SubtractKit rows: `20px 0 24px 44px 44px 44px 3px 52px`, and at 1280×560 `16px 0 20px 44px 36px 36px 3px 44px` | 84 / 80 px (the mark rows are kept) | yes; marks visible |
+| Demo 3,002 − 1,578 (Teach) | Unchanged chip rows: `20px 20px 24px …` | Unchanged | yes; 4 crossed-out labels, "was 10, now 9" |
+
+There is no horizontal overflow at any size. The rule is scoped to `#sub .sk-mode-view` and only matches grids with neither `.sk-cur-read` nor `.sk-hist`. View mode never adds chips (`sub-workspace.js:287`), so demo and guided grids cannot match. The `.sk-mini` grids are demo mode, so they are not affected either. Browsers without `:has()` simply ignore the rule and show the old band, which is harmless.
+
+### 2. Finding controls on phones: met, with one Low (S2-16)
+
+- **Lab choice kinds** (D, F, H, K, L): after a choice, Submit was fully on screen and not covered at all three phone sizes, with no scrolling by the probe.
+- **Lab number and workspace kinds:** Submit sits directly below the number pad or grid.
+- **After Submit:** Next has keyboard focus every time, and the feedback is scrolled into view.
+- **Test** (all 4 kinds) and **Teach** decide: the suite checks pass at all three sizes (382/382).
+- The `askQuestion` change only runs on a choice click, and only when `#qCheck` is below the viewport. It scrolls with `block: 'nearest'`, so short pages never move.
+- **Multiplication** choice question: picking an answer did not scroll at 1280×800 or 320×640 (scrollY 0 → 0), and Submit stayed visible. Division uses the same code path, so it cannot be affected differently. I did not run its suites, per the rules.
+
+**S2-16 — Low — On the smallest phones, number-pad questions with a model can leave Submit (and once, Next) just below the screen.**
+- **Location:** `askQuestion` in `js/app.js`. The new reveal applies to choice questions only, and after Submit Next is focused with `preventScroll`.
+- **Evidence:** In the probe, with no scrolling, the "Find and fix mistakes" fix variant (someone's work above the number pad) ended with Submit below the screen:
+
+  | Phone | Submit below the screen by |
+  |-------|----------------------------|
+  | 320×640 | 110 px |
+  | 375×812 | 61 px |
+  | 390×844 | 29 px |
+
+  At 320×640, Submit was also partly below the edge for Place value and Zero-place. After Submit on "Correct exchanges" at 320×640, Next was 84 px below the screen (it still had focus).
+- **Why the suite misses this:** the Lab phone checks call `scrollIntoView` themselves before asserting `usable('#qCheck')` and `usable('#qNext')`.
+- **Failure scenario:** On a small phone, a child who has typed the answer sees the pad but not Submit, and has to scroll a little. Nothing is covered or clipped, the pad visibly continues, and Enter also submits. This falls within the owner's "scrolling is acceptable" rule, so it is not a blocker.
+- **Fix:** Optional. Bring `#qCheck` into view after the first digit or grid entry, as is now done for choices. After Submit, scroll `#qNext` into view (`block: 'nearest'`) when it is below the screen. Make the suite assert visibility before scrolling.
+
+### 3. SI-08: claim verified; no student-facing path to answers found
+
+- The suite's SI-08 section passes: none of the 15 questions show an answer, hint, solution, demo, right/wrong mark or mistake key before Finish. The draft holds only `seed`, `i` and `resp`, and `_test` exposes only `startLesson`.
+- By code reading:
+  - The Test has no Check, Hint or Show me.
+  - `Start a new test` always uses `newSeed()`, so a finished test (whose results show the answers) cannot be reopened with the same problems.
+  - The Lab, Practice and Teach build their own problems and offer no way to enter custom numbers.
+  - The only path is the developer console (`Mathbook.subtractRegrouping.testItems(seed)`). That is not student-facing, and closing it would mean editing the vendored `content.js`.
+- I agree with keeping it as a documented limitation.
+
+### 4. Migration from the live build: verified
+
+- `c8a45d8` and gh-pages `97c5759` have identical blobs for `js/sub-store.js`, `js/sub-galaxy.js`, `js/app.js` and `js/subtraction-vendor/content.js`.
+- The fixture's `galaxy-math.subtraction` is v1 and is a fixed point of the **live** store's own `normalize`: everything in it is accepted by the live code.
+- Loaded into the new store:
+  - lessons, lessonWork, finished practice sessions, the test, the in-progress practice (with `cur.hints = 1`) and the in-progress test draft are all kept unchanged;
+  - new empty `lab`, `flash` and default `settings` sections are added;
+  - the next save is v2, and reading it back gives the same data;
+  - `galaxy-math.progress` (Multiplication and Division) is byte-identical, and `galaxy-math.settings` is untouched.
+- The suite's browser migration checks pass as well.
+- I could not independently confirm that the fixture came from the live *screens*; it is consistent with that claim.
+
+### Finding status
+
+| ID | Status |
+|----|--------|
+| S2-01 … S2-11, S2-14 | Fixed (unchanged since §6) |
+| S2-12, S2-13 | Open, accepted Lows |
+| S2-15 | **Fixed**: the screenshots were regenerated and the spot checks show the current code |
+| S2-16 | **New, Low**, see above |
+
+### Final verdict
+
+**Open: Critical 0, High 0** (Medium 0; Low 3: S2-12, S2-13, S2-16).
+
+**Ready to publish.** S2-16 is a small phone-scrolling polish item that can follow later.
+
+## 8. S2-16 fixed before publication (main session; not re-inspected by the auditor)
+
+- **Change.** The shared question screen (`askQuestion` in `js/app.js`) now keeps the buttons in view on long questions:
+  - it brings Submit into view once the child starts answering (a number-pad digit, typing in the workspace, or a choice), but only if Submit is below the screen;
+  - after Submit, if showing the feedback left Next off screen, it brings Next back into view.
+- **Effect on short pages:** none. They never move.
+- **Tests.**
+  - The phone checks in `tests/browser-subtraction2.test.mjs` no longer scroll anything themselves.
+  - For all 12 Lab kinds at 320×640, 375×812 and 390×844, Submit (after answering) and Next (after Submit) must be fully on screen, inside the width, and not covered.
+  - Result: 382/382.
+- **Regressions:** `npm test` 116/116; Subtraction 143/143; Multiplication 656/656; Division 180/180.
+
+**Open (Low, accepted):**
+- S2-12: work in progress on the Lab question currently on screen is lost on reload.
+- S2-13: the shared component highlights right and wrong choices by colour only; this predates the work.
+- SI-08: documented in `docs/subtraction/MOBILE-AND-SI08.md`.

@@ -275,17 +275,18 @@
       </div>`;
     let attempts = 0, hintLevel = 0, done = false, choice = null, firstTry = null;
     const fb = el.querySelector('#qFeedback');
-    const pad = q.format === 'number' ? numPad(el.querySelector('#qPad'), el.querySelector('#qAnswer'), { max: q.maxDigits || 3 }) : null;
+    /** On a long question (a phone), keep Submit in view once the child has started answering; short pages never move. */
+    const showSubmit = () => { const cb = el.querySelector('#qCheck'); if (cb && cb.getBoundingClientRect().bottom > window.innerHeight) cb.scrollIntoView({ block: 'nearest' }); };
+    const pad = q.format === 'number' ? numPad(el.querySelector('#qPad'), el.querySelector('#qAnswer'), { max: q.maxDigits || 3, onChange: (v) => { if (v) showSubmit(); } }) : null;
     if (opts.mountVisual && q.sk) opts.mountVisual(el.querySelector('.qa-visual'), q);
     const ws = q.format === 'workspace' && opts.mountAnswer ? opts.mountAnswer(el.querySelector('#qWs'), q) : null;
+    if (ws) el.querySelector('#qWs').addEventListener('input', showSubmit);
     const value = () => (pad ? pad.value : ws ? ws.value() : choice);
     if (q.format === 'choice') el.querySelector('.choices').addEventListener('click', (e) => {
       const b = e.target.closest('[data-opt]'); if (!b || done) return;
       choice = b.dataset.opt;
       el.querySelectorAll('[data-opt]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
-      // On a long question (a phone), bring Submit into view once an answer is chosen; short questions never move.
-      const cb = el.querySelector('#qCheck');
-      if (cb && cb.getBoundingClientRect().bottom > window.innerHeight) cb.scrollIntoView({ block: 'nearest' });
+      showSubmit();
     });
     const hintHtml = (h) => `${rich(h.text)}${viz(hideTotals(h.visual))}`;
     /** Show hints up to `level` (1 = clue, 2 = strategy). */
@@ -324,6 +325,9 @@
         const r = n.getBoundingClientRect();
         const fbBox = el.querySelector('.qa-feedback').getBoundingClientRect();
         if (r.bottom > window.innerHeight || r.top < 0 || fbBox.top > window.innerHeight - 60) el.querySelector('.qa-feedback').scrollIntoView({ block: 'start', behavior: 'auto' });
+        // Next must always be on screen: if showing the feedback left it out of view, bring it back (nearest edge).
+        const r2 = n.getBoundingClientRect();
+        if (r2.bottom > window.innerHeight || r2.top < 0) n.scrollIntoView({ block: 'nearest' });
       }, 30);
     }
     function check() {

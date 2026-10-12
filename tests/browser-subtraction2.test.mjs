@@ -86,10 +86,11 @@ try {
       if (it.format === 'choice') await click(`[data-opt=${J(it.answer)}]`, 120);
       else if (it.format === 'workspace') await typeWs(it.answer);
       else for (const ch of String(it.answer)) await b.key(ch);
-      await b.js(`const c = document.getElementById('qCheck'); if (c.getBoundingClientRect().bottom > innerHeight && '${it.format}' !== 'choice') c.scrollIntoView({ block: 'nearest' });`);
+      await b.wait(80);   // no help from the test: the app itself must bring Submit into view (S2-16)
       check(`${w} Lab ${kind}: Submit fully on screen and not covered once answered`, await usable('#qCheck'));
       await click('#qCheck', 150);
-      check(`${w} Lab ${kind}: the Next button can be reached and pressed`, (await b.js(`document.getElementById('qNext').scrollIntoView({ block: 'nearest' }); return true;`)) && (await usable('#qNext')));
+      await b.wait(150);
+      check(`${w} Lab ${kind}: after Submit, Next is fully on screen without scrolling`, await usable('#qNext'));
     }
     // Someone's work WITH regroup marks: the mark rows stay, with the crossed-out digits and the new values.
     const markedSeed = await q(`(() => { for (let s = 1; s < 500; s++) { const x = GalaxySubBank.makeSession({ seed: s, count: 2, level: 3, types: ['error'] })[0]; if (x && x.sk.work && Object.keys(x.sk.work.ann).length) return s; } return null; })()`);

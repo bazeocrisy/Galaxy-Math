@@ -59,6 +59,22 @@ Subtraction now has all five activities: Teach, Practice, Math Thinking Lab, Fla
 
 **Screenshots:** `docs/review/subtraction2/shots/`, 24 screens at each of the six sizes (144 in all).
 
+**Final mobile pass before publication (2026-10-12; details in `docs/subtraction/MOBILE-AND-SI08.md`)**
+- The 84 px empty band in read-only grids is down to 16 px. Columns, crossed-out digits and marks are unchanged.
+- Submit, Next and Check Answer are findable and never covered or clipped. This is checked for Teach, the Test and all 12 Lab kinds at 320, 375 and 390, with the tests doing no scrolling of their own.
+- SI-08 is documented. The normal Test page reveals no answers (permanent checks). Only the developer console can rebuild the questions, which is accepted as a limitation.
+- Existing progress from the live build migrates with nothing lost. This is checked with a real v1 record made by the live build (`tests/fixtures/storage-from-live-97c5759.json`).
+- **Final QA recheck at `a041d51`:** 0 Critical, 0 High, ready to publish. Its one new Low (S2-16) was then fixed.
+- **Tests:**
+
+  | Suite | Result |
+  |---|---|
+  | Unit tests | 116/116 |
+  | Subtraction 2.0 | 382/382 |
+  | Subtraction 1 | 143/143 |
+  | Multiplication | 656/656 |
+  | Division | 180/180 |
+
 ## Subtraction with regrouping: integration of Mathbook SubtractKit: approved and live (2026-10-12)
 
 **Published (2026-10-12).** The owner approved, and `feature/subtraction-regrouping-integration` (`cd47f84`) was published to `gh-pages` as `97c5759` with `scripts/publish-gh-pages.mjs` (no force push).
