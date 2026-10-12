@@ -2,6 +2,17 @@
 
 Updated: 2026-10-11 (branch `feature/division`, built on `feature/galaxy-math-foundation`; not merged to `main`). Addition and Subtraction have **not** been started.
 
+## Navigation redesign: awaiting owner review (2026-10-11)
+
+Branch `review/nav-redesign` (built on `feature/division`). **Not published** until the owner approves the screenshots. `main` is untouched.
+- **Home:** compact subject cards (icon, name, one-line description, Start button). The content is centred vertically.
+- **Menus (Multiplication and Division share the design):** 3 + 2 activity cards on tablets and desktops; two columns on phones with Math Thinking Lab full width.
+- **Icons:** one SVG icon set replaces emoji on these screens.
+- **Grown-up links:** Progress and Parent Settings are quiet text links under a divider.
+- **Unchanged:** teaching content, math, scores, timers and progress.
+- **Evidence:** before/after gallery in `docs/review/nav-redesign/README.md` (3 screens × 6 widths). The independent UX review (`docs/review/nav-redesign/UX-REVIEW.md`) found 0 Critical, 0 High, 2 Medium (fixed) and 8 Low (2 fixed, 6 open).
+- **Tests:** unit 88/88. New navigation layout suite `tests/browser-nav.test.mjs` 257/257 in Chrome and Edge. Multiplication and Division regression suites both pass in Chrome. These ran in a headless browser; no real devices were used.
+
 ## Division 1.0 (2026-10-11)
 
 Division now has the same five activities as Multiplication. It uses the same screens and design: a subject profile in `js/app.js` swaps the fact engine, the question bank, the lessons and the wording.

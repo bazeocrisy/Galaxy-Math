@@ -381,7 +381,7 @@
     const tag = open ? SUBJECT_TAGLINE[s.id] || '' : '';
     b.innerHTML = `<span class="sym" aria-hidden="true">${icon(s.id)}</span><span class="sText"><span class="sName">${s.name}</span>${tag ? `<span class="sTag">${tag}</span>` : ''}</span>` +
       (open ? `<span class="go"><span class="lbl">${label}</span>${icon('go')}</span>` : `<span class="badge soon">${label}</span>`);
-    if (open) { b.setAttribute('aria-label', `${s.name}: ${tag}. ${full ? 'Teach, Practice, Math Thinking Lab, Flashcards and Test' : label}`); b.onclick = () => nav('#/' + s.id); }
+    if (open) { b.setAttribute('aria-label', `${full ? 'Start ' : ''}${s.name}: ${tag}. ${full ? 'Teach, Practice, Math Thinking Lab, Flashcards and Test' : label}`); b.onclick = () => nav('#/' + s.id); }
     else {
       b.setAttribute('aria-disabled', 'true'); b.setAttribute('aria-label', `${s.name}. Coming soon`);
       b.onclick = () => { $('landingNote').textContent = `${s.name} is coming soon! Try Multiplication for now.`; };
@@ -407,7 +407,7 @@
       const extra = ok && a.id === 'teach' && sid === SUBJ ? `<span class="mMeta">${done} of ${L.LESSONS.length} lessons done</span>` : '';
       b.innerHTML = `<span class="mIcon" aria-hidden="true">${icon(a.id)}</span><span class="mText"><span class="mName">${a.name}</span>` +
         (ok ? `<span class="mBlurb">${a.blurb}</span>${extra}` : '<span class="badge soon">Coming soon</span>') + '</span>';
-      if (ok) b.onclick = () => nav(`#/${sid}/${a.id}`);
+      if (ok) { b.setAttribute('aria-label', `${a.name}: ${a.blurb}.${extra ? ` ${done} of ${L.LESSONS.length} lessons done.` : ''}`); b.onclick = () => nav(`#/${sid}/${a.id}`); }
       else { b.setAttribute('aria-disabled', 'true'); b.setAttribute('aria-label', `${a.name}. Coming soon`); b.onclick = () => { $('menuNote').textContent = `${s.name} ${a.name} is coming soon!`; }; }
       box.appendChild(b);
     });

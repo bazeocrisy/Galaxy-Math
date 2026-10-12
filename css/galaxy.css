@@ -701,6 +701,7 @@ table.data th { font-size: .88rem; color: var(--navy-2); }
   .link-btn { padding: 8px 8px; font-size: .95rem; gap: 6px; } .grownups { font-size: .85rem; }
 }
 @media (max-width: 359px) {
+  .grownups { flex-basis: 100%; text-align: center; margin: 4px 0 0; }   /* label above, both links together (N-02) */
   .subject .sName { font-size: 1.15rem; }
   .mode .mName { font-size: 1.1rem; } .mode .mBlurb { font-size: .86rem; }
 }
@@ -714,7 +715,7 @@ table.data th { font-size: .88rem; color: var(--navy-2); }
 }
 @media (min-width: 1000px) { .mode { gap: 14px; padding: 16px 14px; } .mode .mIcon { width: 56px; height: 56px; } .mode .mName { font-size: 1.4rem; white-space: nowrap; } }
 /* equal rows in the activity grid; the home page keeps one column until two cards fit side by side */
-.modes { grid-auto-rows: 1fr; }
+@media (min-width: 700px) { .modes { grid-auto-rows: 1fr; } }   /* phones: rows size to their content (N-01) */
 @media (min-width: 700px) and (max-width: 879px) {
   .subjects { grid-template-columns: 1fr; max-width: 560px; gap: 12px; }
   .subject { min-height: 96px; } .subject.soon { min-height: 76px; } .subject.soon .sTag { display: none; }
