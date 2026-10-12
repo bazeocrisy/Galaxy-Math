@@ -283,6 +283,9 @@
       const b = e.target.closest('[data-opt]'); if (!b || done) return;
       choice = b.dataset.opt;
       el.querySelectorAll('[data-opt]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+      // On a long question (a phone), bring Submit into view once an answer is chosen; short questions never move.
+      const cb = el.querySelector('#qCheck');
+      if (cb && cb.getBoundingClientRect().bottom > window.innerHeight) cb.scrollIntoView({ block: 'nearest' });
     });
     const hintHtml = (h) => `${rich(h.text)}${viz(hideTotals(h.visual))}`;
     /** Show hints up to `level` (1 = clue, 2 = strategy). */

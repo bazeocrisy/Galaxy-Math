@@ -283,7 +283,16 @@
       stepsInst = mount(wsSteps, { top: item.top, bottom: item.bottom, mode: 'test', answer: false, state: R.ws || null });
       stepsInst.on('change', (d) => { R.ws = d.state; fire(); });
     }
-    box.querySelectorAll('input[type=radio]').forEach((r) => r.addEventListener('change', () => { R[r.dataset.key] = r.value; fire(); }));
+    /** On a phone, once every choice is made, bring the next thing to do into view: the answer grid if it is still
+        empty, otherwise Check Answer (Teach) or the question's Next/Finish button (Test). Never moves a short page. */
+    const revealNext = () => {
+      const groups = [...new Set([...box.querySelectorAll('input[type=radio]')].map((r) => r.dataset.key))];
+      if (!groups.every((k) => !blank(R[k]))) return;
+      const grid = ansInst && box.querySelector('[data-ws="answer"]'), gridEmpty = grid && !(R[ansKey] && (R[ansKey].d || []).some((x) => !blank(x)));
+      const target = gridEmpty ? grid : box.querySelector('[data-check]') || (host && host.querySelector('#stNext, #stFinish'));
+      if (target && target.getBoundingClientRect().bottom > window.innerHeight) target.scrollIntoView({ block: gridEmpty ? 'start' : 'nearest' });
+    };
+    box.querySelectorAll('input[type=radio]').forEach((r) => r.addEventListener('change', () => { R[r.dataset.key] = r.value; fire(); revealNext(); }));
     if (!showCheck) return;
     let helped = !!R.helped;
     const area = () => box.querySelector('.sr-fb');

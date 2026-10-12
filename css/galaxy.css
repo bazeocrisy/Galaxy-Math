@@ -770,3 +770,13 @@ table.data th { font-size: .88rem; color: var(--navy-2); }
 #sub .sr-fc-demo { background: var(--paper); border-radius: var(--r-md); padding: 10px; }
 #sub .sr-fc-pick { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 #sub .sr-fc-pick button { font-size: 1.3rem; }
+/* Read-only SubtractKit grids with no regroup marks (a problem shown before anyone works on it): SubtractKit keeps its
+   two mark rows (earlier values 24 px, current marks 44 px, plus gaps = 84 px) even when they are empty. Collapse just
+   those two rows, so the problem sits right under the place labels. Columns, digits and every grid with marks
+   (someone's work, worked answers) are unchanged; css/subtractkit/ itself is not edited. */
+#sub .sk-mode-view .sk-grid:not(:has(.sk-cur-read, .sk-hist)) { grid-template-rows: 20px 0 0 0 44px 44px 3px 52px; }
+#sub .sk-mode-view .sk-grid.no-answer:not(:has(.sk-cur-read, .sk-hist)) { grid-template-rows: 20px 0 0 0 44px 44px 3px; }
+@media (max-height: 600px) {
+  #sub .sk-mode-view .sk-grid:not(:has(.sk-cur-read, .sk-hist)) { grid-template-rows: 16px 0 0 0 36px 36px 3px 44px; }
+  #sub .sk-mode-view .sk-grid.no-answer:not(:has(.sk-cur-read, .sk-hist)) { grid-template-rows: 16px 0 0 0 36px 36px 3px; }
+}

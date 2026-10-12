@@ -2,6 +2,7 @@
 // SubtractKit workspaces for regrouping answers), Flashcards (reveal, pause, "See the regrouping", confidence),
 // Subtraction Parent Settings, Progress, separate records, cleanup and layout at the six review sizes.
 // Run: node tests/browser-subtraction2.test.mjs   (LIVE_URL=... to test the published site)
+import fs from 'node:fs';
 import { startServer, startBrowser, BASE } from './lib/harness.mjs';
 
 const LIVE = process.env.LIVE_URL;
@@ -58,6 +59,123 @@ try {
     await click('#sfFlip', 100); await click('#sfSee', 250);
     check(`${w}: "See the regrouping" fits`, (await noOverflowX()) && (await gridInside()));
   }
+
+  // =============== phones: read-only grids, finding the answer area and the button to press ===============
+  /** Read-only grids: band between the place labels and the digits, marks shown, columns aligned. */
+  const grids = () => q(`[...document.querySelectorAll('#sub .sk-mode-view .sk-grid')].map((g) => {
+    const top = [...g.querySelectorAll('.sk-topcell')].map((c) => c.getBoundingClientRect()), bot = [...g.querySelectorAll('.sk-botcell')].map((c) => c.getBoundingClientRect());
+    const tag = Math.max(...[...g.querySelectorAll('.sk-tagcell')].map((c) => c.getBoundingClientRect().bottom));
+    return { band: Math.round(Math.min(...top.map((r) => r.top)) - tag), marks: g.querySelectorAll('.sk-cur-read').length, crossed: g.querySelectorAll('.sk-d.sk-x').length,
+      aligned: top.every((t, i) => !bot[i] || (Math.abs(t.left - bot[i].left) < 1 && Math.abs(t.right - bot[i].right) < 1)) };
+  })`);
+  /** The button is fully on screen, inside the page width, and nothing covers its middle. */
+  const usable = (sel) => q(`(() => { const e = document.querySelector(${J(sel)}); if (!e) return false; const r = e.getBoundingClientRect();
+    const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+    return r.top >= 0 && r.bottom <= innerHeight && r.left >= 0 && r.right <= innerWidth && !!hit && (hit === e || e.contains(hit)); })()`);
+  const answerStartsOnScreen = () => q(`(() => { const a = document.querySelector('#sub [data-opt], #sub input[type=radio], #sub #qWs input, #sub #qPad button, #sub .sr-ws[data-ws="answer"] input, #sub [data-ws="steps"] input'); return !!a && a.getBoundingClientRect().top < innerHeight; })()`);
+  const KINDS = ['vsub', 'missub', 'missmin', 'exchange', 'error', 'inverse', 'word', 'estimate', 'place', 'zeros', 'strategy', 'model'];
+  for (const [w, h] of [[320, 640], [375, 812], [390, 844]]) {
+    await b.viewport(w, h); await freshStart();
+    for (const kind of KINDS) {
+      await startLabOf([kind], 2);
+      const it = await labQ(), gs = await grids();
+      check(`${w} Lab ${kind}: no empty band in a problem shown read-only`, gs.every((g) => g.marks > 0 || g.band <= 20), J(gs));
+      const hasMarks = !!(it.sk && it.sk.work && Object.keys(it.sk.work.ann || {}).length);
+      check(`${w} Lab ${kind}: columns aligned; someone's marks still shown when they made any`, gs.every((g) => g.aligned) && (!hasMarks || gs.some((g) => g.marks > 0 && g.crossed > 0 && g.band > 20)), J(gs));
+      check(`${w} Lab ${kind}: the answer area starts on the first screen`, await answerStartsOnScreen());
+      if (it.format === 'choice') await click(`[data-opt=${J(it.answer)}]`, 120);
+      else if (it.format === 'workspace') await typeWs(it.answer);
+      else for (const ch of String(it.answer)) await b.key(ch);
+      await b.js(`const c = document.getElementById('qCheck'); if (c.getBoundingClientRect().bottom > innerHeight && '${it.format}' !== 'choice') c.scrollIntoView({ block: 'nearest' });`);
+      check(`${w} Lab ${kind}: Submit fully on screen and not covered once answered`, await usable('#qCheck'));
+      await click('#qCheck', 150);
+      check(`${w} Lab ${kind}: the Next button can be reached and pressed`, (await b.js(`document.getElementById('qNext').scrollIntoView({ block: 'nearest' }); return true;`)) && (await usable('#qNext')));
+    }
+    // Someone's work WITH regroup marks: the mark rows stay, with the crossed-out digits and the new values.
+    const markedSeed = await q(`(() => { for (let s = 1; s < 500; s++) { const x = GalaxySubBank.makeSession({ seed: s, count: 2, level: 3, types: ['error'] })[0]; if (x && x.sk.work && Object.keys(x.sk.work.ann).length) return s; } return null; })()`);
+    await b.js(`GalaxySubtraction.store.startLab({ seed: ${markedSeed}, count: 2, level: 3, kind: 'misses', types: ['error'] })`);
+    await goto('#/subtraction/lab'); await click('#labContinue', 300);
+    const mg = await grids();
+    check(`${w} someone's regrouped work: marks, crossed digits and aligned columns kept`, mg.length === 1 && mg[0].marks > 0 && mg[0].crossed > 0 && mg[0].band > 20 && mg[0].aligned, J(mg));
+    // Test: every kind of question
+    await b.js(`GalaxySubtraction.store.quitLab()`);
+    await goto('#/subtraction/test'); await click('#stStart', 250);
+    const items = await q(`Mathbook.subtractRegrouping.testItems(GalaxySubtraction.store.testDraft().seed)`);
+    for (const kind of ['sub', 'steps', 'decide', 'mistake']) {
+      const k = items.findIndex((x) => x.kind === kind), t = items[k];
+      await click(`#sub [data-q="${k}"]`, 250);
+      const gs = await grids();
+      check(`${w} Test ${kind}: no empty band in a read-only problem; columns aligned`, gs.every((g) => (g.marks > 0 || g.band <= 20) && g.aligned), J(gs));
+      check(`${w} Test ${kind}: the answer area starts on the first screen`, await answerStartsOnScreen());
+      if (kind === 'decide') {
+        await b.js(`document.querySelector('#stItem input[data-key=c1][value=${J(t.needs)}]').click();`); await b.wait(60);
+        await b.js(`document.querySelector('#stItem input[data-key=c2][value=${J(t.first)}]').click();`); await b.wait(150);
+        check(`${w} Test decide: after both choices, Next is brought into view`, await usable(k + 1 < items.length ? '#stNext' : '#stFinish'));
+      }
+      if (kind === 'mistake') {
+        await b.js(`document.querySelector('#stItem input[data-key=c1][value=${J(t.answer)}]').click();`); await b.wait(150);
+        check(`${w} Test mistake: after choosing, the answer grid is brought into view`, await q(`(() => { const r = document.querySelector('#stItem [data-ws="answer"]').getBoundingClientRect(); return r.top >= 0 && r.top < innerHeight; })()`));
+      }
+    }
+    // Teach: the decide Your Turn
+    await b.js(`window.GalaxySubtraction._test.startLesson('decide', 2)`); await b.wait(250);
+    const dItem = await q(`(() => { const L = Mathbook.subtractRegrouping.learn.find(l => l.id === 'decide'), w = GalaxySubtraction.store.lessonWork('decide'); return L.yourTurn(SubtractKit.math.rng(w.seed)); })()`);
+    const tg = await grids();
+    check(`${w} Teach decide: no empty band; columns aligned`, tg.every((g) => g.band <= 20 && g.aligned), J(tg));
+    await b.js(`document.querySelector('#sub input[data-key=c1][value=${J(dItem.needs)}]').click();`); await b.wait(60);
+    await b.js(`document.querySelector('#sub input[data-key=c2][value=${J(dItem.first)}]').click();`); await b.wait(150);
+    check(`${w} Teach decide: after both choices, Check Answer is brought into view`, await usable('#sub [data-check]'));
+    await b.js(`window.GalaxySubtraction._test.startLesson('zeros2', 1)`); await b.wait(250);
+    for (let k = 0; k < 13; k++) await b.js(`const n = document.querySelector('#sub .sk [data-act="next"]'); n && !n.disabled && n.click();`);
+    await b.wait(100);
+    const dg = await q(`[...document.querySelectorAll('#sub .sk-mode-demo .sk-topcell')].map(c => c.getAttribute('aria-label'))`);
+    check(`${w} Teach 3,002 − 1,578: regrouping across zeros still shown (crossed digits, 10 → 9)`, dg.some((l) => /Hundreds: 0, crossed out, was 10, now 9/.test(l)) && dg.some((l) => /Tens: 0, crossed out, was 10, now 9/.test(l)), J(dg));
+  }
+
+  // =============== existing progress from the live build (97c5759, storage v1) survives the upgrade ===============
+  {
+    const saved = JSON.parse(fs.readFileSync(new globalThis.URL('./fixtures/storage-from-live-97c5759.json', import.meta.url), 'utf8'));
+    const v1 = JSON.parse(saved['galaxy-math.subtraction']);
+    await b.viewport(1280, 800); await freshStart();
+    await b.js(`const s = ${J(saved)}; for (const [k, v] of Object.entries(s)) localStorage.setItem(k, v);`);
+    await b.reload(); await goto('#/subtraction');
+    check('migration: the v1 record from the live build is v1', v1.v === 1);
+    check('migration: menu shows the lesson already done', /1 of 9 lessons done/.test(await text('#modes')));
+    await goto('#/subtraction/progress');
+    check('migration: progress keeps the lesson, the practice session and the test', /1\/9/.test(await text('#sgLessons')) && (await q(`+document.querySelector('#sgPractice [data-o="independent"]').textContent`)) === v1.practice.sessions[0].counts.independent && (await q(`document.querySelectorAll('#sgTests tbody tr').length`)) === 1);
+    await goto('#/subtraction/practice');
+    check('migration: the practice session in progress can be continued, its hint still recorded', /Problem 1 of 10/.test(await text('#sub .panel.cream')) && (await sub('activePractice().cur.hints')) === 1);
+    await goto('#/subtraction/test');
+    check('migration: the test in progress can be continued with its answer', /1 of 15 answered/.test(await text('#stContinue')));
+    await b.js(`GalaxySubtraction.store.recordFlash({ size: 2, cards: 1, seconds: 5, knew: 0, notYet: 0, shown: 0 })`);
+    const after = await q(`JSON.parse(localStorage.getItem('galaxy-math.subtraction'))`);
+    check('migration: the next save is v2 and keeps every v1 record', after.v === 2 && J(after.lessons) === J(v1.lessons) && J(after.practice.sessions) === J(v1.practice.sessions.map((s) => Object.assign({}, s, { firstTry: 0 }))) && J(after.tests.map((t) => t.seed)) === J(v1.tests.map((t) => t.seed)) && J(after.testDraft) === J(v1.testDraft) && after.lab && after.flash && after.settings);
+    check('migration: multiplication and division progress are untouched', (await q(`localStorage.getItem('galaxy-math.progress')`)) === saved['galaxy-math.progress']);
+  }
+
+  // =============== SI-08: the normal Test screen never contains the answers ===============
+  await b.viewport(1280, 800); await freshStart();
+  await goto('#/subtraction/test'); await click('#stStart', 250);
+  const tItems = await q(`Mathbook.subtractRegrouping.testItems(GalaxySubtraction.store.testDraft().seed)`);
+  const leaks = [];
+  for (let k = 0; k < tItems.length; k++) {
+    const t = tItems[k];
+    await click(`#sub [data-q="${k}"]`, 200);
+    const page = await q(`(() => { const s = document.getElementById('sub'); return { text: s.innerText, html: s.innerHTML }; })()`);
+    const fmt = (n) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    const ans = t.top - t.bottom;
+    // the final answer (with or without a comma) as a whole number anywhere in the text or the markup
+    const re = new RegExp(`(^|[^\\d,])(${fmt(ans).replace(',', ',?')})(?![\\d,])`);
+    if (['sub', 'mistake'].includes(t.kind) && !String(t.top).includes(String(ans)) && !String(t.bottom).includes(String(ans)) && (re.test(page.text) || re.test(page.html.replace(/aria-label="[^"]*\b(Thousands|Hundreds|Tens|Ones)[^"]*"/g, ''))))
+      leaks.push(`${t.id} ${t.kind}: ${fmt(ans)}`);
+    if (/sk-solution|sk-mode-demo|sk-hint|sk-coach[^"]*"[^>]*>\s*<[^/]|data-act="(hint|solution|check)"|data-help|data-check|Show me/.test(page.html)) leaks.push(`${t.id}: help or solution markup`);
+    if (t.kind === 'mistake' && page.html.includes(t.answer) && !page.html.includes('What went wrong?')) leaks.push(`${t.id}: mistake key`);
+    if (/is-ok|is-no|marked correct|marked not correct/.test(page.html)) leaks.push(`${t.id}: right/wrong marks`);
+  }
+  check('Test: no answer, hint, worked solution or right/wrong mark anywhere in the page before Finish (15 questions)', leaks.length === 0, J(leaks));
+  check('Test: the saved draft holds only the child\'s responses (no answers)', await q(`(() => { const d = JSON.parse(localStorage.getItem('galaxy-math.subtraction')).testDraft; return Object.keys(d).sort().join() === 'i,resp,seed' && !/"(answer|needs|first|correct)"/.test(JSON.stringify(d)); })()`));
+  check('Test: the app exposes no answer or grading hook', await q(`Object.keys(window.GalaxySubtraction._test).join() === 'startLesson' && !('grade' in window.GalaxySubtraction) && !('items' in window.GalaxySubtraction._test)`));
+  await click('#sub [data-q="14"]', 200);
 
   // =============== menu ===============
   await b.viewport(1280, 800);
