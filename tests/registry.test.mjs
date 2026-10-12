@@ -15,11 +15,11 @@ test('addition is Coming Soon and cannot be opened', () => {
   for (const a of GM.ACTIVITIES) assert.equal(GM.isActivityReady('addition', a.id), false);
 });
 
-test('subtraction is open with only its verified activities (Teach, Practice, Test); the Lab and Flashcards stay locked', () => {
+test('subtraction is open with all five activities in the shared order, plus Progress and Parent Settings', () => {
   assert.equal(GM.getSubject('subtraction').status, 'open');
-  assert.deepEqual(GM.ACTIVITIES.filter((a) => GM.isActivityReady('subtraction', a.id)).map((a) => a.id), ['teach', 'practice', 'test']);
+  assert.deepEqual(GM.ACTIVITIES.filter((a) => GM.isActivityReady('subtraction', a.id)).map((a) => a.id), ['teach', 'practice', 'lab', 'flashcards', 'test']);
   assert.equal(GM.hasView('subtraction', 'progress'), true);
-  assert.equal(GM.hasView('subtraction', 'settings'), false);
+  assert.equal(GM.hasView('subtraction', 'settings'), true);
 });
 
 test('every open subject offers the five activities in order', () => {
@@ -61,8 +61,9 @@ test('resolveRoute sends valid hashes to the right screen', () => {
 
 test('resolveRoute never opens locked subjects or unfinished activities', () => {
   assert.equal(GM.resolveRoute('#/addition').view, 'landing');
-  assert.equal(GM.resolveRoute('#/subtraction/flashcards').view, 'menu');   // open subject, activity not ready → its menu
-  assert.equal(GM.resolveRoute('#/subtraction/lab').view, 'menu');
+  assert.equal(GM.resolveRoute('#/subtraction/flashcards').view, 'setup');
+  assert.equal(GM.resolveRoute('#/subtraction/lab').view, 'setup');
+  assert.equal(GM.resolveRoute('#/addition/lab').view, 'landing');
   assert.equal(GM.resolveRoute('#/nope').view, 'landing');
   assert.equal(GM.resolveRoute('#/division/flashcards').view, 'setup');
   assert.equal(GM.resolveRoute('#/division/test').view, 'setup');

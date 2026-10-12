@@ -76,16 +76,16 @@ try {
   await freshStart();
   await b.js(`window.__galaxy.rootStore.recordLesson('arrays', 3, true); window.__galaxy.rootStore.forSubject('div').recordLesson('equal-sharing', 3, true);`);
   const multBefore = await q(`localStorage.getItem('galaxy-math.progress')`);
-  check('landing: Subtraction is open (Teach · Practice · Test)', !(await q(`document.querySelector('[data-subject=subtraction]').getAttribute('aria-disabled')`)) && /Teach · Practice · Test/.test(await text('[data-subject=subtraction]')));
+  check('landing: Subtraction is open with all five activities', !(await q(`document.querySelector('[data-subject=subtraction]').getAttribute('aria-disabled')`)) && /Learn · Practice · Think · Flash · Test/.test(await text('[data-subject=subtraction]')));
   check('landing: Addition still Coming Soon; still four subject cards', (await q(`document.querySelector('[data-subject=addition]').getAttribute('aria-disabled')`)) === 'true' && (await q(`document.querySelectorAll('#subjects .subject').length`)) === 4);
   await click('[data-subject=subtraction]', 300);
   const modes = await q(`[...document.querySelectorAll('#modes .mode')].map(e => [e.dataset.activity, e.getAttribute('aria-disabled')])`);
-  check('menu: Teach, Practice, Test ready; Lab and Flashcards Coming soon', J(modes) === J([['teach', null], ['practice', null], ['lab', 'true'], ['flashcards', 'true'], ['test', null]]), J(modes));
-  check('menu: lesson count and a Progress link (no Parent Settings)', /0 of 9 lessons done/.test(await text('#modes')) && (await exists('#menuExtra [data-nav="#/subtraction/progress"]')) && !(await exists('#menuExtra [data-nav="#/subtraction/settings"]')));
-  await click('#modes [data-activity=lab]');
-  check('menu: the Lab says coming soon', /coming soon/i.test(await text('#menuNote')) && (await q('location.hash')) === '#/subtraction');
+  check('menu: all five activities ready', J(modes) === J([['teach', null], ['practice', null], ['lab', null], ['flashcards', null], ['test', null]]), J(modes));
+  check('menu: lesson count, Progress and Parent Settings links', /0 of 9 lessons done/.test(await text('#modes')) && (await exists('#menuExtra [data-nav="#/subtraction/progress"]')) && (await exists('#menuExtra [data-nav="#/subtraction/settings"]')));
+  await click('#modes [data-activity=lab]', 300);
+  check('menu: the Lab opens', (await q('location.hash')) === '#/subtraction/lab' && (await exists('#sub [data-size="10"]')));
   await goto('#/subtraction/flashcards');
-  check('#/subtraction/flashcards → menu', (await q('location.hash')) === '#/subtraction');
+  check('#/subtraction/flashcards opens Flashcards', (await q('location.hash')) === '#/subtraction/flashcards' && (await exists('#sfPick')));
 
   // =============== TEACH: the original worked examples ===============
   await goto('#/subtraction/teach');

@@ -4,7 +4,7 @@ A space-themed, third-grade math learning application. This repository starts fr
 
 ## Current status
 
-**Multiplication 2.0, Division 1.0 and Subtraction with regrouping (integration branch).** Multiplication and Division each have the same five activities, their own question bank of 12 kinds of problems, their own Parent Settings and their own Progress page. Subtraction reuses Mathbook's SubtractKit and has Teach, Practice and Test; its Lab and Flashcards are Coming soon. Addition is Coming Soon. See `STATUS.md` for what was tested and `AUDIT-REPORT.md` for the independent audit.
+**Multiplication 2.0, Division 1.0 and Subtraction 2.0.** All three subjects have the same five activities (Teach, Practice, Math Thinking Lab, Flashcards, Test), their own Parent Settings and their own Progress page. Subtraction reuses Mathbook's SubtractKit unchanged. Addition is Coming Soon. See `STATUS.md` for what was tested and `AUDIT-REPORT.md` for the independent audit.
 
 | Activity | Purpose | What the child does |
 |---|---|---|
@@ -109,11 +109,45 @@ Subtraction is not a second engine. It reuses Mathbook's SubtractKit **unchanged
 - **Test:** Mathbook's 15-question blueprint (new numbers each time), in SubtractKit **test mode**: no Hint, Check, feedback or solution.
   - Questions can be answered in any order and are saved as you go.
   - Grading happens at Finish. The report gives correct, not right and unanswered; accuracy by kind of question and by difficulty; recommended lessons and practice; and worked answers, available only after finishing.
-- **Progress** (for grown-ups): lessons (on own versus with help), the five practice outcomes, tests, and a Reset that clears Subtraction only.
+- **Progress** (for grown-ups): lessons (on own versus with help), the five practice outcomes (with first-try credit), the Lab, Flashcards (exposure only), tests, and a Reset that clears Subtraction progress only.
+
+### Subtraction 2.0: Math Thinking Lab and Flashcards
+
+**Math Thinking Lab** (`js/sub-bank.js`, a question adapter around SubtractKit.math)
+- **Format:**
+  - 10, 25 or 50 problems in the shared Galaxy Lab screen, one at a time.
+  - No hints and no timer. The kind of problem is named only after answering. Skip is allowed.
+  - After each answer: the right answer, a short worked explanation, and "See it worked" (SubtractKit's demo mode).
+  - Regrouping problems are answered in SubtractKit's test-mode grid.
+- **Mix:** a session uses every allowed kind before repeating one, never repeats a problem, and never gives the same kind twice in a row.
+- **Size grows with readiness:**
+  - Level 1: 2- and 3-digit numbers, one exchange.
+  - Level 2: adds more exchanges, across one zero and 4-digit numbers with one exchange.
+  - Level 3: everything up to 4-digit numbers across zeros.
+  - A parent can fix the level in Parent Settings.
+- **Report:** accuracy, right / not right / skipped, results by kind, missed problems with explanations, recommended lessons, Practice my misses (new problems of the missed kinds) and Start another challenge.
+- **Records:** Lab results are kept apart from Practice and the Test.
+
+| | Kind | | Kind |
+|---|---|---|---|
+| A | Vertical subtraction (in the workspace) | G | Word problems |
+| B | Missing number taken away | H | Estimate and check (reasonable answers) |
+| C | Missing starting number | I | Place value of a regrouped number |
+| D | Correct exchanges | J | Regrouping across zeros |
+| E | Find and fix mistakes | K | Compare strategies |
+| F | Check with addition | L | Match a bar model or story to an equation |
+
+**Flashcards**
+- **Decks:** 2-digit, 3-digit, 4-digit or Mixed, using problems from SubtractKit's generator. There are three mixes: Gentle, Standard (the default) and Challenge.
+- **Timing:** the answer shows after 8, 12 or 15 seconds, depending on the size of the numbers. It can also be shown early with a tap, and the cards can be paused. Cards never move on by themselves.
+- **After the answer:**
+  - "See the regrouping" plays SubtractKit's demo.
+  - The child can tap "I knew it" or "Not yet". This is recorded as practice and confidence only, never as mastery.
+- **Parent Settings (Subtraction):** reveal time, cards per session, the problem mix and the Lab size. They are stored in `galaxy-math.subtraction` (v2), not in the other subjects' settings.
 
 ## Tests
 
-`npm test` (unit, Node 22+) and `npm run test:browser` (headless Chrome or Edge; set `CHROME_PATH` if needed). The browser command runs the Multiplication suite (`tests/browser.test.mjs`), the Division suite (`tests/browser-division.test.mjs`) and the Subtraction suite (`tests/browser-subtraction.test.mjs`). No dependencies to install.
+`npm test` (unit, Node 22+) and `npm run test:browser` (headless Chrome or Edge; set `CHROME_PATH` if needed). The browser command runs the Multiplication suite (`tests/browser.test.mjs`), the Division suite (`tests/browser-division.test.mjs`) and the Subtraction suites (`tests/browser-subtraction.test.mjs`, `tests/browser-subtraction2.test.mjs`). No dependencies to install.
 
 Run the browser suite in Edge: `CHROME_PATH="C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe" npm run test:browser`.
 
@@ -161,7 +195,7 @@ The script authenticates with the same GitHub login `git push` uses (`git creden
 | Subject | Status |
 |---|---|
 | Addition (+) | Coming Soon placeholder |
-| Subtraction (−) | **Regrouping (Mathbook SubtractKit):** Teach (9 lessons), Practice, Test, Progress. Lab and Flashcards Coming soon. |
+| Subtraction (−) | **2.0 (Mathbook SubtractKit):** Teach (9 lessons), Practice, Math Thinking Lab, Flashcards, Test, Parent Settings, Progress |
 | Multiplication (×) | **2.0:** Teach, Practice, Math Thinking Lab, Flashcards, Test, Parent Settings, Progress |
 | Division (÷) | **1.0:** Teach (15 lessons), Practice, Math Thinking Lab, Flashcards, Test, Parent Settings, Progress |
 
@@ -181,7 +215,8 @@ The script authenticates with the same GitHub login `git push` uses (`git creden
 | `js/visuals.js` | Equal groups, arrays, number-line jumps, sharing plates, circled groups, the division bracket and labelled equations as inline SVG |
 | `js/mult-lessons.js` | The 13 Teach lessons |
 | `js/subtractkit/`, `css/subtractkit/`, `js/subtraction-vendor/` | Mathbook SubtractKit and its teaching content, vendored unchanged (hash-checked) |
-| `js/sub-galaxy.js`, `js/sub-store.js` | Subtraction adapter and its storage (`galaxy-math.subtraction`) |
+| `js/sub-galaxy.js`, `js/sub-store.js` | Subtraction adapter and its storage (`galaxy-math.subtraction`, v2) |
+| `js/sub-bank.js` | Subtraction reasoning bank for the Math Thinking Lab (12 kinds A–L) |
 | `js/progress.js` | Local progress (versioned `localStorage` key `galaxy-math.progress`, v3 per subject, v1/v2 data migrated, in-memory fallback) |
 | `js/app.js` | Router, shared components and the activity screens |
 | `tests/` | Unit tests (`node --test`) and the headless-Chrome browser suite |

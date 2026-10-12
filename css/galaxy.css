@@ -751,3 +751,32 @@ table.data th { font-size: .88rem; color: var(--navy-2); }
 #sub .sr-sum-txt { font-weight: 500; color: var(--navy-2); }
 #sub .sr-list { padding-left: 1.2rem; } #sub .sr-list li { margin: 4px 0; }
 @media (max-width: 420px) { #sub .panel { padding: 14px; } #sub .blocks-art { min-height: 70px; } }
+/* Subtraction 2.0: Lab workspace answers, models, Flashcards */
+.qa.is-workspace .qa-ws { width: 100%; min-width: 0; }
+.qa.is-workspace .qa-ws .sk { --sk-ui-font: var(--font); }
+#sub .sr-model { margin: 0; width: 100%; }
+#sub .sr-bar { max-width: 100%; height: auto; }
+#sub .sr-seeit { margin-top: 10px; }
+#sub .sr-seeit .sr-ws { margin-top: 8px; background: var(--paper); border-radius: var(--r-md); padding: 8px; }
+#sub .sr-addstack { display: inline-grid; justify-items: end; font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 1.6rem; font-weight: 800; color: var(--navy);
+  background: var(--paper); border-radius: var(--r-md); padding: 8px 16px; margin: 4px 0 8px; }
+#sub .sr-addstack b { color: var(--grape-d); margin-right: .4ch; }
+#sub .sr-addstack .sum { border-top: 3px solid var(--navy); width: 100%; text-align: right; }
+#sub .sr-fc-vert { display: inline-grid; justify-items: end; font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-weight: 800; font-size: clamp(2.2rem, 9vw, 3.4rem); line-height: 1.15;
+  border-bottom: 4px solid currentColor; padding-bottom: 4px; }
+#sub .sr-fc-vert b { margin-right: .5ch; }
+#sub .sr-fc .fc-ans { font-size: clamp(2.6rem, 10vw, 4rem); }
+#sub .sr-fc-after, #sub .sr-fc-demo { margin-top: 12px; }
+#sub .sr-fc-demo { background: var(--paper); border-radius: var(--r-md); padding: 10px; }
+#sub .sr-fc-pick { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+#sub .sr-fc-pick button { font-size: 1.3rem; }
+/* Read-only SubtractKit grids with no regroup marks (a problem shown before anyone works on it): SubtractKit keeps its
+   two mark rows (earlier values 24 px, current marks 44 px, plus gaps = 84 px) even when they are empty. Collapse just
+   those two rows, so the problem sits right under the place labels. Columns, digits and every grid with marks
+   (someone's work, worked answers) are unchanged; css/subtractkit/ itself is not edited. */
+#sub .sk-mode-view .sk-grid:not(:has(.sk-cur-read, .sk-hist)) { grid-template-rows: 20px 0 0 0 44px 44px 3px 52px; }
+#sub .sk-mode-view .sk-grid.no-answer:not(:has(.sk-cur-read, .sk-hist)) { grid-template-rows: 20px 0 0 0 44px 44px 3px; }
+@media (max-height: 600px) {
+  #sub .sk-mode-view .sk-grid:not(:has(.sk-cur-read, .sk-hist)) { grid-template-rows: 16px 0 0 0 36px 36px 3px 44px; }
+  #sub .sk-mode-view .sk-grid.no-answer:not(:has(.sk-cur-read, .sk-hist)) { grid-template-rows: 16px 0 0 0 36px 36px 3px; }
+}

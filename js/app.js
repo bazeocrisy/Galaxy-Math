@@ -249,16 +249,21 @@
 
   /** One question: problem → picture → answer → feedback (that order on phones; picture beside the answer on desktop).
       q: { format: 'number'|'choice', prompt, sub?, big?, answer, options?, visual?, hints: [{ text, visual? }], explain: { text, visual? }, typeName? }
-      opts: { tries, allowHint, allowSkip, revealType, onDone({ firstTry, hinted, given, skipped }), nextLabel, onNext } */
+      opts: { tries, allowHint, allowSkip, revealType, onDone({ firstTry, hinted, given, skipped }), nextLabel, onNext }
+      Optional hooks (used by Subtraction): q.answerText (how the answer is shown), q.visualHtml (a ready picture),
+      opts.mountVisual(el, q) (mount a model into the picture area), q.format 'workspace' with opts.mountAnswer(el, q) →
+      { value() } (the answer is written in that workspace), q.maxDigits (number pad length), opts.onFinished(el, result). */
   function askQuestion(el, q, opts) {
     const tries = opts.tries || 1, hints = q.hints || [];
-    el.innerHTML = `<div class="qa${q.visual ? '' : ' no-visual'}${q.format === 'choice' ? ' is-choice' : ''}">
+    const hasVisual = !!(q.visual || q.visualHtml || (opts.mountVisual && q.sk));
+    el.innerHTML = `<div class="qa${hasVisual ? '' : ' no-visual'}${q.format === 'choice' ? ' is-choice' : ''}${q.format === 'workspace' ? ' is-workspace' : ''}">
         <div class="qa-q"><p class="q-prompt${q.big ? ' big' : ''}${q.big && q.prompt.length > 22 ? ' long' : ''}" id="qPrompt">${exprHtml(q.prompt)}</p>${q.expr ? `<p class="q-prompt big q-expr${q.expr.length > 22 ? ' long' : ''}">${exprHtml(q.expr)}</p>` : ''}${q.sub && !(opts.hideHintSub && q.subIsHint) ? `<p class="q-sub">${esc(q.sub)}</p>` : ''}</div>
-        <div class="qa-visual">${viz(hideTotals(q.visual))}</div>
+        <div class="qa-visual">${q.visualHtml ? `<div class="viz-wrap">${q.visualHtml}</div>` : viz(hideTotals(q.visual))}</div>
         <div class="qa-feedback"><div id="qHintBox"></div><div class="feedback" id="qFeedback" role="status" aria-live="polite"></div></div>
         <div class="qa-dock">
           ${q.format === 'choice'
             ? `<div class="choices" role="group" aria-labelledby="qPrompt">${q.options.map((o) => `<button type="button" data-opt="${esc(o)}" aria-pressed="false">${esc(o)}</button>`).join('')}</div>`
+            : q.format === 'workspace' ? '<div class="qa-ws" id="qWs"></div>'
             : '<div class="answer" id="qAnswer" role="textbox" aria-readonly="true" aria-label="Your answer (use the number keys)"></div><p class="q-status" id="qStatus" aria-hidden="true"></p><div class="numpad" id="qPad"></div>'}
           <div class="dock-actions" id="qButtons">
             ${opts.allowHint && hints.length ? '<button type="button" class="btn btn-secondary" id="qHint">💡 Hint</button>' : ''}
@@ -270,12 +275,18 @@
       </div>`;
     let attempts = 0, hintLevel = 0, done = false, choice = null, firstTry = null;
     const fb = el.querySelector('#qFeedback');
-    const pad = q.format === 'number' ? numPad(el.querySelector('#qPad'), el.querySelector('#qAnswer')) : null;
-    const value = () => (pad ? pad.value : choice);
+    /** On a long question (a phone), keep Submit in view once the child has started answering; short pages never move. */
+    const showSubmit = () => { const cb = el.querySelector('#qCheck'); if (cb && cb.getBoundingClientRect().bottom > window.innerHeight) cb.scrollIntoView({ block: 'nearest' }); };
+    const pad = q.format === 'number' ? numPad(el.querySelector('#qPad'), el.querySelector('#qAnswer'), { max: q.maxDigits || 3, onChange: (v) => { if (v) showSubmit(); } }) : null;
+    if (opts.mountVisual && q.sk) opts.mountVisual(el.querySelector('.qa-visual'), q);
+    const ws = q.format === 'workspace' && opts.mountAnswer ? opts.mountAnswer(el.querySelector('#qWs'), q) : null;
+    if (ws) el.querySelector('#qWs').addEventListener('input', showSubmit);
+    const value = () => (pad ? pad.value : ws ? ws.value() : choice);
     if (q.format === 'choice') el.querySelector('.choices').addEventListener('click', (e) => {
       const b = e.target.closest('[data-opt]'); if (!b || done) return;
       choice = b.dataset.opt;
       el.querySelectorAll('[data-opt]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+      showSubmit();
     });
     const hintHtml = (h) => `${rich(h.text)}${viz(hideTotals(h.visual))}`;
     /** Show hints up to `level` (1 = clue, 2 = strategy). */
@@ -302,17 +313,21 @@
       el.querySelectorAll('[data-opt]').forEach((b) => { b.disabled = true; if (b.dataset.opt === String(q.answer)) b.classList.add('right'); else if (b.dataset.opt === given) b.classList.add('wrong'); });
       const qb = el.querySelector('#qButtons'); if (qb) qb.remove();
       el.querySelector('.qa').classList.add('done');   // the pad folds away; feedback sits next to Next
-      const box = el.querySelector('#qAnswer'); if (box) { box.textContent = String(q.answer); box.classList.add('shown'); }
+      const box = el.querySelector('#qAnswer'); if (box) { box.textContent = String(q.answerText || q.answer); box.classList.add('shown'); }
       const row = el.querySelector('#qNextRow');
       row.innerHTML = `<button type="button" class="btn btn-go btn-lg" id="qNext">${opts.nextLabel || 'Next →'}</button>`;
       row.querySelector('#qNext').addEventListener('click', () => opts.onNext());
       opts.onDone({ firstTry: !!firstTry, hinted: requested, given, skipped: !!skipped });
+      if (opts.onFinished) opts.onFinished(el, { correct: !!firstTry, given, skipped: !!skipped });
       setTimeout(() => {
         const n = el.querySelector('#qNext'); if (!n) return;
         n.focus({ preventScroll: true });
         const r = n.getBoundingClientRect();
         const fbBox = el.querySelector('.qa-feedback').getBoundingClientRect();
         if (r.bottom > window.innerHeight || r.top < 0 || fbBox.top > window.innerHeight - 60) el.querySelector('.qa-feedback').scrollIntoView({ block: 'start', behavior: 'auto' });
+        // Next must always be on screen: if showing the feedback left it out of view, bring it back (nearest edge).
+        const r2 = n.getBoundingClientRect();
+        if (r2.bottom > window.innerHeight || r2.top < 0) n.scrollIntoView({ block: 'nearest' });
       }, 30);
     }
     function check() {
@@ -340,7 +355,7 @@
       }
       el.querySelector('#qHintBox').innerHTML = '';
       fb.className = 'feedback bad';
-      fb.innerHTML = `<strong>The answer is ${esc(q.answer)}.</strong> ${rich(q.explain.text)}${viz(q.explain.visual)}${typeLine()}`;
+      fb.innerHTML = `<strong>The answer is ${esc(q.answerText || q.answer)}.</strong> ${rich(q.explain.text)}${viz(q.explain.visual)}${typeLine()}`;
       finish(given);
     }
     el.querySelector('#qCheck').addEventListener('click', check);
@@ -348,15 +363,18 @@
       if (done) return;
       firstTry = false;
       fb.className = 'feedback info';
-      fb.innerHTML = `<strong>Skipped. The answer is ${esc(q.answer)}.</strong> ${rich(q.explain.text)}${viz(q.explain.visual)}${typeLine()}`;
+      fb.innerHTML = `<strong>Skipped. The answer is ${esc(q.answerText || q.answer)}.</strong> ${rich(q.explain.text)}${viz(q.explain.visual)}${typeLine()}`;
       finish(null, true);
     });
     onKey = (e) => {
       if (done) { if (e.key === 'Enter' && !onButton(e)) { e.preventDefault(); opts.onNext(); } return; }
       if (pad && pad.key(e)) { e.preventDefault(); return; }
+      // In a workspace, Enter belongs to the workspace (it commits a regroup mark); Submit is a button.
+      if (ws && e.target && e.target.closest && e.target.closest('.sk')) return;
       if (e.key === 'Enter' && !onButton(e)) { e.preventDefault(); check(); }
     };
   }
+  window.GalaxyUI = { askQuestion, actHead: (...a) => actHead(...a) };   // shared with the Subtraction adapter (js/sub-galaxy.js)
 
   /* ---------- landing ---------- */
   GM.SUBJECTS.forEach((s) => {

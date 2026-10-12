@@ -1,10 +1,89 @@
 # Galaxy Math — Development Status
 
-Updated: 2026-10-11 (branch `feature/subtraction-regrouping-integration`, built on `feature/division` `706b972`; not merged to `main`, **not published**). Addition has **not** been started.
+Updated: 2026-10-12 (branch `feature/subtraction-2.0`, built on the live `feature/subtraction-regrouping-integration` `c8a45d8`; **not published**, not merged to `main`). Addition has **not** been started.
 
-## Subtraction with regrouping: integration of Mathbook SubtractKit (2026-10-11), awaiting owner approval
+## Subtraction 2.0: Math Thinking Lab and Flashcards (2026-10-12), awaiting owner approval
 
-**Not published.** The live site still runs Division 1.0 (`gh-pages` `f1aafd4`), and `main` is untouched. The navigation redesign (`review/nav-redesign`) is still awaiting approval and is **not** included here.
+**Not published.** The live site still runs the Subtraction integration (`gh-pages` `97c5759`), and `main` is untouched.
+
+Subtraction now has all five activities: Teach, Practice, Math Thinking Lab, Flashcards and Test, plus Parent Settings and Progress.
+- **SubtractKit and the copied Mathbook files are unchanged.** The hash test passes, and there is no diff since `c8a45d8`.
+- **Leftover audit items from the integration, closed first:**
+  - Practice now gives first-try credit.
+  - The "Check with addition" example now shows the addition written in columns.
+  - SI-08 stays accepted, because closing it would mean editing a vendored file.
+
+**Math Thinking Lab**
+- **Questions:** `js/sub-bank.js` has 12 reasoning kinds (A–L), built only on SubtractKit.math and Mathbook's content.
+- **Screen:** the shared Galaxy question screen, `askQuestion`, which gained optional, additive hooks (workspace answers, models, `maxDigits`, `answerText`, `onFinished`). Multiplication and Division behave as before.
+- **Sessions:** 10, 25 or 50 questions. No hints and no timer, Skip is allowed, and the kind is named only after answering.
+- **After each answer:** a worked explanation, and SubtractKit's demo mode via "See it worked".
+- **Size grows with readiness** (levels 1–3, based only on independent evidence), or a parent can set it.
+- **Report:** results by kind, missed problems with worked steps, recommended lessons, and Practice my misses.
+- **Records:** kept separately from Practice and the Test.
+
+**Flashcards**
+- **Decks:** 2-, 3- or 4-digit, or Mixed. Difficulty mixes: Gentle, Standard or Challenge.
+- **Timing:** the answer shows automatically after 8, 12 or 15 seconds depending on size, or early with a tap. Cards can be paused, and they never move on by themselves.
+- **After the answer:** "See the regrouping" or "See it worked" uses SubtractKit's demo.
+- **Records:** "I knew it" and "Not yet" are kept as exposure and confidence only, never as mastery.
+
+**Storage v2** (`galaxy-math.subtraction`)
+- v1 records upgrade with nothing lost.
+- Lab, Flashcards and settings have their own records, and each entry is cleaned separately.
+- Multiplication and Division (`galaxy-math.progress`, `galaxy-math.settings`) are never touched.
+
+**Independent educational QA:** `docs/subtraction/SUBTRACTION-2.0-AUDIT.md`.
+- **Math:** the auditor checked about 153,000 questions with its own oracle and found 0 math failures, with exactly one right option in every choice question.
+- **First pass:** 0 Critical, 0 High, 4 Medium, 10 Low.
+- **Fixed:** all four Mediums and most Lows.
+- **Recheck at `1b3819a`:** open Critical 0, High 0.
+- **Afterwards:** the screenshots were regenerated, which closes S2-15.
+- **Still open (Low):**
+  - S2-12: work in progress on the Lab question currently on screen is lost on reload.
+  - S2-13: the shared component highlights right and wrong choices by colour only; this predates the work.
+
+**Tests (this branch)**
+
+| Suite | Chrome | Edge |
+|---|---|---|
+| `npm test` | 116/116 | — |
+| Subtraction 2.0 (`tests/browser-subtraction2.test.mjs`) | 150/150 | 150/150 |
+| Subtraction 1 (`tests/browser-subtraction.test.mjs`) | 143/143 | 143/143 |
+| Multiplication | 655/655 | 656/656 |
+| Division | 180/180 | 179/179 |
+
+- **Check counts:** all checks passed. The counts differ slightly between runs because some checks depend on the problems generated.
+- **Changed checks:** registry tests, two unit tests and five checks in Subtraction suite 1 pinned the old "Lab and Flashcards locked" state. They now check that all five activities are open, and that Addition stays locked.
+- **Devices:** all browser testing was simulated in headless Chrome and Edge. **No physical devices, and no Safari or Firefox.**
+
+**Screenshots:** `docs/review/subtraction2/shots/`, 24 screens at each of the six sizes (144 in all).
+
+**Final mobile pass before publication (2026-10-12; details in `docs/subtraction/MOBILE-AND-SI08.md`)**
+- The 84 px empty band in read-only grids is down to 16 px. Columns, crossed-out digits and marks are unchanged.
+- Submit, Next and Check Answer are findable and never covered or clipped. This is checked for Teach, the Test and all 12 Lab kinds at 320, 375 and 390, with the tests doing no scrolling of their own.
+- SI-08 is documented. The normal Test page reveals no answers (permanent checks). Only the developer console can rebuild the questions, which is accepted as a limitation.
+- Existing progress from the live build migrates with nothing lost. This is checked with a real v1 record made by the live build (`tests/fixtures/storage-from-live-97c5759.json`).
+- **Final QA recheck at `a041d51`:** 0 Critical, 0 High, ready to publish. Its one new Low (S2-16) was then fixed.
+- **Tests:**
+
+  | Suite | Result |
+  |---|---|
+  | Unit tests | 116/116 |
+  | Subtraction 2.0 | 382/382 |
+  | Subtraction 1 | 143/143 |
+  | Multiplication | 656/656 |
+  | Division | 180/180 |
+
+## Subtraction with regrouping: integration of Mathbook SubtractKit: approved and live (2026-10-12)
+
+**Published (2026-10-12).** The owner approved, and `feature/subtraction-regrouping-integration` (`cd47f84`) was published to `gh-pages` as `97c5759` with `scripts/publish-gh-pages.mjs` (no force push).
+- **Before publishing:** `npm test` 107/107; Chrome Multiplication 653/653, Division 180/180, Subtraction 143/143.
+- **Pages build:** finished. All 22 app files on the public URL, including the five SubtractKit files, match the commit byte for byte.
+- **Live suites at https://bazeocrisy.github.io/Galaxy-Math/:** Subtraction 144/144, Multiplication 655/655, Division 181/181.
+- **Not changed:** `main`. The navigation redesign (`review/nav-redesign`) is still unpublished.
+
+**History before approval.** At first this build was not published, and the live site ran Division 1.0 (`gh-pages` `f1aafd4`). The navigation redesign (`review/nav-redesign`) is still awaiting approval and is **not** included here.
 
 **Source**
 - `Downloads/Mathbook-main.zip` = `bazeocrisy/Mathbook` @ `55b51bdda5a81ed00838433603bfa20daeb10efb`. The archive's commit comment matches GitHub `main`.
