@@ -190,3 +190,51 @@ Totals: Critical 0 · High 0 · Medium 4 · Low 10
 - S2-04: rounding a 2-digit number to the nearest hundred.
 
 Each is small and local to `sub-bank.js` or `sub-galaxy.js`.
+
+## 6. Recheck at `1b3819a`
+
+Same rules as the first pass: one headless browser at a time, in the foreground. These are simulated viewports, not physical devices. Mathbook was not touched, and no app code, tests or vendored files were changed.
+
+### What was rerun
+
+| What | Result |
+|------|--------|
+| `npm test` | 116/116 pass |
+| `git diff --stat c8a45d8 1b3819a` on `js/subtractkit`, `css/subtractkit`, `js/subtraction-vendor` | Empty. The VENDORED hash test passes. |
+| `node tests/browser-subtraction2.test.mjs` (once) | 150/150 pass |
+| Independent oracle, updated for the new wording (scratch `qa-sub2/oracle2.cjs`). It also checks `answerText`, a 1-unit plural, the rocket and mountain floors, the estimate floors (est and diff ≥ 3u), relative error ≤ 34%, no zero-ten distractor without a zero chain, that the E "why" explanation does not repeat the option, that the place-value prompt does not contain the answer, and that the second count-up jump is not given. | **151,015 questions, 0 failures.** 1,800 sessions: 0 duplicate problems, 0 kind twice in a row, deterministic, 10 different kinds in every 10-question session. 1,040 one-kind "misses" sessions: none short. |
+| Flash deck replica with the new `flashDeck` line (scratch `qa-sub2/flashdeck2.cjs`), 900 decks per setting | Size and difficulty are now independent. Mixed + Standard gives 3-digit none/easy/medium at about 1/3 each and 4-digit none/easy/medium at about 1/3 each. Mixed + Challenge includes 3-digit hard and 4-digit easy. No short decks and no repeats. |
+| CDP probe (scratch `qa-sub2/probe2.mjs`): autoLevel inputs, misses level, unmount, feedback text | See the statuses below. No page errors. |
+
+### Status of each finding
+
+| ID | Sev. | Status | Recheck evidence |
+|----|------|--------|------------------|
+| S2-01 | Medium | **Fixed** | The prompt is now "A number is regrouped as …. What is the number?". If the description itself would show the number, the question switches to the count variant. Oracle: the answer appears in the prompt in 0 of 2,190+ value items at each level. |
+| S2-02 | Medium | **Fixed** | The difficulty is drawn with `r()`. The replica shows an even spread of difficulties for every size in Mixed decks. |
+| S2-03 | Medium | **Fixed** | Probe: 7 of 50 on their own in a 3-digit session, or the "multi" lesson done with help, stays at level 1. "multi" done independently gives level 2. Two strong *misses* Lab sessions at level 2 do not raise the level; two *challenge* sessions raise it to 3. |
+| S2-04 | Medium | **Fixed** | 2- and 3-digit problems round to tens and 4-digit to hundreds; the estimate and the difference are both ≥ 3 units. Oracle: no "reasonable" item has a relative error above 34%. A residual remains: 437 of about 10,600 four-digit items still round a 2-digit subtrahend to the nearest hundred (for example 6,413 − 82 → 6,400 − 100). The error is bounded and the method is standard, so this is acceptable. |
+| S2-05 | Low | **Fixed** | Probe: misses from a level-3 session, with the parent now on Small, start a level-3 session of `['zeros']` and show a question. This deliberately uses the original session's level rather than the parent's later setting. |
+| S2-06 | Low | **Fixed** | `answerText` is correct on all 151,015 questions. Probe feedback: "Skipped. The answer is 5,597.". The E "why" explanation no longer repeats the option. Multiplication and Division take the `q.answerText \|\| q.answer` fallback, so they are unchanged. |
+| S2-07 | Low | **Fixed** | Oracle: 0 cases of "1 points/books/stickers". Rocket and Pine Mountain stories appear only when top ≥ 1,000 and bottom ≥ 100. |
+| S2-08 | Low | **Fixed** | Zero-place answers are now 9 (2,504) or 10 (1,131). There are 0 zero-ten distractors without a zero chain. Count-up gives only the first jump, and the oracle confirms the second jump plus the first equals the difference. |
+| S2-09 | Low | **Fixed** | The longest "whose way" prompt is now 177 characters (previously over 200). |
+| S2-10 | Low | **Fixed** | Probe: `liveCount` stays at 1 after a workspace skip, and stays at 0 after four open/close cycles of the flashcard demo. |
+| S2-11 | Low | **Fixed (timing kept by design)** | The buttons after the flip are disabled while paused (suite check). Progress shows time as m:ss. The dead line is gone. The 15 s reveal is kept, and a parent can change it. |
+| S2-12 | Low | **Open (accepted)** | Not changed. Marks in a workspace on the current Lab question are still lost on reload. Nothing is double-counted. |
+| S2-13 | Low | **Open (accepted)** | Not changed. The shared component's color-only highlight predates this work, and the feedback text still names the answer. |
+| S2-14 | Low | **Fixed** | One JSDoc block. The `explain.lines` steps appear as an `ol.sk-steps` list in the missed list of the Lab report (probe: present). |
+
+### New finding
+
+**S2-15 — Low — The committed review screenshots were taken before the fixes.**
+- **Location:** `docs/review/subtraction2/shots/*.jpg` in `1b3819a`. The files are timestamped 06:38; the commit was made at 07:03.
+- **Evidence:** 390-11 still shows "4,000 is regrouped as … What number is that?". 390-13 still shows both count-up jumps. 390-07b still shows "…exchanging.." and the zero-ten option for 373 − 95. With the same seeds (`tests/review-shots-subtraction2.mjs`, seed 101 + k), the current bank produces "A number is regrouped as 3 thousands, 9 hundreds, 9 tens, 10 ones. What is the number?" and "From 86 to 90 is 4. Then Noah counts up from 90 to 5,001."
+- **Failure scenario:** A reviewer or the owner judges the screens from outdated images.
+- **Fix:** Rerun `node tests/review-shots-subtraction2.mjs` and commit the refreshed screenshots.
+
+### Recheck verdict
+
+**Open: Critical 0, High 0.** Medium 0. Low 3: S2-12 and S2-13 (both accepted) and S2-15 (stale screenshots).
+
+**Approval-ready.** All math checks are clean and the fixes are verified independently. The only remaining step is to refresh the review screenshots before publishing.
