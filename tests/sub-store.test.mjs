@@ -165,3 +165,15 @@ test('an unreadable record is backed up before it is replaced (SI-09)', () => {
   const st = mem({ 'galaxy-math.subtraction': JSON.stringify({ v: 1, lessons: {} }) }); make(st).completeLesson('one', false);
   assert.equal(st.getItem('galaxy-math.subtraction.unreadable'), null, 'a readable record is not backed up');
 });
+
+test('help details survive a reload: a lesson hint, and Show me opened before a skip (SI-06, SI-12); reset removes the backup (SI-09)', () => {
+  const st = mem({ 'galaxy-math.subtraction': '{broken' }), s = make(st);
+  s.setLessonWork('zero1', { seed: 4, state: null, resp: null, hinted: true });
+  assert.equal(make(st).lessonWork('zero1').hinted, true);
+  s.startPractice({ size: 4, difficulty: 'hard', length: 10 }, 3);
+  assert.equal(s.recordProblem(0, { correct: false, helped: true, hints: 0, wrong: 0 }), 'skipped');
+  assert.equal(make(st).activePractice().results[0].helped, true);
+  assert.equal(st.getItem('galaxy-math.subtraction.unreadable'), '{broken');
+  s.reset();
+  assert.equal(st.getItem('galaxy-math.subtraction.unreadable'), null);
+});

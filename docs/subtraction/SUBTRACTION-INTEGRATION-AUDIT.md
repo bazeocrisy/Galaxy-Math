@@ -147,3 +147,69 @@ These are cosmetic and do not block use:
 ## 5. Verdict
 
 **Not approval-ready.** Critical = 1 (SI-01) and High = 0. The reuse, the math, test isolation, cleanup and layout are solid and confirmed with evidence. After SI-01 is fixed and has a regression test, and ideally after SI-02 and SI-03 are fixed, a short re-check of the Practice flow and the store should be enough to approve.
+
+## 6. Recheck (fixes at `cb75a58`)
+
+Date: 2026-10-11. The same auditor checked the fixes independently, under the same rules: one foreground headless Chrome at a time, and Mathbook only read.
+
+### What I ran
+
+- **Diff.** I read `git diff 507f848..cb75a58`. Only `js/sub-galaxy.js`, `js/sub-store.js`, the tests, the README and this file changed; `js/app.js` did not.
+- **Vendored files.** All five `git hash-object` values are unchanged and still equal GitHub at 55b51bd.
+- **Test suites.** `npm test`: **106/106 passed**. `node tests/browser-subtraction.test.mjs`, once: **143/143 passed**.
+- **Store probe.** I re-ran `store-check.cjs` and added a check of the backup key.
+- **New browser probe** (`probe3.mjs`), using real CDP mouse events at 390×844. It covered:
+  - double-click, triple-click, and two separate taps 150 ms apart on Skip;
+  - solve, then Exit → Continue, then Next;
+  - solve, then reload, then Next;
+  - keyboard Enter on Next;
+  - one hint plus Show me (counting);
+  - Skip after opening Show me;
+  - a Teach guided hint, then reload (what is saved);
+  - a Teach decide hint, then reload, then a correct answer;
+  - the `_test` keys and the lesson Back label.
+
+### Finding status
+
+| ID | Status | Evidence |
+|---|---|---|
+| SI-01 (Critical) | **Fixed** | Exit → Continue on a recorded problem, then Next, moves i 3 → 4. Reload, then Next, moves i 4 → 5. Keyboard Enter on Next moves i 5 → 6. The new browser check covers this. |
+| SI-02 | **Fixed** | A real double-click on Skip skips one problem (i 0 → 1). A triple-click skips one (→ 2). Two separate taps 150 ms apart skip one (→ 3), because the second tap lands inside the new screen's 400 ms guard. Keyboard activation (`detail` 0) still works. |
+| SI-03 | **Fixed** | A corrupt result #3: the finished session counts `{independent: 9, skipped: 1}` and the session survives the reload (`sessions().length` = 1). |
+| SI-04 | **Fixed** | A recorded problem reopens as `sk-mode-view`, with no Hint, Check or Show me. The worked answer (for example 3,691) matches `top − bottom`. |
+| SI-05 | **Fixed** | One hint plus Show me now gives `cur = {hints: 1, helped: true}`. The Progress column is now "With hints". |
+| SI-06 | **Partly** (Low) | Form and exchange hints are saved in `resp.hints` and survive a reload: decide hint → reload → correct gives `{indep: false, helped: true}`. **Guided** Your Turn hints (lessons 2–6) are only kept in memory (`hinted`). SubtractKit's guided `g-hint` does not change the saved state: after a guided hint, `lessonWork.state.hint` = 0, `helped` = false and `resp` = null. So a guided hint, then a reload, then finishing alone is still recorded as "done on own". Fix: save a flag in the lesson work, e.g. `w.hinted = true` in `inst.on('hint')`, and read it back in `mountTry`; `cleanWork` must keep it. |
+| SI-07 | **Fixed** | Skip after opening Show me gives `skipped`, not "Completed with Show me". It is never `independent`. Also see SI-12. |
+| SI-08 | **Partly** (Low, accepted) | `_test` now exposes only `startLesson`. Test questions can still be rebuilt from the console via `Mathbook.subtractRegrouping.testItems(draftSeed)`. That is a vendored global, it cannot be reached through the UI, and the limitation is documented. |
+| SI-09 | **Fixed** | `{bad` and v2 records are copied to `galaxy-math.subtraction.unreadable` before they are replaced, and `galaxy-math.progress` is untouched. A readable record makes no backup (unit test). Minor: "Reset Subtraction progress" does not remove the `.unreadable` backup key. |
+| SI-10 | **Fixed** | The review now reads "the mistake was: …; the answer is …" and "regrouping needed: … · first column: …". |
+| SI-11 | **Partly** (Low, accepted) | The lesson Back button is now named after the previous step ("◀ See it"). Not changed: the missing addition picture in "Check with addition", the empty space above decide questions in the test, and no first-try credit. These are cosmetic or pedagogy notes. |
+
+### New finding
+
+- **SI-12 (Low).** When help was opened on an unfinished problem, the result no longer records it. A problem where Show me was opened and then skipped is stored as `{outcome: 'skipped', hints: 1}`, with no help flag (`sub-store.js` `recordProblem` keeps only outcome, tries and hints). It is never counted as independent, so the requirement still holds. But Progress cannot tell "skipped after watching Show me" from "skipped". Fix: store `helped: true` on the result and show it, for example "Skipped (after Show me)".
+
+### Recheck verdict
+
+The open findings are SI-06 (Partly), SI-08 (Partly), SI-11 (Partly) and SI-12 (new), all Low.
+
+**Open Critical: 0. Open High: 0. Approval-ready.**
+
+## 7. Fixes after the recheck (main session; not re-inspected by the auditor)
+
+| ID | Change | Evidence |
+|---|---|---|
+| SI-06 | The Teach Your Turn saves `hinted` with the lesson work (`js/sub-store.js` `cleanWork`, `js/sub-galaxy.js` `markHint`). A hint followed by a reload is still recorded as "done with help". | `tests/sub-store.test.mjs` (help details survive a reload) |
+| SI-09 nit | "Reset Subtraction progress" also removes `galaxy-math.subtraction.unreadable`. | Same test |
+| SI-12 | A practice result keeps `helped`. A skip after opening Show me shows as "Skipped (after Show me)" in the results list. | Same test |
+
+**After these changes:**
+- `npm test`: 107/107.
+- `browser-subtraction`: 143/143 in Chrome and 143/143 in Edge.
+- Multiplication: 656/656 in Chrome and 654/654 in Edge. The check count varies with the generated problems.
+- Division: 180/180 in Chrome and 180/180 in Edge.
+
+**Still open (Low, accepted):**
+- SI-08: the vendored `content.js` exposes `Mathbook.subtractRegrouping.testItems` to the console.
+- SI-11 remainder: the "Check with addition" example has no addition picture, and decide questions in the test leave empty space above the digits.
+- First-try information is folded into "on your own".

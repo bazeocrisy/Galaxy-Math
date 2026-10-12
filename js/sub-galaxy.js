@@ -444,7 +444,9 @@
     const item = L.yourTurn(M.rng(w.seed));
     const box = host.querySelector('#srTry');
     const save = () => store.setLessonWork(L.id, w);
-    let hinted = !!(w.resp && w.resp.hints) || !!(w.state && w.state.hint);   // a hint is help too (the same rule as Practice)
+    // A hint is help too (the same rule as Practice). It is saved with the work so a reload keeps it (SI-06).
+    let hinted = w.hinted === true || !!(w.resp && w.resp.hints);
+    const markHint = () => { if (!hinted) { hinted = true; w.hinted = true; save(); } };
     /** restoring: the work was already finished and saved (only show it again; record nothing new). */
     const solved = (helped, restoring) => {
       helped = !!helped || hinted;
@@ -462,16 +464,16 @@
       const ok = w.state && SK.validState(w.state, item.top, item.bottom);
       const inst = mount(box.querySelector('#srYt'), { top: item.top, bottom: item.bottom, mode: 'guided', state: ok ? w.state : null });
       inst.on('change', (d) => { w.state = d.state; save(); });
-      inst.on('hint', () => { hinted = true; });
+      inst.on('hint', markHint);
       inst.on('complete', (d) => solved(!!d.helped));
       if (ok && w.state.guided && w.state.guided.stage === 'done') solved(!!w.state.helped, true);
     } else if (item.kind === 'exchange') {
       const resp = w.resp && validResponse(item, w.resp) ? w.resp : {};
-      exchangeTry(box, item, resp, { onChange: (r) => { w.resp = r; save(); if (r.hints) hinted = true; }, onDone: (helped) => solved(helped) });
+      exchangeTry(box, item, resp, { onChange: (r) => { w.resp = r; if (r.hints) markHint(); save(); }, onDone: (helped) => solved(helped) });
       if (resp.q === 2) solved(!!resp.helped, true);
     } else {
       const resp = w.resp && validResponse(item, w.resp) ? w.resp : {};
-      formItem(box, item, resp, { mode: 'learn', onChange: (r) => { w.resp = r; save(); if (r.hints) hinted = true; }, onDone: (helped) => solved(helped) });
+      formItem(box, item, resp, { mode: 'learn', onChange: (r) => { w.resp = r; if (r.hints) markHint(); save(); }, onDone: (helped) => solved(helped) });
       if (resp.sd) solved(true, true);
     }
   }
@@ -590,7 +592,7 @@
         <p class="muted" style="margin-top:10px">Only problems solved without hints or Show me count as “on your own”.</p>
         <div class="table-wrap"><table class="data" id="spList"><thead><tr><th>#</th><th>Problem</th><th>How it went</th></tr></thead><tbody>${items.map((q, i) => {
           const r = session.results[i];
-          return `<tr><td>${i + 1}</td><td class="sr-nowrap">${probHTML(q)} = ${fmt(q.top - q.bottom)}</td><td>${esc(OUT_LABEL[r ? r.outcome : 'skipped'])}${r && r.hints ? ` (${r.hints} hint${r.hints === 1 ? '' : 's'})` : ''}</td></tr>`;
+          return `<tr><td>${i + 1}</td><td class="sr-nowrap">${probHTML(q)} = ${fmt(q.top - q.bottom)}</td><td>${esc(OUT_LABEL[r ? r.outcome : 'skipped'])}${r && r.helped && r.outcome !== 'shown' ? ' (after Show me)' : ''}${r && r.hints ? ` (${r.hints} hint${r.hints === 1 ? '' : 's'})` : ''}</td></tr>`;
         }).join('')}</tbody></table></div>
         <div class="btn-row" style="margin-top:16px"><button class="btn btn-go btn-lg" id="spAgain">▶ Practice again</button><button class="btn btn-secondary" data-nav="#/subtraction/practice">Change practice</button><button class="btn btn-secondary" data-nav="${MENU}">Subtraction menu</button></div></div>`);
     host.querySelector('#spAgain').addEventListener('click', () => { store.startPractice({ size: session.size, difficulty: session.difficulty, length: session.length }, newSeed()); renderPracticeQ(); focusHead(); });

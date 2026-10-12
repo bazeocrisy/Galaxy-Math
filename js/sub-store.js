@@ -37,7 +37,7 @@
   }
   function cleanResult(x) {
     if (!isObj(x) || !OUTCOMES.includes(x.outcome) || !isInt(x.tries, 0, 9999) || !isInt(x.hints, 0, 9999)) return null;
-    return { outcome: x.outcome, tries: x.tries, hints: x.hints };
+    return { outcome: x.outcome, tries: x.tries, hints: x.hints, helped: x.helped === true };
   }
   const validSetup = (x, M) => isObj(x) && SIZES.includes(x.size) && DIFFS.includes(x.difficulty) && LENGTHS.includes(x.length) && !(M && M.unavailableReason(x.size, x.difficulty));
   function cleanActive(a, M) {
@@ -79,7 +79,7 @@
   }
   function cleanWork(w) {
     if (!isObj(w) || !isSeed(w.seed)) return null;
-    return { seed: w.seed, state: isObj(w.state) ? w.state : null, resp: isObj(w.resp) ? w.resp : null };
+    return { seed: w.seed, state: isObj(w.state) ? w.state : null, resp: isObj(w.resp) ? w.resp : null, hinted: w.hinted === true };
   }
 
   /** Accept what we understand; anything else is left out (per entry), never the whole record. */
@@ -165,7 +165,7 @@
         const a = data.practice.active;
         if (!a || index !== a.i || a.results[index]) return false;
         const outcome = outcomeOf(r);
-        a.results[index] = { outcome, tries: r.tries || 0, hints: r.hints || 0 };
+        a.results[index] = { outcome, tries: r.tries || 0, hints: r.hints || 0, helped: !!r.helped };   // help opened stays visible even on a skip (SI-12)
         a.cur = null;
         save();
         return outcome;
@@ -209,7 +209,7 @@
       tests: () => copy(data.tests),
 
       /** Erase subtraction progress only (multiplication and division live under another key and are untouched). */
-      reset() { data = blank(); save(); }
+      reset() { data = blank(); save(); if (storage) try { storage.removeItem(KEY + '.unreadable'); } catch (e) { /* ignore */ } }
     };
     return api;
   }
